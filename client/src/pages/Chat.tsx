@@ -32,7 +32,8 @@ import {
   User,
   Minimize2,
   Maximize2,
-  Search
+  Search,
+  Building2
 } from "lucide-react";
 
 interface Message {
@@ -187,6 +188,10 @@ export default function Chat() {
               <DropdownMenuItem onClick={() => setLocation('/settings')} data-testid="menu-item-settings">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLocation('/integrations')} data-testid="menu-item-integrations">
+                <Building2 className="mr-2 h-4 w-4" />
+                Integrations
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} data-testid="menu-item-logout">

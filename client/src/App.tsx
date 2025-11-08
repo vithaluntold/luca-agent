@@ -8,6 +8,7 @@ import Landing from "@/pages/Landing";
 import Chat from "@/pages/Chat";
 import Auth from "@/pages/Auth";
 import Settings from "@/pages/Settings";
+import Integrations from "@/pages/Integrations";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/chat" component={Chat} />
       <Route path="/auth" component={Auth} />
       <Route path="/settings" component={Settings} />
+      <Route path="/integrations" component={Integrations} />
       <Route component={NotFound} />
     </Switch>
   );

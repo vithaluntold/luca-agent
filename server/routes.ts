@@ -5,6 +5,7 @@ import { aiOrchestrator } from "./services/aiOrchestrator";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { 
   insertUserSchema,
   insertSupportTicketSchema,
@@ -677,6 +678,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: error.errors });
       }
       res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Accounting Integration Routes
+  app.get("/api/integrations", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const integrations = await storage.getUserAccountingIntegrations(userId);
+      res.json({ integrations });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch integrations" });
+    }
+  });
+
+  app.post("/api/integrations/:provider/initiate", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { provider } = req.params;
+      
+      // Store state in session for OAuth callback verification
+      req.session.oauthState = crypto.randomBytes(32).toString('hex');
+      req.session.oauthProvider = provider;
+      
+      // For now, return placeholder - actual OAuth requires environment configuration
+      res.json({ 
+        message: "OAuth integration coming soon",
+        provider,
+        note: "Please ensure ENCRYPTION_KEY is set and configure OAuth credentials for " + provider
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to initiate integration" });
+    }
+  });
+
+  app.delete("/api/integrations/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const success = await storage.deleteAccountingIntegration(req.params.id);
+      
+      await storage.createAuditLog({
+        userId,
+        action: 'DELETE_INTEGRATION',
+        resourceType: 'integration',
+        resourceId: req.params.id,
+        details: {},
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete integration" });
     }
   });
 

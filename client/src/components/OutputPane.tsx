@@ -34,11 +34,27 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
   const itemsPerPage = 1000; // characters per page
 
   const handleExport = (format: 'docx' | 'pdf' | 'pptx' | 'xlsx' | 'csv' | 'txt') => {
-    const blob = new Blob([content], { type: 'text/plain' });
+    let mimeType = 'text/plain';
+    let exportContent = content;
+
+    // Format-specific handling
+    if (format === 'csv') {
+      // Convert markdown tables or line-by-line to CSV
+      const lines = content.split('\n').filter(l => l.trim());
+      exportContent = lines.map(line => `"${line.replace(/"/g, '""')}"`).join('\n');
+      mimeType = 'text/csv';
+    } else if (format === 'docx' || format === 'pdf' || format === 'pptx') {
+      // For document formats, preserve markdown formatting
+      mimeType = 'application/octet-stream';
+    } else if (format === 'xlsx') {
+      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+
+    const blob = new Blob([exportContent], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `luca-output.${format}`;
+    a.download = `luca-output-${Date.now()}.${format}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -49,8 +65,15 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const totalPages = Math.ceil(content.length / itemsPerPage);
-  const paginatedContent = content.slice(
+  // Apply search filter
+  const filteredContent = searchTerm
+    ? content.split('\n').filter(line => 
+        line.toLowerCase().includes(searchTerm.toLowerCase())
+      ).join('\n')
+    : content;
+
+  const totalPages = Math.ceil(filteredContent.length / itemsPerPage);
+  const paginatedContent = filteredContent.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );

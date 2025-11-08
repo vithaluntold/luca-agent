@@ -130,21 +130,44 @@ Located in `server/services/aiOrchestrator.ts`:
 - `GET /api/usage?userId={id}` - Check usage limits
 - `POST /api/subscription/upgrade` - Upgrade subscription tier
 
+## User Interface
+
+### 3-Pane Resizable Layout
+- **Left Pane**: Conversations list with search, new chat, collapse/expand
+- **Middle Pane**: Chat interface with markdown rendering for assistant responses
+- **Right Pane**: Output pane with professional features:
+  - Formatted/code view toggle
+  - Search and filter functionality
+  - Export to multiple formats (TXT, CSV, Word, PDF, PPT, Excel)
+  - Pagination with page numbers
+  - Copy to clipboard
+  - Collapse/expand controls
+- All panes are resizable using drag handles
+
+### Pages
+- **Chat**: Main 3-pane interface for conversations
+- **Settings**: LLM configuration, account management, GDPR controls
+- **Integrations**: Connect QuickBooks, Xero, Zoho, and tax software
+- **Landing**: Marketing page with features and pricing
+- **Auth**: Login and registration
+
 ## Technical Stack
 
 ### Frontend
 - React with TypeScript
 - Wouter for routing
 - TanStack Query for state management
-- Shadcn UI components with pink-to-purple brand gradient
-- Dark/light theme support
+- Shadcn UI with resizable panels component
+- ReactMarkdown with syntax highlighting
+- Pink-to-purple brand gradient theme
 
 ### Backend
 - Express.js server
 - OpenAI API integration
 - Custom query triage and routing system
 - Advanced financial calculation engines
-- In-memory storage (production would use PostgreSQL)
+- PostgreSQL database with Drizzle ORM
+- AES-256-GCM encryption for API keys and OAuth tokens
 
 ## Key Differentiators from Blue J Tax
 
@@ -155,21 +178,48 @@ Located in `server/services/aiOrchestrator.ts`:
 5. **Flexible Architecture**: Extensible model routing supports continuous improvement
 6. **Comprehensive Platform**: Full-stack solution with conversation history, usage tracking, and subscription management
 
+## Accounting Software Integrations (In Progress)
+
+### Supported Platforms
+- **QuickBooks Online**: OAuth 2.0 flow with encrypted token storage
+- **Xero**: OAuth 2.0 flow with tenant management
+- **Zoho Books**: OAuth 2.0 flow with data center location support
+
+### Tax Software (Planned)
+- TurboTax data import
+- H&R Block file integration
+- Drake Tax professional integration
+- Intuit ProSeries connectivity
+
+### Current Status
+- Database schema and encryption service implemented
+- Integration management UI complete
+- OAuth initiation routes functional
+- **Requires**: Provider OAuth credentials configuration and ENCRYPTION_KEY environment variable
+
 ## Future Enhancements
 
 1. **Fine-Tuned Models**: Deploy specialized models for tax, audit, and financial reporting
 2. **Document Processing**: OCR and intelligent extraction from financial statements and tax forms
 3. **Case Law Integration**: Tax and legal precedent database for research capabilities
-4. **API Integration**: Connect to QuickBooks, Xero, and other accounting platforms
-5. **Collaboration Features**: Multi-user workspaces for accounting firms
-6. **Real-Time Updates**: Jurisdiction-specific tax law and regulation alerts
-7. **Advanced Analytics**: Model performance optimization and user behavior insights
+4. **Complete OAuth Flows**: Full callback handling and token refresh for accounting integrations
+5. **Professional Document Exports**: True Word/PDF/Excel generation using docx/pdfkit/exceljs libraries
+6. **Collaboration Features**: Multi-user workspaces for accounting firms
+7. **Real-Time Updates**: Jurisdiction-specific tax law and regulation alerts
+8. **Advanced Analytics**: Model performance optimization and user behavior insights
 
 ## Development Notes
 
+- **Required Environment Variables**:
+  - `ENCRYPTION_KEY`: 64-character hex string for AES-256-GCM encryption (required)
+  - `OPENAI_API_KEY`: OpenAI API access
+  - `DATABASE_URL`: PostgreSQL connection string
+  - `SESSION_SECRET`: Express session encryption
+
 - Authentication uses bcrypt for password hashing
-- In-memory storage for MVP (easily replaceable with PostgreSQL)
-- OpenAI API key required (stored in environment variables)
+- PostgreSQL database with Drizzle ORM
+- All API keys and OAuth tokens encrypted with AES-256-GCM
 - All financial calculations verified for accuracy
 - Comprehensive error handling and logging
 - Usage limits enforced at API level
+- Complete audit trail for GDPR compliance

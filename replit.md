@@ -9,16 +9,18 @@ I prefer that you communicate in a clear and concise manner. When providing expl
 ## System Architecture
 
 ### UI/UX Decisions
-The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts and a persistent "Powered by FinACEverse" badge. The design uses a pink-to-purple brand gradient theme.
+The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts. The conversations sidebar includes a profile filter dropdown that allows users to view conversations by profile context ("All Profiles", "No Profile", or specific profiles). When users switch profile filters, the active conversation is cleared to ensure each profile context maintains separate conversation threads. A persistent "Powered by FinACEverse" badge is displayed at the bottom-center of the screen. The design uses a pink-to-purple brand gradient theme.
 
 ### Technical Implementations
 Luca employs an Intelligent Query Triage System (`server/services/queryTriage.ts`) to classify accounting questions by domain, jurisdiction, and complexity, routing them to optimal AI models and financial solvers. A Multi-Model Router Architecture uses `gpt-4o` as primary, with specialized models and a fallback to `gpt-4o-mini`. Advanced Financial Solvers (`server/services/financialSolvers.ts`) handle tax calculations, NPV, IRR, depreciation, amortization, and financial ratios. An AI Orchestration Layer (`server/services/aiOrchestrator.ts`) coordinates these components, synthesizes responses, and tracks performance.
 
 ### Feature Specifications
-The platform supports full conversation history, token usage tracking, and a subscription tier system (Free, Professional, Enterprise). It includes API endpoints for authentication, chat interactions, conversation management, profile management, and usage/subscription queries.
+The platform supports full conversation history, token usage tracking, and a subscription tier system (Free, Professional, Enterprise). It includes API endpoints for authentication, chat interactions, conversation management, profile management, and usage/subscription queries. The conversation system is profile-aware: conversations are linked to specific profiles (business, personal, or family) or can be unassociated (null profileId). Users can filter conversations by profile using the sidebar dropdown, and new conversations automatically inherit the selected profile context. The backend enforces security by validating that profileId values belong to the authenticated user before creating conversations.
 
 ### System Design Choices
 The backend uses Express.js with a PostgreSQL database and Drizzle ORM. Security features include bcrypt for password hashing, AES-256-GCM encryption for sensitive data (API keys, OAuth tokens, and per-file encryption for uploads), Helmet middleware for HTTP security, and rate limiting. File uploads utilize a secure system with per-file encryption, key wrapping, SHA-256 checksums, virus scanning, and DOD 5220.22-M secure deletion.
+
+The conversations table includes a `profileId` column (varchar, nullable) with a composite index on `(userId, profileId, updatedAt)` for efficient profile-based filtering. The backend validates profile ownership before creating conversations (returns 400 for invalid profileId, 403 for unauthorized access). The profile constraint system enforces that users can only create one Personal profile, while Business and Family profiles are unlimited.
 
 ## External Dependencies
 

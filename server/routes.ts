@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./pgStorage";
 import { aiOrchestrator } from "./services/aiOrchestrator";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import bcrypt from "bcryptjs";

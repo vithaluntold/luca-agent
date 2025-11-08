@@ -214,8 +214,20 @@ export class AIOrchestrator {
       };
     } catch (error: any) {
       console.error('OpenAI API error:', error);
+      
+      let errorMessage = "I apologize, but I encountered an error processing your request. Please try again.";
+      
+      // More helpful error messages for common issues
+      if (error.status === 429 || error.message?.includes('quota')) {
+        errorMessage = "I'm currently experiencing high demand. The AI service has reached its quota limit. However, I can still help with calculations directly. Please try asking your question again, or contact support for assistance.";
+      } else if (error.status === 401 || error.message?.includes('API key')) {
+        errorMessage = "There's a configuration issue with the AI service. Please contact support.";
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = "The request took too long to process. Please try a simpler question or try again.";
+      }
+      
       return {
-        content: 'I apologize, but I encountered an error processing your request. Please try again.',
+        content: errorMessage,
         tokensUsed: 0
       };
     }

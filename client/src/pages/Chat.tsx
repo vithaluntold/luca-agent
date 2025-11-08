@@ -81,6 +81,12 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
+  // Clear active conversation when profile filter changes
+  useEffect(() => {
+    setActiveConversation(undefined);
+    setMessages([]);
+  }, [selectedProfileFilter]);
+
   const outputContent = messages
     .filter(m => m.role === 'assistant')
     .map(m => m.content)
@@ -294,20 +300,20 @@ export default function Chat() {
                       <SelectValue placeholder="All Profiles" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">
+                      <SelectItem value="all" data-testid="option-profile-all">
                         <div className="flex items-center gap-2">
                           <Briefcase className="h-4 w-4" />
                           <span>All Profiles</span>
                         </div>
                       </SelectItem>
-                      <SelectItem value="none">
+                      <SelectItem value="none" data-testid="option-profile-none">
                         <div className="flex items-center gap-2">
                           <MessageSquare className="h-4 w-4" />
                           <span>No Profile</span>
                         </div>
                       </SelectItem>
                       {profiles.map(profile => (
-                        <SelectItem key={profile.id} value={profile.id}>
+                        <SelectItem key={profile.id} value={profile.id} data-testid={`option-profile-${profile.id}`}>
                           <div className="flex items-center gap-2">
                             {profile.type === 'business' && <Briefcase className="h-4 w-4" />}
                             {profile.type === 'personal' && <UserCircle2 className="h-4 w-4" />}

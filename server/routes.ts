@@ -388,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const existingProfiles = await storage.getUserProfiles(userId);
         const personalExists = existingProfiles.some(p => p.type === 'personal');
         if (personalExists) {
-          return res.status(400).json({ error: "Personal profile already exists" });
+          return res.status(409).json({ error: "User already has a personal profile" });
         }
       }
       
@@ -401,7 +401,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json({ profile });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle constraint violations
+      if (error.message && error.message.includes('already has a personal profile')) {
+        return res.status(409).json({ error: "User already has a personal profile" });
+      }
+      // Handle database unique constraint violation (23505)
+      if (error.code === '23505' && error.constraint === 'profiles_user_personal_unique_idx') {
+        return res.status(409).json({ error: "User already has a personal profile" });
+      }
       res.status(500).json({ error: "Failed to create profile" });
     }
   });
@@ -418,15 +426,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Profile not found" });
       }
       
-      const { name, description, isDefault } = req.body;
+      const { name, type, description, isDefault } = req.body;
       const updated = await storage.updateProfile(req.params.id, {
         name,
+        type,
         description,
         isDefault
       });
       
       res.json({ profile: updated });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle constraint violations
+      if (error.message && error.message.includes('already has a personal profile')) {
+        return res.status(409).json({ error: "User already has a personal profile" });
+      }
+      // Handle database unique constraint violation (23505)
+      if (error.code === '23505' && error.constraint === 'profiles_user_personal_unique_idx') {
+        return res.status(409).json({ error: "User already has a personal profile" });
+      }
       res.status(500).json({ error: "Failed to update profile" });
     }
   });

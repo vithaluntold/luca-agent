@@ -172,6 +172,24 @@ export class PostgresStorage implements IStorage {
   }
 
   async createProfile(data: InsertProfile): Promise<Profile> {
+    // Enforce: Only one personal profile per user
+    if (data.type === 'personal') {
+      const existingPersonal = await db
+        .select()
+        .from(profiles)
+        .where(
+          and(
+            eq(profiles.userId, data.userId),
+            eq(profiles.type, 'personal')
+          )
+        )
+        .limit(1);
+      
+      if (existingPersonal.length > 0) {
+        throw new Error('User already has a personal profile');
+      }
+    }
+    
     // If this is set as default, unset other defaults for this user
     if (data.isDefault) {
       await db
@@ -185,15 +203,34 @@ export class PostgresStorage implements IStorage {
   }
 
   async updateProfile(id: string, data: Partial<InsertProfile>): Promise<Profile | undefined> {
+    // Get the current profile
+    const profile = await this.getProfile(id);
+    if (!profile) return undefined;
+    
+    // Enforce: Prevent changing type to 'personal' if user already has one
+    if (data.type === 'personal' && profile.type !== 'personal') {
+      const existingPersonal = await db
+        .select()
+        .from(profiles)
+        .where(
+          and(
+            eq(profiles.userId, profile.userId),
+            eq(profiles.type, 'personal')
+          )
+        )
+        .limit(1);
+      
+      if (existingPersonal.length > 0) {
+        throw new Error('User already has a personal profile');
+      }
+    }
+    
     // If setting as default, unset other defaults for this user
     if (data.isDefault) {
-      const profile = await this.getProfile(id);
-      if (profile) {
-        await db
-          .update(profiles)
-          .set({ isDefault: false })
-          .where(eq(profiles.userId, profile.userId));
-      }
+      await db
+        .update(profiles)
+        .set({ isDefault: false })
+        .where(eq(profiles.userId, profile.userId));
     }
 
     const result = await db

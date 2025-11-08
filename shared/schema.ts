@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, jsonb, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -33,6 +33,10 @@ export const profiles = pgTable("profiles", {
 }, (table) => ({
   userIdIdx: index("profiles_user_id_idx").on(table.userId),
   typeIdx: index("profiles_type_idx").on(table.type),
+  // Unique constraint: Only one personal profile per user
+  uniquePersonalPerUser: uniqueIndex("profiles_user_personal_unique_idx")
+    .on(table.userId)
+    .where(sql`${table.type} = 'personal'`),
 }));
 
 export const profileMembers = pgTable("profile_members", {

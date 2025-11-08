@@ -22,7 +22,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import OutputPane from "@/components/OutputPane";
-import FinACEverseBadge from "@/components/FinACEverseBadge";
 import ReactMarkdown from "react-markdown";
 import {
   Plus,
@@ -354,8 +353,6 @@ export default function Chat() {
                 </Button>
               </div>
             </div>
-            
-            <FinACEverseBadge />
           </div>
         </ResizablePanel>
 

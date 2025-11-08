@@ -66,14 +66,14 @@ export default function ProfilesSection() {
   const [memberRelationship, setMemberRelationship] = useState<string>("");
 
   // Fetch profiles
-  const { data: profilesData, isLoading } = useQuery({
+  const { data: profilesData, isLoading } = useQuery<{ profiles: Profile[] }>({
     queryKey: ['/api/profiles'],
   });
 
   const profiles: Profile[] = profilesData?.profiles || [];
 
   // Fetch members for selected profile
-  const { data: membersData } = useQuery({
+  const { data: membersData } = useQuery<{ members: ProfileMember[] }>({
     queryKey: ['/api/profiles', selectedProfile?.id, 'members'],
     enabled: !!selectedProfile && selectedProfile.type === 'family',
   });
@@ -327,7 +327,10 @@ export default function ProfilesSection() {
               
               <div className="space-y-2">
                 <Label htmlFor="profile-type">Profile Type</Label>
-                <Select value={profileType} onValueChange={(value: any) => setProfileType(value)}>
+                <Select 
+                  value={profileType} 
+                  onValueChange={(value) => setProfileType(value as 'business' | 'personal' | 'family')}
+                >
                   <SelectTrigger data-testid="select-profile-type">
                     <SelectValue />
                   </SelectTrigger>

@@ -102,10 +102,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
+      // Check if account is locked
+      const isLocked = await storage.isAccountLocked(user.id);
+      if (isLocked) {
+        const lockoutMinutes = user.lockedUntil 
+          ? Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
+          : 30;
+        return res.status(423).json({ 
+          error: `Account is locked due to too many failed login attempts. Please try again in ${lockoutMinutes} minutes.`,
+          lockedUntil: user.lockedUntil
+        });
+      }
+      
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
+        // Track failed login attempt
+        await storage.incrementFailedLoginAttempts(user.id);
+        const updatedUser = await storage.getUser(user.id);
+        const remainingAttempts = 5 - (updatedUser?.failedLoginAttempts || 0);
+        
+        if (remainingAttempts <= 0) {
+          return res.status(423).json({ 
+            error: "Account locked due to too many failed login attempts. Please try again in 30 minutes."
+          });
+        } else if (remainingAttempts <= 2) {
+          return res.status(401).json({ 
+            error: `Invalid credentials. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining before account lockout.`
+          });
+        }
+        
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      
+      // Reset failed login attempts on successful login
+      await storage.resetFailedLoginAttempts(user.id);
       
       // Establish session
       req.session.userId = user.id;

@@ -10,6 +10,14 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   subscriptionTier: text("subscription_tier").notNull().default("free"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Account lockout fields
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until"),
+  lastFailedLogin: timestamp("last_failed_login"),
+  // MFA/2FA fields
+  mfaEnabled: boolean("mfa_enabled").notNull().default(false),
+  mfaSecret: text("mfa_secret"), // TOTP secret (encrypted)
+  mfaBackupCodes: text("mfa_backup_codes").array(), // Encrypted backup codes
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -158,15 +166,32 @@ export const taxFileUploads = pgTable("tax_file_uploads", {
   vendorIdx: index("tax_file_uploads_vendor_idx").on(table.vendor),
 }));
 
+// Password complexity validation helper
+const passwordComplexitySchema = z.string()
+  .min(12, "Password must be at least 12 characters long")
+  .max(128, "Password must not exceed 128 characters")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number")
+  .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character (!@#$%^&*)")
+  .refine(
+    (password) => {
+      // Check for common weak passwords
+      const weakPasswords = ['Password123!', 'Welcome123!', 'Admin123!', 'Qwerty123!'];
+      return !weakPasswords.includes(password);
+    },
+    "This password is too common. Please choose a stronger password"
+  );
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   name: true,
 }).extend({
-  email: z.string().email(),
-  password: z.string().min(8),
-  name: z.string().min(1),
+  email: z.string().email("Please enter a valid email address"),
+  password: passwordComplexitySchema,
+  name: z.string().min(1, "Name is required"),
 });
 
 export const insertConversationSchema = createInsertSchema(conversations).pick({

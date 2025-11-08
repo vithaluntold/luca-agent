@@ -8,20 +8,23 @@ const app = express();
 
 const MemoryStoreSession = MemoryStore(session);
 
-// Session configuration
+// Session configuration with hardened security
 app.use(session({
   secret: process.env.SESSION_SECRET || 'luca-session-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
+  name: 'luca.sid', // Custom session name (hides tech stack)
   cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true, // Prevents client-side JavaScript access
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    sameSite: 'lax'
+    sameSite: 'strict', // Strongest CSRF protection
+    // domain: undefined, // Set to your domain in production if needed
   },
   store: new MemoryStoreSession({
     checkPeriod: 86400000 // Prune expired entries every 24h
-  })
+  }),
+  rolling: true, // Reset maxAge on every request (keeps active sessions alive)
 }));
 
 declare module 'http' {

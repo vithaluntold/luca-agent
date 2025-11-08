@@ -61,6 +61,61 @@ export class PostgresStorage implements IStorage {
     return result[0] || undefined;
   }
 
+  async incrementFailedLoginAttempts(id: string): Promise<User | undefined> {
+    const user = await this.getUser(id);
+    if (!user) return undefined;
+    
+    const attempts = (user.failedLoginAttempts || 0) + 1;
+    const MAX_ATTEMPTS = 5;
+    const LOCKOUT_DURATION_MINUTES = 30;
+    
+    const updateData: any = {
+      failedLoginAttempts: attempts,
+      lastFailedLogin: new Date(),
+    };
+    
+    // Lock account if max attempts reached
+    if (attempts >= MAX_ATTEMPTS) {
+      const lockoutEnd = new Date();
+      lockoutEnd.setMinutes(lockoutEnd.getMinutes() + LOCKOUT_DURATION_MINUTES);
+      updateData.lockedUntil = lockoutEnd;
+    }
+    
+    const result = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async resetFailedLoginAttempts(id: string): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ 
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastFailedLogin: null
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async isAccountLocked(id: string): Promise<boolean> {
+    const user = await this.getUser(id);
+    if (!user || !user.lockedUntil) return false;
+    
+    const now = new Date();
+    if (now < user.lockedUntil) {
+      return true; // Still locked
+    } else {
+      // Lockout period expired, reset
+      await this.resetFailedLoginAttempts(id);
+      return false;
+    }
+  }
+
   // Conversation methods
   async getConversation(id: string): Promise<Conversation | undefined> {
     const result = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);

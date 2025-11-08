@@ -14,6 +14,7 @@ import {
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import multer from "multer";
+import { MFAService } from "./services/mfaService";
 import { 
   insertUserSchema,
   insertSupportTicketSchema,
@@ -23,12 +24,13 @@ import {
 import { z } from "zod";
 import { storeEncryptedFile, retrieveEncryptedFile, secureDeleteFile, calculateChecksum } from "./utils/fileEncryption";
 
-// Extend session type to include OAuth properties
+// Extend session type to include OAuth and MFA properties
 declare module 'express-session' {
   interface SessionData {
     oauthState?: string;
     oauthProvider?: string;
     oauthUserId?: string;
+    tempMFASecret?: string;
   }
 }
 
@@ -134,14 +136,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
+      // Check if MFA is enabled for this user
+      if (user.mfaEnabled) {
+        // Don't establish session yet - require MFA verification first
+        return res.status(200).json({ 
+          mfaRequired: true,
+          userId: user.id,
+          message: "Please enter your 2FA code"
+        });
+      }
+      
       // Reset failed login attempts on successful login
       await storage.resetFailedLoginAttempts(user.id);
       
       // Establish session
       req.session.userId = user.id;
       
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      const { password: _, mfaSecret, mfaBackupCodes, ...userWithoutSensitive } = user;
+      res.json({ user: userWithoutSensitive });
     } catch (error) {
       res.status(500).json({ error: "Login failed" });
     }
@@ -168,10 +180,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      const { password, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      const { password, mfaSecret, mfaBackupCodes, ...userWithoutSensitive } = user;
+      res.json({ user: userWithoutSensitive });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  // MFA/2FA Routes
+  app.post("/api/mfa/setup", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Generate new MFA secret
+      const { secret, otpauthUrl } = MFAService.generateSecret(user.email);
+      const qrCode = await MFAService.generateQRCode(otpauthUrl);
+      
+      // Store secret temporarily in session for verification
+      req.session.tempMFASecret = secret;
+      
+      res.json({ 
+        secret, 
+        qrCode,
+        message: "Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)"
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to setup MFA" });
+    }
+  });
+
+  app.post("/api/mfa/enable", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { token } = req.body;
+      const tempSecret = req.session.tempMFASecret;
+      
+      if (!tempSecret) {
+        return res.status(400).json({ error: "No MFA setup in progress. Please start setup first." });
+      }
+      
+      // Verify token
+      const isValid = MFAService.verifyToken(tempSecret, token);
+      if (!isValid) {
+        return res.status(400).json({ error: "Invalid verification code. Please try again." });
+      }
+      
+      // Generate backup codes
+      const backupCodes = MFAService.generateBackupCodes(10);
+      
+      // Encrypt secret and backup codes
+      const encryptedSecret = MFAService.encryptSecret(tempSecret);
+      const encryptedBackupCodes = MFAService.encryptBackupCodes(backupCodes);
+      
+      // Enable MFA
+      await storage.enableMFA(userId, encryptedSecret, encryptedBackupCodes);
+      
+      // Clear temp secret
+      delete req.session.tempMFASecret;
+      
+      res.json({ 
+        success: true,
+        backupCodes,
+        message: "MFA enabled successfully. Please save your backup codes in a secure location."
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to enable MFA" });
+    }
+  });
+
+  app.post("/api/mfa/disable", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { password } = req.body;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Verify password before disabling MFA
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+      
+      await storage.disableMFA(userId);
+      
+      res.json({ success: true, message: "MFA disabled successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to disable MFA" });
+    }
+  });
+
+  app.post("/api/mfa/verify", async (req, res) => {
+    try {
+      const { userId, token, useBackupCode } = req.body;
+      
+      if (!userId || !token) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || !user.mfaEnabled || !user.mfaSecret) {
+        return res.status(400).json({ error: "MFA not enabled for this user" });
+      }
+      
+      let isValid = false;
+      
+      if (useBackupCode) {
+        // Verify backup code
+        const backupCodes = user.mfaBackupCodes || [];
+        const result = MFAService.verifyBackupCode(token, backupCodes);
+        
+        if (result.valid) {
+          // Update backup codes (remove used code)
+          await storage.updateMFABackupCodes(userId, result.remainingCodes);
+          isValid = true;
+        }
+      } else {
+        // Verify TOTP token
+        const decryptedSecret = MFAService.decryptSecret(user.mfaSecret);
+        isValid = MFAService.verifyToken(decryptedSecret, token);
+      }
+      
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid verification code" });
+      }
+      
+      // Reset failed login attempts on successful MFA
+      await storage.resetFailedLoginAttempts(userId);
+      
+      // Establish session
+      req.session.userId = userId;
+      
+      const { password: _, mfaSecret, mfaBackupCodes, ...userWithoutSensitive } = user;
+      res.json({ user: userWithoutSensitive });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify MFA" });
     }
   });
 

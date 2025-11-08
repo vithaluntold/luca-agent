@@ -116,6 +116,41 @@ export class PostgresStorage implements IStorage {
     }
   }
 
+  async enableMFA(id: string, encryptedSecret: string, encryptedBackupCodes: string[]): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ 
+        mfaEnabled: true,
+        mfaSecret: encryptedSecret,
+        mfaBackupCodes: encryptedBackupCodes
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async disableMFA(id: string): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ 
+        mfaEnabled: false,
+        mfaSecret: null,
+        mfaBackupCodes: null
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async updateMFABackupCodes(id: string, encryptedBackupCodes: string[]): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ mfaBackupCodes: encryptedBackupCodes })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
   // Conversation methods
   async getConversation(id: string): Promise<Conversation | undefined> {
     const result = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);

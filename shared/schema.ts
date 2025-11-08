@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, jsonb, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -130,6 +130,34 @@ export const gdprConsents = pgTable("gdpr_consents", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const taxFileUploads = pgTable("tax_file_uploads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  vendor: text("vendor").notNull(), // 'drake', 'turbotax', 'hrblock', 'adp'
+  filename: text("filename").notNull(),
+  originalFilename: text("original_filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteLength: integer("byte_length").notNull(),
+  storageKey: text("storage_key").notNull(), // Encrypted file path/key
+  encryptionNonce: text("encryption_nonce").notNull(), // IV for AES-256-GCM
+  encryptedFileKey: text("encrypted_file_key").notNull(), // Per-file key encrypted with master key
+  checksum: text("checksum").notNull(), // SHA-256 checksum for tamper detection
+  scanStatus: text("scan_status").notNull().default("pending"), // 'pending', 'clean', 'infected', 'failed'
+  scanDetails: jsonb("scan_details"),
+  formType: text("form_type"), // '8949', 'client_data', 'w2', etc.
+  importStatus: text("import_status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
+  importDetails: jsonb("import_details"),
+  importedAt: timestamp("imported_at"),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("tax_file_uploads_user_id_idx").on(table.userId),
+  scanStatusIdx: index("tax_file_uploads_scan_status_idx").on(table.scanStatus),
+  importStatusIdx: index("tax_file_uploads_import_status_idx").on(table.importStatus),
+  vendorIdx: index("tax_file_uploads_vendor_idx").on(table.vendor),
+}));
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -195,6 +223,24 @@ export const insertAccountingIntegrationSchema = createInsertSchema(accountingIn
   companyName: true,
 });
 
+export const insertTaxFileUploadSchema = createInsertSchema(taxFileUploads).pick({
+  userId: true,
+  vendor: true,
+  filename: true,
+  originalFilename: true,
+  mimeType: true,
+  byteLength: true,
+  storageKey: true,
+  encryptionNonce: true,
+  encryptedFileKey: true,
+  checksum: true,
+  formType: true,
+}).extend({
+  vendor: z.enum(['drake', 'turbotax', 'hrblock', 'adp']),
+  mimeType: z.enum(['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain']),
+  byteLength: z.number().max(50 * 1024 * 1024), // 50MB max
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -214,3 +260,5 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type AccountingIntegration = typeof accountingIntegrations.$inferSelect;
 export type InsertAccountingIntegration = z.infer<typeof insertAccountingIntegrationSchema>;
 export type GdprConsent = typeof gdprConsents.$inferSelect;
+export type TaxFileUpload = typeof taxFileUploads.$inferSelect;
+export type InsertTaxFileUpload = z.infer<typeof insertTaxFileUploadSchema>;

@@ -182,6 +182,93 @@ export class AccountingIntegrationService {
   }
 
   /**
+   * ADP - Get authorization URL
+   */
+  static getADPAuthUrl(redirectUri: string, state: string): string {
+    const clientId = process.env.ADP_CLIENT_ID || 'demo-adp-client-id';
+    
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      state: state,
+      scope: 'openid profile email adp_workforce_now_api',
+    });
+
+    return `https://accounts.adp.com/auth/oauth/v2/authorize?${params.toString()}`;
+  }
+
+  /**
+   * ADP - Exchange authorization code for tokens
+   */
+  static async exchangeADPCode(
+    code: string,
+    redirectUri: string
+  ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+    const clientId = process.env.ADP_CLIENT_ID || 'demo-adp-client-id';
+    const clientSecret = process.env.ADP_CLIENT_SECRET || 'demo-adp-client-secret';
+    
+    const tokenUrl = 'https://accounts.adp.com/auth/oauth/v2/token';
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to exchange ADP authorization code');
+    }
+
+    const data = await response.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in || 3600,
+    };
+  }
+
+  /**
+   * ADP - Fetch company/worker information
+   */
+  static async fetchADPCompanyInfo(accessToken: string): Promise<{ companyId: string; companyName: string }> {
+    try {
+      const response = await fetch('https://api.adp.com/hr/v2/workers', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          companyId: 'adp-company',
+          companyName: 'ADP Company'
+        };
+      }
+
+      const data = await response.json();
+      return {
+        companyId: data.companyId || 'adp-company',
+        companyName: data.companyName || 'ADP Company'
+      };
+    } catch (error) {
+      return {
+        companyId: 'adp-company',
+        companyName: 'ADP Company'
+      };
+    }
+  }
+
+  /**
    * Refresh QuickBooks access token
    */
   static async refreshQuickBooksToken(

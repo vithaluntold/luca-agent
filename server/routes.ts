@@ -4,8 +4,16 @@ import { storage } from "./pgStorage";
 import { aiOrchestrator } from "./services/aiOrchestrator";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
+import { 
+  setupSecurityMiddleware,
+  authRateLimiter,
+  fileUploadRateLimiter,
+  chatRateLimiter,
+  integrationRateLimiter
+} from "./middleware/security";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import multer from "multer";
 import { 
   insertUserSchema,
   insertSupportTicketSchema,
@@ -13,6 +21,7 @@ import {
   insertUserLLMConfigSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { storeEncryptedFile, retrieveEncryptedFile, secureDeleteFile, calculateChecksum } from "./utils/fileEncryption";
 
 // Extend session type to include OAuth properties
 declare module 'express-session' {
@@ -23,9 +32,35 @@ declare module 'express-session' {
   }
 }
 
+// Configure multer for memory storage (files are encrypted before disk storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB max
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow only specific MIME types
+    const allowedMimes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only CSV, Excel, and text files are allowed.'));
+    }
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Authentication routes (no auth required)
-  app.post("/api/auth/register", async (req, res) => {
+  // Apply military-grade security middleware
+  setupSecurityMiddleware(app);
+  
+  // Authentication routes (with rate limiting)
+  app.post("/api/auth/register", authRateLimiter, async (req, res) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
       
@@ -58,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authRateLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
       
@@ -173,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat endpoint - the main intelligence interface (auth required)
-  app.post("/api/chat", requireAuth, async (req, res) => {
+  app.post("/api/chat", requireAuth, chatRateLimiter, async (req, res) => {
     try {
       const userId = getCurrentUserId(req);
       if (!userId) {
@@ -703,12 +738,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/integrations/:provider/initiate", requireAuth, async (req, res) => {
+  app.post("/api/integrations/:provider/initiate", requireAuth, integrationRateLimiter, async (req, res) => {
     try {
       const userId = getCurrentUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
       
       const { provider } = req.params;
+      const { AccountingIntegrationService } = await import('./services/accountingIntegrations');
       
       // Generate and store state for CSRF protection
       const state = crypto.randomBytes(32).toString('hex');
@@ -738,6 +774,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const scope = 'ZohoBooks.fullaccess.all';
         const dataCenterLocation = process.env.ZOHO_DATA_CENTER || 'com';
         authUrl = `https://accounts.zoho.${dataCenterLocation}/oauth/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
+      } else if (provider === 'adp') {
+        authUrl = AccountingIntegrationService.getADPAuthUrl(redirectUri, state);
       } else {
         return res.status(400).json({ error: "Unsupported provider" });
       }
@@ -829,6 +867,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessToken = tokens.accessToken;
         refreshToken = tokens.refreshToken;
         expiresIn = tokens.expiresIn;
+      } else if (provider === 'adp') {
+        const tokens = await AccountingIntegrationService.exchangeADPCode(code as string, redirectUri);
+        accessToken = tokens.accessToken;
+        refreshToken = tokens.refreshToken;
+        expiresIn = tokens.expiresIn;
+        
+        // Fetch company info
+        try {
+          const companyInfo = await AccountingIntegrationService.fetchADPCompanyInfo(accessToken);
+          companyId = companyInfo.companyId;
+          companyName = companyInfo.companyName;
+        } catch (err) {
+          console.error('Failed to fetch ADP company info:', err);
+        }
       } else {
         return res.status(400).send('Unsupported provider');
       }
@@ -893,6 +945,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete integration" });
+    }
+  });
+
+  // Tax File Upload Routes (Drake, TurboTax, H&R Block, ADP)
+  app.post("/api/tax-files/upload", requireAuth, fileUploadRateLimiter, upload.single('file'), async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const { vendor, formType } = req.body;
+      
+      if (!vendor || !['drake', 'turbotax', 'hrblock', 'adp'].includes(vendor)) {
+        return res.status(400).json({ error: "Invalid vendor" });
+      }
+      
+      // Validate file size
+      if (req.file.size > 50 * 1024 * 1024) {
+        return res.status(400).json({ error: "File too large. Maximum size is 50MB" });
+      }
+      
+      // Calculate checksum before encryption
+      const checksum = calculateChecksum(req.file.buffer);
+      
+      // Encrypt and store file
+      const { storageKey, nonce, encryptedFileKey } = await storeEncryptedFile(
+        req.file.buffer,
+        req.file.originalname
+      );
+      
+      // Create database record
+      const fileUpload = await storage.createTaxFileUpload({
+        userId,
+        vendor,
+        filename: `${vendor}-${Date.now()}-${req.file.originalname}`,
+        originalFilename: req.file.originalname,
+        mimeType: req.file.mimetype as 'text/csv' | 'application/vnd.ms-excel' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'text/plain',
+        byteLength: req.file.size,
+        storageKey,
+        encryptionNonce: nonce,
+        encryptedFileKey,
+        checksum,
+        formType: formType || null
+      });
+      
+      // Audit log
+      await storage.createAuditLog({
+        userId,
+        action: 'UPLOAD_TAX_FILE',
+        resourceType: 'tax_file',
+        resourceId: fileUpload.id,
+        details: { vendor, filename: req.file.originalname, size: req.file.size },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      
+      res.json({ 
+        success: true, 
+        file: {
+          id: fileUpload.id,
+          filename: fileUpload.originalFilename,
+          vendor: fileUpload.vendor,
+          size: fileUpload.byteLength,
+          scanStatus: fileUpload.scanStatus,
+          uploadedAt: fileUpload.createdAt
+        }
+      });
+    } catch (error) {
+      console.error('File upload error:', error);
+      res.status(500).json({ error: "File upload failed" });
+    }
+  });
+
+  app.get("/api/tax-files", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { vendor } = req.query;
+      const files = await storage.getUserTaxFileUploads(userId, vendor as string | undefined);
+      
+      // Filter out deleted files and sensitive metadata
+      const sanitizedFiles = files
+        .filter(f => !f.deletedAt)
+        .map(f => ({
+          id: f.id,
+          vendor: f.vendor,
+          filename: f.originalFilename,
+          formType: f.formType,
+          size: f.byteLength,
+          scanStatus: f.scanStatus,
+          importStatus: f.importStatus,
+          uploadedAt: f.createdAt
+        }));
+      
+      res.json({ files: sanitizedFiles });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch files" });
+    }
+  });
+
+  app.get("/api/tax-files/:id/download", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const fileUpload = await storage.getTaxFileUpload(req.params.id);
+      
+      if (!fileUpload) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      if (fileUpload.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      if (fileUpload.deletedAt) {
+        return res.status(404).json({ error: "File has been deleted" });
+      }
+      
+      // Only allow download of clean files
+      if (fileUpload.scanStatus !== 'clean') {
+        return res.status(403).json({ 
+          error: "File not available for download",
+          scanStatus: fileUpload.scanStatus 
+        });
+      }
+      
+      // Decrypt and retrieve file
+      const decryptedData = await retrieveEncryptedFile(
+        fileUpload.storageKey,
+        fileUpload.encryptedFileKey,
+        fileUpload.encryptionNonce
+      );
+      
+      // Verify checksum
+      const fileChecksum = calculateChecksum(decryptedData);
+      if (fileChecksum !== fileUpload.checksum) {
+        throw new Error('File integrity check failed');
+      }
+      
+      // Send file
+      res.setHeader('Content-Type', fileUpload.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileUpload.originalFilename}"`);
+      res.send(decryptedData);
+      
+      // Audit log
+      await storage.createAuditLog({
+        userId,
+        action: 'DOWNLOAD_TAX_FILE',
+        resourceType: 'tax_file',
+        resourceId: fileUpload.id,
+        details: { filename: fileUpload.originalFilename },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (error) {
+      console.error('File download error:', error);
+      res.status(500).json({ error: "File download failed" });
+    }
+  });
+
+  app.delete("/api/tax-files/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const fileUpload = await storage.getTaxFileUpload(req.params.id);
+      
+      if (!fileUpload) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      if (fileUpload.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Soft delete in database
+      await storage.deleteTaxFileUpload(req.params.id);
+      
+      // Securely delete physical file
+      await secureDeleteFile(fileUpload.storageKey);
+      
+      // Audit log
+      await storage.createAuditLog({
+        userId,
+        action: 'DELETE_TAX_FILE',
+        resourceType: 'tax_file',
+        resourceId: req.params.id,
+        details: { filename: fileUpload.originalFilename },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('File deletion error:', error);
+      res.status(500).json({ error: "File deletion failed" });
     }
   });
 

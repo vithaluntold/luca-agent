@@ -13,6 +13,7 @@ import {
   auditLogs,
   accountingIntegrations,
   gdprConsents,
+  taxFileUploads,
   type User,
   type Conversation,
   type Message,
@@ -28,7 +29,9 @@ import {
   type AuditLog,
   type AccountingIntegration,
   type InsertAccountingIntegration,
-  type GdprConsent
+  type GdprConsent,
+  type TaxFileUpload,
+  type InsertTaxFileUpload
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -414,6 +417,60 @@ export class PostgresStorage implements IStorage {
       llmConfig,
       consents
     };
+  }
+
+  // Tax file upload methods
+  async createTaxFileUpload(data: InsertTaxFileUpload): Promise<TaxFileUpload> {
+    const result = await db.insert(taxFileUploads).values(data).returning();
+    return result[0];
+  }
+
+  async getTaxFileUpload(id: string): Promise<TaxFileUpload | undefined> {
+    const result = await db
+      .select()
+      .from(taxFileUploads)
+      .where(eq(taxFileUploads.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getUserTaxFileUploads(userId: string, vendor?: string): Promise<TaxFileUpload[]> {
+    if (vendor) {
+      return db
+        .select()
+        .from(taxFileUploads)
+        .where(and(
+          eq(taxFileUploads.userId, userId),
+          eq(taxFileUploads.vendor, vendor)
+        ))
+        .orderBy(desc(taxFileUploads.createdAt));
+    }
+    return db
+      .select()
+      .from(taxFileUploads)
+      .where(eq(taxFileUploads.userId, userId))
+      .orderBy(desc(taxFileUploads.createdAt));
+  }
+
+  async updateTaxFileUpload(
+    id: string,
+    data: Partial<TaxFileUpload>
+  ): Promise<TaxFileUpload | undefined> {
+    const result = await db
+      .update(taxFileUploads)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(taxFileUploads.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteTaxFileUpload(id: string): Promise<boolean> {
+    const result = await db
+      .update(taxFileUploads)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(taxFileUploads.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 

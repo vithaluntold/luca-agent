@@ -21,9 +21,36 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const profiles = pgTable("profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'business', 'personal', 'family'
+  description: text("description"),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("profiles_user_id_idx").on(table.userId),
+  typeIdx: index("profiles_type_idx").on(table.type),
+}));
+
+export const profileMembers = pgTable("profile_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email"),
+  relationship: text("relationship"), // 'spouse', 'child', 'parent', 'other'
+  role: text("role").notNull().default("member"), // 'owner', 'admin', 'member', 'viewer'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  profileIdIdx: index("profile_members_profile_id_idx").on(table.profileId),
+}));
+
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileId: varchar("profile_id").references(() => profiles.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   preview: text("preview"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -194,8 +221,34 @@ export const insertUserSchema = createInsertSchema(users).pick({
   name: z.string().min(1, "Name is required"),
 });
 
+export const insertProfileSchema = createInsertSchema(profiles).pick({
+  userId: true,
+  name: true,
+  type: true,
+  description: true,
+  isDefault: true,
+}).extend({
+  name: z.string().min(1, "Profile name is required").max(100),
+  type: z.enum(['business', 'personal', 'family']),
+  description: z.string().max(500).optional(),
+});
+
+export const insertProfileMemberSchema = createInsertSchema(profileMembers).pick({
+  profileId: true,
+  name: true,
+  email: true,
+  relationship: true,
+  role: true,
+}).extend({
+  name: z.string().min(1, "Member name is required").max(100),
+  email: z.string().email().optional(),
+  relationship: z.enum(['spouse', 'child', 'parent', 'other']).optional(),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']).default('member'),
+});
+
 export const insertConversationSchema = createInsertSchema(conversations).pick({
   userId: true,
+  profileId: true,
   title: true,
   preview: true,
 });
@@ -269,6 +322,10 @@ export const insertTaxFileUploadSchema = createInsertSchema(taxFileUploads).pick
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type Profile = typeof profiles.$inferSelect;
+export type InsertProfile = z.infer<typeof insertProfileSchema>;
+export type ProfileMember = typeof profileMembers.$inferSelect;
+export type InsertProfileMember = z.infer<typeof insertProfileMemberSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;

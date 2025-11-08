@@ -184,6 +184,7 @@ Located in `server/services/aiOrchestrator.ts`:
 - **QuickBooks Online**: Full OAuth flow with CSRF protection, encrypted token storage, company info fetching, and audit logging
 - **Xero**: Complete OAuth flow with tenant management, encrypted tokens, and connection tracking
 - **Zoho Books**: End-to-end OAuth flow with data center support, token encryption, and secure storage
+- **ADP Workforce Now**: Complete OAuth 2.0 integration for payroll and HR data with dynamic redirect URI handling
 
 ### OAuth Implementation Features
 - **CSRF Protection**: State parameter validation prevents unauthorized callbacks
@@ -194,17 +195,41 @@ Located in `server/services/aiOrchestrator.ts`:
 - **Demo Credentials**: Out-of-box demo credentials for immediate testing
 - **Provider Setup Guide**: Comprehensive documentation for configuring OAuth apps (OAUTH_SETUP_GUIDE.md)
 
-### Tax Software (Planned)
-- TurboTax data import
-- H&R Block file integration
-- Drake Tax professional integration
-- Intuit ProSeries connectivity
+### Tax Software (Secure File Upload)
+**Production-Ready Military-Grade File Upload System:**
+- **Drake Tax**: Professional tax return file upload with encryption
+- **TurboTax**: Tax document and W-2 form upload
+- **H&R Block**: Tax worksheet and document upload
+
+**Security Features:**
+- **Per-File Encryption**: AES-256-GCM with unique key per file
+- **Key Wrapping**: File encryption keys wrapped with master ENCRYPTION_KEY
+- **Tamper Detection**: SHA-256 checksums verify file integrity
+- **Virus Scanning**: Files quarantined until scan status = "clean"
+- **DOD Deletion**: Secure 3-pass overwrite deletion (DOD 5220.22-M)
+- **File Size Limits**: 50MB maximum, enforced client and server-side
+- **MIME Validation**: Only CSV, Excel, TXT files accepted
+- **Access Control**: Users can only download/delete their own files
+- **Rate Limiting**: 20 uploads per hour per user
+
+**File Upload Flow:**
+1. User selects vendor (Drake/TurboTax/H&R Block) and uploads file via dialog
+2. Client validates file size (50MB limit)
+3. Server calculates SHA-256 checksum
+4. Server encrypts file with random AES-256-GCM key
+5. File key wrapped with master ENCRYPTION_KEY
+6. Encrypted file stored on disk (outside database)
+7. Metadata (wrapped key, nonce, checksum) stored in database
+8. File marked as "pending" scan status
+9. External virus scanner transitions status to "clean" or "infected"
+10. Only "clean" files can be downloaded
+11. Downloads verify checksum before serving file
 
 ### Current Status
-- ✅ **Complete**: Database schema, encryption service, UI, OAuth flows
-- ✅ **Ready for Production**: Requires provider OAuth credentials (Client ID/Secret from QuickBooks/Xero/Zoho developer portals)
+- ✅ **Complete**: Database schema, encryption service, UI, OAuth flows, file upload system
+- ✅ **Ready for Production**: Requires provider OAuth credentials and external virus scanning service
 - ✅ **Working Demo**: Demo credentials configured for immediate testing
-- ✅ **Documentation**: OAUTH_SETUP_GUIDE.md provides step-by-step provider setup instructions
+- ✅ **Documentation**: OAUTH_SETUP_GUIDE.md, SECURITY_IMPLEMENTATION.md, CONFIGURATION_GUIDE.md
 
 ## Future Enhancements
 
@@ -220,14 +245,29 @@ Located in `server/services/aiOrchestrator.ts`:
 ## Development Notes
 
 - **Required Environment Variables**:
-  - `ENCRYPTION_KEY`: 64-character hex string for AES-256-GCM encryption (required)
+  - `ENCRYPTION_KEY`: 64-character hex string for AES-256-GCM encryption (CRITICAL - must be exactly 64 hex chars)
   - `OPENAI_API_KEY`: OpenAI API access
   - `DATABASE_URL`: PostgreSQL connection string
   - `SESSION_SECRET`: Express session encryption
+  - OAuth credentials (QuickBooks, Xero, Zoho, ADP)
 
-- Authentication uses bcrypt for password hashing
-- PostgreSQL database with Drizzle ORM
-- All API keys and OAuth tokens encrypted with AES-256-GCM
+- **Security Architecture**:
+  - Authentication uses bcrypt for password hashing
+  - PostgreSQL database with Drizzle ORM
+  - All API keys and OAuth tokens encrypted with AES-256-GCM before storage
+  - Per-file encryption for tax document uploads with key wrapping
+  - Helmet middleware for HTTP security hardening (HSTS, CSP, X-Frame-Options)
+  - Rate limiting on auth (10/15min), chat (10/min), file upload (20/hour), integration (5/15min)
+  - SHA-256 checksums for tamper detection
+  - DOD 5220.22-M secure deletion (3-pass overwrite)
+  - Comprehensive audit logging for GDPR compliance
+
+- **File Upload Requirements**:
+  - `/tmp/tax-file-uploads/` directory must exist with proper permissions
+  - External virus scanning service needed to transition files from "pending" to "clean"
+  - Only clean files can be downloaded
+  - Files encrypted at rest, never stored in database
+
 - All financial calculations verified for accuracy
 - Comprehensive error handling and logging
 - Usage limits enforced at API level

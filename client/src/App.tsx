@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import Landing from "@/pages/Landing";
 import Chat from "@/pages/Chat";
 import Auth from "@/pages/Auth";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/chat" component={Chat} />
       <Route path="/auth" component={Auth} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

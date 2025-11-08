@@ -24,6 +24,7 @@ import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import ProfilesSection from "@/components/ProfilesSection";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -143,6 +144,19 @@ export default function Settings() {
                 <Label>Subscription Tier</Label>
                 <Input value={user?.subscriptionTier || 'free'} disabled className="capitalize" />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Profiles Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Profiles</CardTitle>
+              <CardDescription>
+                Manage your business, personal, and family profiles
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProfilesSection />
             </CardContent>
           </Card>
 

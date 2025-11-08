@@ -3,6 +3,8 @@ import { db } from "./db";
 import { encryptApiKey, decryptApiKey, maskApiKey } from "./utils/encryption";
 import { 
   users, 
+  profiles,
+  profileMembers,
   conversations, 
   messages, 
   modelRoutingLogs, 
@@ -15,6 +17,10 @@ import {
   gdprConsents,
   taxFileUploads,
   type User,
+  type Profile,
+  type InsertProfile,
+  type ProfileMember,
+  type InsertProfileMember,
   type Conversation,
   type Message,
   type InsertUser,
@@ -149,6 +155,100 @@ export class PostgresStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return result[0] || undefined;
+  }
+
+  // Profile methods
+  async getUserProfiles(userId: string): Promise<Profile[]> {
+    return db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .orderBy(desc(profiles.isDefault), desc(profiles.createdAt));
+  }
+
+  async getProfile(id: string): Promise<Profile | undefined> {
+    const result = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createProfile(data: InsertProfile): Promise<Profile> {
+    // If this is set as default, unset other defaults for this user
+    if (data.isDefault) {
+      await db
+        .update(profiles)
+        .set({ isDefault: false })
+        .where(eq(profiles.userId, data.userId));
+    }
+    
+    const result = await db.insert(profiles).values(data).returning();
+    return result[0];
+  }
+
+  async updateProfile(id: string, data: Partial<InsertProfile>): Promise<Profile | undefined> {
+    // If setting as default, unset other defaults for this user
+    if (data.isDefault) {
+      const profile = await this.getProfile(id);
+      if (profile) {
+        await db
+          .update(profiles)
+          .set({ isDefault: false })
+          .where(eq(profiles.userId, profile.userId));
+      }
+    }
+
+    const result = await db
+      .update(profiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(profiles.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteProfile(id: string): Promise<boolean> {
+    const result = await db.delete(profiles).where(eq(profiles.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getDefaultProfile(userId: string): Promise<Profile | undefined> {
+    const result = await db
+      .select()
+      .from(profiles)
+      .where(and(eq(profiles.userId, userId), eq(profiles.isDefault, true)))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  // Profile member methods
+  async getProfileMembers(profileId: string): Promise<ProfileMember[]> {
+    return db
+      .select()
+      .from(profileMembers)
+      .where(eq(profileMembers.profileId, profileId))
+      .orderBy(desc(profileMembers.createdAt));
+  }
+
+  async getProfileMember(id: string): Promise<ProfileMember | undefined> {
+    const result = await db.select().from(profileMembers).where(eq(profileMembers.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createProfileMember(data: InsertProfileMember): Promise<ProfileMember> {
+    const result = await db.insert(profileMembers).values(data).returning();
+    return result[0];
+  }
+
+  async updateProfileMember(id: string, data: Partial<InsertProfileMember>): Promise<ProfileMember | undefined> {
+    const result = await db
+      .update(profileMembers)
+      .set(data)
+      .where(eq(profileMembers.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteProfileMember(id: string): Promise<boolean> {
+    const result = await db.delete(profileMembers).where(eq(profileMembers.id, id)).returning();
+    return result.length > 0;
   }
 
   // Conversation methods

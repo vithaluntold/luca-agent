@@ -336,6 +336,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile routes (auth required)
+  app.get("/api/profiles", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profiles = await storage.getUserProfiles(userId);
+      res.json({ profiles });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch profiles" });
+    }
+  });
+
+  app.get("/api/profiles/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.id);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      res.json({ profile });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  app.post("/api/profiles", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { name, type, description, isDefault } = req.body;
+      
+      // Validate profile type
+      if (!['business', 'personal', 'family'].includes(type)) {
+        return res.status(400).json({ error: "Invalid profile type" });
+      }
+      
+      // Ensure only one personal profile per user
+      if (type === 'personal') {
+        const existingProfiles = await storage.getUserProfiles(userId);
+        const personalExists = existingProfiles.some(p => p.type === 'personal');
+        if (personalExists) {
+          return res.status(400).json({ error: "Personal profile already exists" });
+        }
+      }
+      
+      const profile = await storage.createProfile({
+        userId,
+        name,
+        type,
+        description,
+        isDefault: isDefault || false
+      });
+      
+      res.json({ profile });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create profile" });
+    }
+  });
+
+  app.patch("/api/profiles/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.id);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      const { name, description, isDefault } = req.body;
+      const updated = await storage.updateProfile(req.params.id, {
+        name,
+        description,
+        isDefault
+      });
+      
+      res.json({ profile: updated });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  app.delete("/api/profiles/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.id);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      // Prevent deletion of default profile
+      if (profile.isDefault) {
+        return res.status(400).json({ error: "Cannot delete default profile" });
+      }
+      
+      await storage.deleteProfile(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete profile" });
+    }
+  });
+
+  // Profile member routes (auth required)
+  app.get("/api/profiles/:profileId/members", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.profileId);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      const members = await storage.getProfileMembers(req.params.profileId);
+      res.json({ members });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch profile members" });
+    }
+  });
+
+  app.post("/api/profiles/:profileId/members", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.profileId);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      // Only family profiles can have members
+      if (profile.type !== 'family') {
+        return res.status(400).json({ error: "Only family profiles can have members" });
+      }
+      
+      const { name, email, relationship, role } = req.body;
+      const member = await storage.createProfileMember({
+        profileId: req.params.profileId,
+        name,
+        email,
+        relationship,
+        role: role || 'member'
+      });
+      
+      res.json({ member });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add member" });
+    }
+  });
+
+  app.patch("/api/profiles/:profileId/members/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.profileId);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      const { name, email, relationship, role } = req.body;
+      const updated = await storage.updateProfileMember(req.params.id, {
+        name,
+        email,
+        relationship,
+        role
+      });
+      
+      res.json({ member: updated });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update member" });
+    }
+  });
+
+  app.delete("/api/profiles/:profileId/members/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const profile = await storage.getProfile(req.params.profileId);
+      if (!profile || profile.userId !== userId) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      await storage.deleteProfileMember(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove member" });
+    }
+  });
+
   // Conversation routes (auth required)
   app.get("/api/conversations", requireAuth, async (req, res) => {
     try {

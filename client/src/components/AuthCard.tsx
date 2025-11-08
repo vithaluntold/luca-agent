@@ -180,7 +180,7 @@ export default function AuthCard({ mode, onSubmit, onToggleMode, requireMfa, loc
             <Button 
               type="submit" 
               className="w-full"
-              disabled={isSubmitting || !!sanitizedLockoutMessage}
+              disabled={isSubmitting || !!sanitizedLockoutMessage || (!isLogin && !passwordValid)}
               data-testid="button-auth-submit"
             >
               {isSubmitting ? "Please wait..." : (isLogin ? "Sign In" : "Create Account")}

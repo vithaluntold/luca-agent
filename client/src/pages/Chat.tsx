@@ -421,7 +421,7 @@ export default function Chat() {
               </div>
             </ScrollArea>
 
-            <div className="border-t p-4">
+            <div className="border-t p-4 pb-20">
               <div className="max-w-4xl mx-auto flex gap-2">
                 <Input
                   placeholder="Ask anything about accounting, tax, audit..."

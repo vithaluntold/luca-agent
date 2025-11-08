@@ -3,8 +3,8 @@ import finaceverseLogo from "@assets/FinACEverse Transparent symbol (1)_17617170
 export default function FinACEverseBadge() {
   return (
     <div 
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border rounded-full px-4 py-2 shadow-lg transition-all duration-200"
-      data-testid="finaceverse-badge"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-sm"
+      data-testid="badge-finaceverse"
     >
       <span className="text-sm text-muted-foreground font-medium">
         Powered by

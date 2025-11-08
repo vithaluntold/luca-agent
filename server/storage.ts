@@ -19,7 +19,7 @@ export interface IStorage {
   
   // Conversation management
   getConversation(id: string): Promise<Conversation | undefined>;
-  getUserConversations(userId: string): Promise<Conversation[]>;
+  getUserConversations(userId: string, profileId?: string | null): Promise<Conversation[]>;
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation | undefined>;
   deleteConversation(id: string): Promise<boolean>;
@@ -66,6 +66,13 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id,
       subscriptionTier: "free",
+      isAdmin: false,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastFailedLogin: null,
+      mfaEnabled: false,
+      mfaSecret: null,
+      mfaBackupCodes: null,
       createdAt: new Date()
     };
     this.users.set(id, user);
@@ -86,9 +93,15 @@ export class MemStorage implements IStorage {
     return this.conversations.get(id);
   }
 
-  async getUserConversations(userId: string): Promise<Conversation[]> {
+  async getUserConversations(userId: string, profileId?: string | null): Promise<Conversation[]> {
     return Array.from(this.conversations.values())
-      .filter(conv => conv.userId === userId)
+      .filter(conv => {
+        if (conv.userId !== userId) return false;
+        if (profileId !== undefined) {
+          return conv.profileId === profileId;
+        }
+        return true;
+      })
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
@@ -96,6 +109,7 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const conversation: Conversation = {
       ...insertConv,
+      profileId: insertConv.profileId || null,
       preview: insertConv.preview || null,
       id,
       createdAt: new Date(),

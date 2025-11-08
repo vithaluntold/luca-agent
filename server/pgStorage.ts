@@ -1,4 +1,4 @@
-import { eq, and, desc, sql as drizzleSql, count } from "drizzle-orm";
+import { eq, and, desc, sql as drizzleSql, count, isNull } from "drizzle-orm";
 import { db } from "./db";
 import { encryptApiKey, decryptApiKey, maskApiKey } from "./utils/encryption";
 import { 
@@ -294,11 +294,20 @@ export class PostgresStorage implements IStorage {
     return result[0] || undefined;
   }
 
-  async getUserConversations(userId: string): Promise<Conversation[]> {
+  async getUserConversations(userId: string, profileId?: string | null): Promise<Conversation[]> {
+    const conditions = [eq(conversations.userId, userId)];
+    if (profileId !== undefined) {
+      if (profileId === null) {
+        conditions.push(isNull(conversations.profileId));
+      } else {
+        conditions.push(eq(conversations.profileId, profileId));
+      }
+    }
+    
     return db
       .select()
       .from(conversations)
-      .where(eq(conversations.userId, userId))
+      .where(and(...conditions))
       .orderBy(desc(conversations.updatedAt));
   }
 

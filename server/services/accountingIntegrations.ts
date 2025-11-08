@@ -47,7 +47,7 @@ export class AccountingIntegrationService {
   static async exchangeQuickBooksCode(
     config: QuickBooksConfig,
     code: string
-  ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; realmId: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
     const tokenUrl = config.environment === 'production'
       ? 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer'
       : 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
@@ -76,7 +76,6 @@ export class AccountingIntegrationService {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
       expiresIn: data.expires_in,
-      realmId: data.x_refresh_token_expires_in,
     };
   }
 

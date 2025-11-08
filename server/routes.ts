@@ -14,6 +14,15 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
+// Extend session type to include OAuth properties
+declare module 'express-session' {
+  interface SessionData {
+    oauthState?: string;
+    oauthProvider?: string;
+    oauthUserId?: string;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes (no auth required)
   app.post("/api/auth/register", async (req, res) => {
@@ -701,18 +710,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { provider } = req.params;
       
-      // Store state in session for OAuth callback verification
-      req.session.oauthState = crypto.randomBytes(32).toString('hex');
+      // Generate and store state for CSRF protection
+      const state = crypto.randomBytes(32).toString('hex');
+      req.session.oauthState = state;
       req.session.oauthProvider = provider;
+      req.session.oauthUserId = userId;
       
-      // For now, return placeholder - actual OAuth requires environment configuration
-      res.json({ 
-        message: "OAuth integration coming soon",
-        provider,
-        note: "Please ensure ENCRYPTION_KEY is set and configure OAuth credentials for " + provider
-      });
+      // Build redirect URI
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : `http://localhost:5000`;
+      const redirectUri = `${baseUrl}/api/integrations/callback`;
+      
+      let authUrl: string;
+      
+      // Generate provider-specific OAuth URLs
+      if (provider === 'quickbooks') {
+        const clientId = process.env.QUICKBOOKS_CLIENT_ID || 'DEMO_QB_CLIENT_ID';
+        const scope = 'com.intuit.quickbooks.accounting';
+        authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}`;
+      } else if (provider === 'xero') {
+        const clientId = process.env.XERO_CLIENT_ID || 'DEMO_XERO_CLIENT_ID';
+        const scope = 'offline_access accounting.transactions accounting.contacts accounting.settings';
+        authUrl = `https://login.xero.com/identity/connect/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}`;
+      } else if (provider === 'zoho') {
+        const clientId = process.env.ZOHO_CLIENT_ID || 'DEMO_ZOHO_CLIENT_ID';
+        const scope = 'ZohoBooks.fullaccess.all';
+        const dataCenterLocation = process.env.ZOHO_DATA_CENTER || 'com';
+        authUrl = `https://accounts.zoho.${dataCenterLocation}/oauth/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}&access_type=offline`;
+      } else {
+        return res.status(400).json({ error: "Unsupported provider" });
+      }
+      
+      res.json({ authUrl, provider });
     } catch (error) {
       res.status(500).json({ error: "Failed to initiate integration" });
+    }
+  });
+
+  app.get("/api/integrations/callback", async (req, res) => {
+    try {
+      const { code, state, realmId } = req.query;
+      
+      // Verify state to prevent CSRF
+      if (!state || state !== req.session.oauthState) {
+        return res.status(400).send('Invalid state parameter');
+      }
+      
+      const provider = req.session.oauthProvider;
+      const userId = req.session.oauthUserId;
+      
+      if (!provider || !userId) {
+        return res.status(400).send('Session expired. Please try again.');
+      }
+      
+      // Exchange code for tokens
+      const { AccountingIntegrationService } = await import('./services/accountingIntegrations');
+      const { encryptApiKey } = await import('./utils/encryption');
+      
+      let accessToken: string;
+      let refreshToken: string;
+      let expiresIn: number;
+      let companyId: string | null = null;
+      let companyName: string | null = null;
+      
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : `http://localhost:5000`;
+      const redirectUri = `${baseUrl}/api/integrations/callback`;
+      
+      if (provider === 'quickbooks') {
+        const config = {
+          clientId: process.env.QUICKBOOKS_CLIENT_ID || 'DEMO_QB_CLIENT_ID',
+          clientSecret: process.env.QUICKBOOKS_CLIENT_SECRET || 'DEMO_QB_SECRET',
+          redirectUri,
+          environment: (process.env.QUICKBOOKS_ENV as 'sandbox' | 'production') || 'sandbox'
+        };
+        
+        const tokens = await AccountingIntegrationService.exchangeQuickBooksCode(config, code as string);
+        accessToken = tokens.accessToken;
+        refreshToken = tokens.refreshToken;
+        expiresIn = tokens.expiresIn;
+        companyId = realmId as string || null;
+        
+        // Fetch company info
+        if (companyId) {
+          try {
+            const companyInfo = await AccountingIntegrationService.getQuickBooksCompanyInfo(
+              accessToken,
+              companyId,
+              config.environment
+            );
+            companyName = companyInfo.name;
+          } catch (err) {
+            console.error('Failed to fetch QuickBooks company info:', err);
+          }
+        }
+      } else if (provider === 'xero') {
+        const config = {
+          clientId: process.env.XERO_CLIENT_ID || 'DEMO_XERO_CLIENT_ID',
+          clientSecret: process.env.XERO_CLIENT_SECRET || 'DEMO_XERO_SECRET',
+          redirectUri
+        };
+        
+        const tokens = await AccountingIntegrationService.exchangeXeroCode(config, code as string);
+        accessToken = tokens.accessToken;
+        refreshToken = tokens.refreshToken;
+        expiresIn = tokens.expiresIn;
+      } else if (provider === 'zoho') {
+        const config = {
+          clientId: process.env.ZOHO_CLIENT_ID || 'DEMO_ZOHO_CLIENT_ID',
+          clientSecret: process.env.ZOHO_CLIENT_SECRET || 'DEMO_ZOHO_SECRET',
+          redirectUri,
+          dataCenterLocation: process.env.ZOHO_DATA_CENTER || 'com'
+        };
+        
+        const tokens = await AccountingIntegrationService.exchangeZohoCode(config, code as string);
+        accessToken = tokens.accessToken;
+        refreshToken = tokens.refreshToken;
+        expiresIn = tokens.expiresIn;
+      } else {
+        return res.status(400).send('Unsupported provider');
+      }
+      
+      // Encrypt tokens before storing
+      const encryptedAccessToken = encryptApiKey(accessToken);
+      const encryptedRefreshToken = encryptApiKey(refreshToken);
+      
+      // Store integration in database
+      const tokenExpiry = new Date(Date.now() + expiresIn * 1000);
+      await storage.createAccountingIntegration({
+        userId,
+        provider,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        tokenExpiry,
+        companyId,
+        companyName
+      });
+      
+      // Audit log
+      await storage.createAuditLog({
+        userId,
+        action: 'CONNECT_INTEGRATION',
+        resourceType: 'integration',
+        resourceId: provider,
+        details: { provider, companyName },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      
+      // Clear session
+      delete req.session.oauthState;
+      delete req.session.oauthProvider;
+      delete req.session.oauthUserId;
+      
+      // Redirect back to integrations page
+      res.redirect('/integrations?success=true&provider=' + provider);
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      res.redirect('/integrations?error=true&message=' + encodeURIComponent((error as Error).message));
     }
   });
 

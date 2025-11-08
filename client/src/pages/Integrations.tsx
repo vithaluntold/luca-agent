@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,32 @@ export default function Integrations() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Check for OAuth callback success/error in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+    const provider = params.get('provider');
+    const message = params.get('message');
+
+    if (success === 'true') {
+      toast({
+        title: "Integration Connected!",
+        description: `Successfully connected to ${provider || 'the service'}.`
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/integrations');
+    } else if (error === 'true') {
+      toast({
+        variant: "destructive",
+        title: "Integration Failed",
+        description: message || "Failed to connect. Please try again."
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/integrations');
+    }
+  }, [toast]);
 
   const { data: integrationsData } = useQuery({
     queryKey: ['/api/integrations'],
@@ -69,17 +95,17 @@ export default function Integrations() {
       if (!res.ok) throw new Error('Failed to initiate integration');
       return res.json();
     },
-    onSuccess: (data) => {
-      toast({
-        title: "Integration Setup",
-        description: data.message || "OAuth integration coming soon. Please ensure ENCRYPTION_KEY is set."
-      });
+    onSuccess: (data: { authUrl: string; provider: string }) => {
+      // Redirect to OAuth provider's authorization page
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
     },
     onError: () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to initiate integration. Please ensure ENCRYPTION_KEY is set in your secrets."
+        description: "Failed to initiate integration. Please try again."
       });
     }
   });

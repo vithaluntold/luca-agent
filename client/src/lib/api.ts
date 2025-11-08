@@ -59,7 +59,7 @@ export const authApi = {
     return await res.json() as { user: User };
   },
   
-  login: async (data: { email: string; password: string }) => {
+  login: async (data: { email: string; password: string; mfaToken?: string }) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),

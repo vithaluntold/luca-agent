@@ -188,7 +188,7 @@ export default function Settings() {
                     <Input
                       id="api-key"
                       type="password"
-                      placeholder={llmConfig?.config?.apiKeyMasked || "sk-..."}
+                      placeholder={(llmConfig as any)?.config?.apiKeyMasked || "sk-..."}
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
                       data-testid="input-api-key"

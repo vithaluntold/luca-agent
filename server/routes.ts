@@ -577,7 +577,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const conversations = await storage.getUserConversations(userId);
+      // Optional profile filter: ?profileId=xxx or ?profileId=null
+      const profileIdParam = req.query.profileId as string | undefined;
+      let profileId: string | null | undefined = undefined;
+      if (profileIdParam !== undefined) {
+        profileId = profileIdParam === 'null' ? null : profileIdParam;
+      }
+      
+      const conversations = await storage.getUserConversations(userId, profileId);
       res.json({ conversations });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch conversations" });
@@ -591,12 +598,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { title, preview } = req.body;
+      const { title, preview, profileId } = req.body;
+      
+      // Validate profileId ownership if provided
+      if (profileId) {
+        const profile = await storage.getProfile(profileId);
+        if (!profile) {
+          return res.status(400).json({ error: "Invalid profile ID" });
+        }
+        if (profile.userId !== userId) {
+          return res.status(403).json({ error: "Access denied: Profile does not belong to user" });
+        }
+      }
       
       const conversation = await storage.createConversation({
         userId,
         title,
-        preview
+        preview,
+        profileId: profileId || null
       });
       
       res.json({ conversation });
@@ -639,10 +658,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { conversationId, message } = req.body;
+      const { conversationId, message, profileId } = req.body;
       
       if (!message) {
         return res.status(400).json({ error: "Message required" });
+      }
+      
+      // Validate profileId ownership if provided
+      if (profileId) {
+        const profile = await storage.getProfile(profileId);
+        if (!profile) {
+          return res.status(400).json({ error: "Invalid profile ID" });
+        }
+        if (profile.userId !== userId) {
+          return res.status(403).json({ error: "Access denied: Profile does not belong to user" });
+        }
       }
       
       // Get user for subscription tier
@@ -675,9 +705,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ error: "Access denied" });
         }
       } else {
-        // Create new conversation
+        // Create new conversation with profileId
         conversation = await storage.createConversation({
           userId,
+          profileId: profileId !== undefined ? profileId : null,
           title: message.slice(0, 50) + (message.length > 50 ? '...' : ''),
           preview: message.slice(0, 100)
         });

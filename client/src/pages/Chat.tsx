@@ -16,6 +16,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { chatApi, conversationApi } from "@/lib/api";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -33,7 +40,10 @@ import {
   Minimize2,
   Maximize2,
   Search,
-  Building2
+  Building2,
+  Briefcase,
+  Users,
+  UserCircle2
 } from "lucide-react";
 
 interface Message {
@@ -49,6 +59,14 @@ interface Conversation {
   title: string;
   preview: string | null;
   updatedAt: string;
+  profileId: string | null;
+}
+
+interface Profile {
+  id: string;
+  name: string;
+  type: 'business' | 'personal' | 'family';
+  isDefault: boolean;
 }
 
 export default function Chat() {
@@ -58,6 +76,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProfileFilter, setSelectedProfileFilter] = useState<string>("all");
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -73,10 +92,30 @@ export default function Chat() {
     }
   }, [user, setLocation]);
 
-  const { data: conversationsData } = useQuery({
-    queryKey: ['/api/conversations'],
+  const { data: profilesData } = useQuery<{ profiles: Profile[] }>({
+    queryKey: ['/api/profiles'],
     enabled: !!user,
-    queryFn: () => conversationApi.getAll(),
+  });
+
+  const profiles: Profile[] = profilesData?.profiles || [];
+  const defaultProfile = profiles.find(p => p.isDefault);
+
+  const { data: conversationsData } = useQuery({
+    queryKey: ['/api/conversations', selectedProfileFilter],
+    enabled: !!user,
+    queryFn: () => {
+      if (selectedProfileFilter === 'all') {
+        return conversationApi.getAll();
+      } else if (selectedProfileFilter === 'none') {
+        return fetch(`/api/conversations?profileId=null`, {
+          credentials: 'include'
+        }).then(res => res.json());
+      } else {
+        return fetch(`/api/conversations?profileId=${selectedProfileFilter}`, {
+          credentials: 'include'
+        }).then(res => res.json());
+      }
+    },
   });
 
   const { data: messagesData } = useQuery({
@@ -98,10 +137,27 @@ export default function Chat() {
   }, [messagesData]);
 
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) => chatApi.sendMessage({
-      conversationId: activeConversation,
-      message: content
-    }),
+    mutationFn: (content: string) => {
+      // Determine which profile to use for new conversations
+      let profileIdToUse: string | null | undefined = undefined;
+      if (!activeConversation) {
+        // Creating a new conversation - use selected filter if it's a specific profile
+        if (selectedProfileFilter !== 'all' && selectedProfileFilter !== 'none') {
+          profileIdToUse = selectedProfileFilter;
+        } else if (selectedProfileFilter === 'none') {
+          profileIdToUse = null;
+        } else if (defaultProfile) {
+          // No filter or "all" selected - use default profile
+          profileIdToUse = defaultProfile.id;
+        }
+      }
+      
+      return chatApi.sendMessage({
+        conversationId: activeConversation,
+        message: content,
+        profileId: profileIdToUse
+      });
+    },
     onSuccess: (data) => {
       if (!activeConversation) {
         setActiveConversation(data.conversationId);
@@ -232,7 +288,37 @@ export default function Chat() {
                   </div>
                 </div>
 
-                <div className="px-3 py-2">
+                <div className="px-3 py-2 space-y-2">
+                  <Select value={selectedProfileFilter} onValueChange={setSelectedProfileFilter}>
+                    <SelectTrigger data-testid="select-profile-filter">
+                      <SelectValue placeholder="All Profiles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4" />
+                          <span>All Profiles</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="none">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          <span>No Profile</span>
+                        </div>
+                      </SelectItem>
+                      {profiles.map(profile => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          <div className="flex items-center gap-2">
+                            {profile.type === 'business' && <Briefcase className="h-4 w-4" />}
+                            {profile.type === 'personal' && <UserCircle2 className="h-4 w-4" />}
+                            {profile.type === 'family' && <Users className="h-4 w-4" />}
+                            <span>{profile.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input

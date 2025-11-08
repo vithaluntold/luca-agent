@@ -3,6 +3,7 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { VirusScanService } from "./services/virusScanService";
 
 const app = express();
 
@@ -100,5 +101,10 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start periodic virus scanning for uploaded tax files
+    const scanIntervalMinutes = parseInt(process.env.VIRUS_SCAN_INTERVAL || '5', 10);
+    VirusScanService.startPeriodicScanning(scanIntervalMinutes);
+    log(`Virus scanning enabled (provider: ${process.env.VIRUS_SCAN_PROVIDER || 'clamav'}, interval: ${scanIntervalMinutes}min)`);
   });
 })();

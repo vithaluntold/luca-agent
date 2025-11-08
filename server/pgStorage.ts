@@ -562,6 +562,31 @@ export class PostgresStorage implements IStorage {
       .returning();
     return result.length > 0;
   }
+
+  async getTaxFilesByStatus(status: string): Promise<TaxFileUpload[]> {
+    return db
+      .select()
+      .from(taxFileUploads)
+      .where(eq(taxFileUploads.scanStatus, status))
+      .orderBy(taxFileUploads.createdAt);
+  }
+
+  async updateTaxFileStatus(
+    id: string,
+    status: string,
+    scanDetails: any
+  ): Promise<TaxFileUpload | undefined> {
+    const result = await db
+      .update(taxFileUploads)
+      .set({
+        scanStatus: status,
+        scanDetails,
+        updatedAt: new Date()
+      })
+      .where(eq(taxFileUploads.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
 }
 
 export const storage = new PostgresStorage();

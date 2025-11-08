@@ -59,7 +59,10 @@ export const conversations = pgTable("conversations", {
   preview: text("preview"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  userIdProfileIdUpdatedAtIdx: index("conversations_user_profile_updated_idx")
+    .on(table.userId, table.profileId, table.updatedAt),
+}));
 
 export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

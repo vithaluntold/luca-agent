@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import { ArrowRight, Sparkles } from "lucide-react";
 import chatDashboardImg from "@assets/generated_images/Chat_interface_dashboard_screenshot_b7283c51.png";
 
@@ -28,23 +29,25 @@ export default function Hero() {
             </p>
             
             <div className="flex flex-wrap gap-4">
-              <Button 
-                size="lg" 
-                className="gap-2"
-                data-testid="button-start-trial"
-                onClick={() => console.log('Start free trial clicked')}
-              >
-                Start Free Trial
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                data-testid="button-see-demo"
-                onClick={() => console.log('See demo clicked')}
-              >
-                See Demo
-              </Button>
+              <Link href="/auth">
+                <Button 
+                  size="lg" 
+                  className="gap-2"
+                  data-testid="button-start-trial"
+                >
+                  Start Free Trial
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link href="/chat">
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  data-testid="button-see-demo"
+                >
+                  See Demo
+                </Button>
+              </Link>
             </div>
             
             <p className="text-sm text-muted-foreground">

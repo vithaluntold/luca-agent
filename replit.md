@@ -48,8 +48,9 @@ Luca implements a provider abstraction layer (`server/services/aiProviders/`) fo
   - Auto-recovery: Health scores improve over time when errors stop
   - Health-aware routing: Filters unhealthy providers and prioritizes healthier ones by score
 - **Intelligent Failover**: When a provider encounters token/quota issues, requests automatically route to healthier alternatives
-- **OpenAI Provider Adapter**: Primary provider wrapping OpenAI SDK with unified error handling and usage tracking
-- **All Providers Active**: Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Perplexity AI, and Azure Document Intelligence
+- **Primary Providers**: Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Perplexity AI (intelligent routing based on query classification)
+- **Fallback Providers**: Azure OpenAI and OpenAI (always included in fallback chain for reliability)
+- **Specialized Providers**: Azure Document Intelligence (document analysis)
 - **Cost Optimization**: Multi-provider routing achieves 51% cost savings vs OpenAI-only architecture
 
 The system enables intelligent provider selection based on query complexity, cost considerations, provider health status, and specialized capabilities (document analysis, real-time data, reasoning).
@@ -70,10 +71,11 @@ The conversations table includes a `profileId` column (varchar, nullable) with a
 Luca integrates with several third-party services:
 
 -   **AI Providers** (All Active):
-    -   **OpenAI API**: Primary provider for `gpt-4o`, `gpt-4o-mini` models, ultimate fallback
-    -   **Anthropic Claude**: `claude-3-5-sonnet-20241022` for deep reasoning and expert-level analysis
-    -   **Google Gemini**: `gemini-2.0-flash-exp` for cost-effective simple/moderate queries (51% cheaper)
-    -   **Perplexity AI**: `llama-3.1-sonar-large-128k-online` for real-time research and current information
+    -   **Anthropic Claude**: `claude-3-5-sonnet-20241022` for deep reasoning and expert-level analysis (primary routing)
+    -   **Google Gemini**: `gemini-2.0-flash-exp` for cost-effective simple/moderate queries (primary routing, 51% cheaper)
+    -   **Perplexity AI**: `llama-3.1-sonar-large-128k-online` for real-time research and current information (primary routing)
+    -   **Azure OpenAI**: Dedicated Azure endpoint for `gpt-4o` with enterprise-grade reliability (fallback)
+    -   **OpenAI API**: `gpt-4o`, `gpt-4o-mini` models (ultimate fallback)
     -   **Azure Document Intelligence**: Specialized document analysis for invoices, receipts, tax forms (W-2, 1040, 1098, 1099), and financial statements using prebuilt models
 -   **Accounting Software (OAuth 2.0)**:
     -   QuickBooks Online

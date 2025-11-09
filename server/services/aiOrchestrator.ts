@@ -239,7 +239,10 @@ export class AIOrchestrator {
       providerHealthMonitor.getHealthScore(b) - providerHealthMonitor.getHealthScore(a)
     );
     
-    // Ensure OpenAI is always in the chain as ultimate fallback
+    // Ensure Azure OpenAI and OpenAI are in the fallback chain
+    if (!healthyProviders.includes(AIProviderName.AZURE_OPENAI)) {
+      healthyProviders.push(AIProviderName.AZURE_OPENAI);
+    }
     if (!healthyProviders.includes(AIProviderName.OPENAI)) {
       healthyProviders.push(AIProviderName.OPENAI);
     }

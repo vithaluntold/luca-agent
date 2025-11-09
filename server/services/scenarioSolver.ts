@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { scenarioRuns, scenarioMetrics, scenarioComparisons, scenarioVariants } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { aiOrchestrator } from "../ai/aiOrchestrator";
+import { aiOrchestrator } from "./aiOrchestrator";
 
 /**
  * ScenarioSolver - Runs financial simulations for tax and audit scenarios

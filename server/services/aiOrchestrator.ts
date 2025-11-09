@@ -3,13 +3,9 @@
  * Coordinates multiple AI models and solvers to generate comprehensive responses
  */
 
-import OpenAI from 'openai';
 import { queryTriageService, type QueryClassification, type RoutingDecision } from './queryTriage';
 import { financialSolverService } from './financialSolvers';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+import { aiProviderRegistry, AIProviderName, ProviderError } from './aiProviders';
 
 export interface OrchestrationResult {
   response: string;
@@ -177,7 +173,7 @@ export class AIOrchestrator {
   }
 
   /**
-   * Call OpenAI API with routing decision
+   * Call AI provider with routing decision (multi-provider architecture)
    */
   private async callAIModel(
     enhancedContext: string,
@@ -195,39 +191,41 @@ export class AIOrchestrator {
     
     const actualModel = modelMap[model] || 'gpt-4o';
     
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: enhancedContext },
+    const messages = [
+      { role: 'system' as const, content: enhancedContext },
       ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
     ];
     
     try {
-      const completion = await openai.chat.completions.create({
-        model: actualModel,
+      // Get OpenAI provider from registry
+      const provider = aiProviderRegistry.getProvider(AIProviderName.OPENAI);
+      
+      // Use new provider interface
+      const response = await provider.generateCompletion({
         messages,
+        model: actualModel,
         temperature: 0.7,
-        max_tokens: 2000
+        maxTokens: 2000,
       });
       
       return {
-        content: completion.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.',
-        tokensUsed: completion.usage?.total_tokens || 0
+        content: response.content,
+        tokensUsed: response.tokensUsed.total
       };
     } catch (error: any) {
-      console.error('OpenAI API error:', error);
-      
-      let errorMessage = "I apologize, but I encountered an error processing your request. Please try again.";
-      
-      // More helpful error messages for common issues
-      if (error.status === 429 || error.message?.includes('quota')) {
-        errorMessage = "I'm currently experiencing high demand. The AI service has reached its quota limit. However, I can still help with calculations directly. Please try asking your question again, or contact support for assistance.";
-      } else if (error.status === 401 || error.message?.includes('API key')) {
-        errorMessage = "There's a configuration issue with the AI service. Please contact support.";
-      } else if (error.message?.includes('timeout')) {
-        errorMessage = "The request took too long to process. Please try a simpler question or try again.";
+      // Handle provider errors with fallback
+      if (error instanceof ProviderError) {
+        console.error(`[AIOrchestrator] ${error.provider} error:`, error.message);
+        return {
+          content: error.message,
+          tokensUsed: 0
+        };
       }
       
+      // Generic error fallback
+      console.error('[AIOrchestrator] Unexpected error:', error);
       return {
-        content: errorMessage,
+        content: "I apologize, but I encountered an error processing your request. Please try again.",
         tokensUsed: 0
       };
     }

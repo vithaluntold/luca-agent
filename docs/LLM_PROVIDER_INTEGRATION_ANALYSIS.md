@@ -1,613 +1,546 @@
-# Luca - Holistic LLM Provider Integration Analysis
+# Luca - CPA/CA Advisor LLM Integration Analysis
 **Date:** November 9, 2025  
-**Version:** 1.0  
-**Purpose:** Comprehensive analysis of LLM provider integrations for Luca accounting superintelligence
+**Version:** 2.0  
+**Purpose:** LLM provider integration strategy for world-class accounting advisory platform
 
 ---
 
 ## Executive Summary
 
-Luca currently uses OpenAI (GPT-4o, GPT-4o-mini) as its sole LLM provider. This analysis identifies **strategic multi-provider integration opportunities** to enhance capabilities across document intelligence, real-time search, specialized financial analysis, and cost optimization.
+Luca is a **pan-global accounting superintelligence** - a world-class CPA/CA advisor that provides expert guidance on tax, audit, financial reporting, compliance, and financial analysis across global jurisdictions. Unlike automation tools, Luca serves as a **trusted advisor** that users consult for complex accounting decisions.
 
-**Key Recommendation:** Implement a **hybrid multi-provider architecture** with specialized routing based on query type, complexity, and tier.
+**Current Limitation:** Single LLM provider (OpenAI) limits our advisory capabilities in:
+- Real-time regulatory awareness
+- Multi-year financial analysis depth
+- Document-based consultation quality
+- Cost efficiency at scale
 
----
-
-## 1. Current State Analysis
-
-### Existing Architecture
-- **Primary Model:** OpenAI GPT-4o
-- **Fallback:** GPT-4o-mini
-- **Routing Logic:** User tier + domain-based (tax/audit/financial reporting)
-- **Strengths:** 
-  - Strong general capabilities
-  - Familiar API
-  - Reliable performance
-- **Limitations:**
-  - Single provider dependency
-  - No native document processing
-  - No real-time web access
-  - Higher costs for certain workloads
-  - Static training data (no current regulatory updates)
-
-### Current Cost Structure (OpenAI)
-| Model | Input (per 1M tokens) | Output (per 1M tokens) | Use Case |
-|-------|----------------------|------------------------|----------|
-| GPT-4o | $5 | $15 | Complex queries |
-| GPT-4o-mini | $0.15 | $0.60 | Simple queries, fallback |
+**Strategic Goal:** Multi-provider architecture optimized for **expert advisory intelligence**.
 
 ---
 
-## 2. Provider Capabilities Matrix
+## 1. Luca's Advisory Model
 
-| Provider | Core Strength | Accounting Use Cases | Context Window | Cost Efficiency |
-|----------|---------------|----------------------|----------------|-----------------|
-| **OpenAI** | General intelligence | General accounting Q&A | 128K | Baseline |
-| **Azure Document Intelligence** | Document OCR/extraction | Invoice, W-2, 1099, receipts | N/A | Pay-per-page |
-| **Azure AI Search** | RAG, knowledge retrieval | Tax law search, case law | N/A | Fixed + usage |
-| **Google Gemini 2.0 Flash** | Fast, multimodal, tool use | Financial analysis, modeling | 1M | 67% cheaper than GPT-4o |
-| **Claude 3.5 Sonnet** | Finance/business domain | Document processing, compliance | 200K | 40% cheaper than GPT-4o |
-| **Perplexity Sonar** | Real-time web search | Regulatory updates, current law | Varies | $5/1K searches |
+### What Luca IS:
+✅ **Expert CPA/CA Consultant** - Like having a senior partner on-demand  
+✅ **Multi-Jurisdiction Tax Advisor** - US, Canada, UK, EU, Australia, India, China, Singapore  
+✅ **Financial Analysis Expert** - Complex modeling, scenario planning, forensics  
+✅ **Compliance Advisor** - Regulatory guidance, audit preparation, risk assessment  
+✅ **Research Assistant** - Case law, tax rulings, standards interpretation  
 
----
-
-## 3. Detailed Provider Analysis
-
-### 3.1 Azure AI Services
-
-#### **Azure Document Intelligence**
-**What It Offers:**
-- 30+ prebuilt models for financial documents
-- Tax forms: W-2, 1099 variants, 1040, 1098
-- Financial docs: Invoices, receipts, bank statements, pay stubs
-- Custom model training (as few as 5 documents)
-- Searchable PDF generation
-- Markdown output for RAG workflows
-- Query field extraction
-
-**Why Luca Needs It:**
-- **Document Upload Feature:** Users upload tax returns, invoices, receipts
-- **Automated Extraction:** No manual data entry
-- **Multi-jurisdiction Support:** Different tax forms across countries
-- **Accuracy:** Superior to general LLMs for structured extraction
-- **Compliance:** Audit trails for extracted data
-
-**Integration Points:**
-```
-User uploads PDF → Azure Doc Intelligence → Structured JSON →
-Luca analyzes → Financial solvers → AI-generated insights
-```
-
-**Cost Model:**
-- Prebuilt models: ~$0.001-0.01 per page
-- Custom models: ~$0.04 per page training
-- **Estimated cost:** $50-200/month for 10K pages/month
-
-**Priority:** **HIGH** - Critical for document processing roadmap
+### What Luca IS NOT:
+❌ **Bookkeeping Software** - Not QuickBooks/Xero replacement  
+❌ **AP/AR Automation** - Not invoice processing  
+❌ **Tax Filing Service** - Advises on strategy, doesn't file returns  
+❌ **Document Extraction Tool** - Not OCR service  
 
 ---
 
-#### **Azure AI Search**
-**What It Offers:**
-- Semantic search over large knowledge bases
-- RAG workflows (retrieval-augmented generation)
-- Vector + keyword hybrid search
-- Integration with Azure Document Intelligence
+## 2. Advisory Use Case Analysis
 
-**Why Luca Needs It:**
-- **Tax Law Database:** Search across US IRC, IFRS standards, GAAP
-- **Case Law Retrieval:** Find precedents for complex tax questions
-- **Multi-jurisdiction Rules:** Fast lookup across 50+ countries
-- **Chat Context Enhancement:** Inject relevant regulations into prompts
+### Core Advisory Workflows
 
-**Integration Points:**
-```
-User asks tax question → Triage service identifies jurisdiction →
-Azure Search retrieves relevant IRC sections → 
-Enriched context sent to LLM → Cited answer with sources
-```
+#### **A. Strategic Tax Planning**
+**User Question:** *"I'm considering moving my Delaware C-Corp to Singapore. What are the tax implications?"*
 
-**Cost Model:**
-- Basic tier: $75/month (fixed)
-- Standard S1: $250/month
-- Pay-per-query for semantic ranker
+**Current Flow (OpenAI only):**
+- GPT-4o provides general tax comparison
+- Limited to training data (may be outdated)
+- No citations to current tax treaties
 
-**Priority:** **MEDIUM** - Important for advanced tier, not MVP
+**Enhanced Flow (Multi-Provider):**
+1. **Perplexity Sonar** - Search current US-Singapore tax treaty, recent changes
+2. **Azure AI Search** - Retrieve relevant IRC sections, Singapore tax code
+3. **Claude 3.5 Sonnet** - Reason through complex multi-jurisdiction strategy
+4. **Financial Solvers** - Calculate tax impact scenarios
+
+**Value:** Current, cited, comprehensive advice with calculations
 
 ---
 
-### 3.2 Google Gemini 2.0 Flash
+#### **B. Financial Statement Analysis**
+**User Question:** *"Review my last 3 years of financials and identify tax optimization opportunities"*
 
-**What It Offers:**
-- **1M token context window** - Analyze entire fiscal years
-- **2x faster than GPT-4o** - Real-time dashboards
-- **Native tool calling** - ERP/accounting software integration
-- **Multimodal** - Charts, graphs, PDFs, images
-- **Structured output** - JSON schema validation
+**Current Limitation:**
+- GPT-4o: 128K token limit (~300 pages)
+- Can't process complete multi-year records
 
-**Why Luca Needs It:**
-- **Long Context:** Upload 500-page financial statements
-- **Speed:** Sub-second responses for dashboards
-- **Cost:** 67% cheaper than GPT-4o ($0.10/$0.30 vs $5/$15 per 1M tokens)
-- **Tool Use:** Better at multi-step agentic workflows (fetch data → calculate → post to ERP)
-- **Financial Modeling:** Excel formula generation, Python scripts
+**Enhanced Flow (Gemini 2.0 Flash):**
+- **1M token context** - Upload entire 3-year history
+- Pattern analysis across years
+- Identify deductions, credits, timing strategies
+- Generate scenario comparisons
 
-**Integration Points:**
-```
-Enterprise users: Multi-year financial analysis →
-Gemini 2.0 Flash processes 1M tokens (entire history) →
-Generates forecasts, ratios, trend analysis
-```
-
-**Cost Comparison (1M tokens):**
-| Model | Input | Output | Total (typical 50/50) |
-|-------|-------|--------|----------------------|
-| GPT-4o | $5 | $15 | $10 |
-| Gemini 2.0 Flash | $0.10 | $0.30 | $0.20 |
-| **Savings** | **98%** | **98%** | **98%** |
-
-**Priority:** **HIGH** - Best value for long-context financial analysis
+**Value:** Deep multi-year insights impossible with current architecture
 
 ---
 
-### 3.3 Anthropic Claude 3.5 Sonnet
+#### **C. Regulatory Compliance Advisory**
+**User Question:** *"What SOX controls should I implement for revenue recognition under ASC 606?"*
 
-**What It Offers:**
-- **#1 ranked for business/finance** (S&P Kensho benchmarks)
-- **Superior vision/OCR** - Better than GPT-4o for document extraction
-- **200K context** (1M with beta header for Sonnet 4.5)
-- **Agentic workflows** - Reliable tool use, error correction
-- **Data privacy** - No training on user data
+**Current Flow:**
+- GPT-4o provides general guidance
+- May reference outdated standards
 
-**Why Luca Needs It:**
-- **Invoice Processing:** Best-in-class OCR for AP automation
-- **Compliance Monitoring:** Constitutional AI safety framework
-- **Audit Workflows:** Multi-step reasoning with citations
-- **Financial Analysis:** Trained on CFA, accounting exams
-- **Document Parsing:** Complex tables, multi-column layouts
+**Enhanced Flow:**
+1. **Perplexity Sonar** - Latest FASB guidance, SEC enforcement actions
+2. **Azure AI Search** - ASC 606 implementation guide, industry-specific guidance
+3. **Claude 3.5 Sonnet** - Synthesize into actionable control framework
+4. **GPT-4o** - Generate detailed implementation checklist
 
-**Integration Points:**
-```
-Invoice upload → Claude 3.5 extracts vendor/amounts/line items →
-Validates against PO → Posts to accounting system →
-Flags discrepancies for review
-```
-
-**Cost Comparison:**
-| Model | Input | Output | vs. GPT-4o |
-|-------|-------|--------|------------|
-| Claude 3.5 Sonnet | $3 | $15 | 40% cheaper input |
-| GPT-4o | $5 | $15 | Baseline |
-
-**Optimization:**
-- **Prompt caching:** 90% cost reduction for repeated instructions
-- **Batch API:** 50% savings for overnight reconciliations
-
-**Priority:** **HIGH** - Best for document-heavy accounting workflows
+**Value:** Current, authoritative, industry-specific compliance advice
 
 ---
 
-### 3.4 Perplexity Sonar
+#### **D. Document-Based Consultation**
+**User Scenario:** *User uploads their financial statements and asks for analysis*
 
-**What It Offers:**
-- **Real-time web search** - Hundreds of billions of pages
-- **Sub-400ms latency** - Fast fact retrieval
-- **Citations** - Source links for every claim
-- **OpenAI-compatible API** - Easy integration
-- **Fresh data** - Tens of thousands of updates/second
+**Current Limitation:**
+- GPT-4o vision: Good but not specialized
+- No structured extraction for advisory context
 
-**Why Luca Needs It:**
-- **Regulatory Updates:** IRS/SEC rule changes (same-day awareness)
-- **Case Law Search:** Find recent tax court rulings
-- **Jurisdiction Changes:** Track global tax law amendments
-- **Competitive Intelligence:** Monitor accounting software trends
-- **Fact-Checking:** Validate AI-generated answers against current sources
+**Enhanced Flow:**
+1. **Azure Document Intelligence** - Extract key figures, ratios, trends (structured data)
+2. **Claude 3.5 Sonnet** - Analyze document context (best vision for financial docs)
+3. **Gemini 2.0 Flash** - Long-form analysis if multi-document
+4. **Financial Solvers** - Calculate ratios, benchmarks, red flags
 
-**Integration Points:**
-```
-User asks about "2025 IRS mileage rate" →
-Perplexity searches IRS.gov → Returns cited answer with source →
-Luca incorporates into calculation
-```
-
-**Cost Model:**
-- $5 per 1,000 searches
-- ~$0.005 per search
-- Estimated $50-100/month for 10K-20K searches
-
-**Priority:** **MEDIUM-HIGH** - Critical for staying current, not MVP
+**Value:** More accurate, faster analysis of user-provided documents
 
 ---
 
-## 4. Integration Architecture
+#### **E. Case Law & Precedent Research**
+**User Question:** *"Are there any recent court cases on R&D tax credit eligibility for software development?"*
 
-### Recommended Multi-Provider Routing
+**Current Flow:**
+- GPT-4o limited to training data cutoff
+- No access to recent rulings
+
+**Enhanced Flow:**
+1. **Perplexity Sonar** - Search recent tax court cases (2024-2025)
+2. **Azure AI Search** - Historical precedents from knowledge base
+3. **Claude 3.5 Sonnet** - Synthesize case analysis with citations
+4. **GPT-4o** - Apply to user's specific situation
+
+**Value:** Up-to-date legal research, properly cited
+
+---
+
+## 3. Provider Strategy for Advisory Excellence
+
+### Provider Selection Matrix
+
+| Provider | Advisory Strength | When to Use | Cost Efficiency |
+|----------|------------------|-------------|-----------------|
+| **Perplexity Sonar** | Real-time regulatory/legal research | Current tax law, recent rulings, reg updates | $5/1K searches |
+| **Claude 3.5 Sonnet** | Complex financial reasoning, document analysis | Multi-step tax strategy, compliance frameworks | 40% cheaper than GPT-4o |
+| **Gemini 2.0 Flash** | Multi-year financial analysis | Long-context advisory (3+ years data) | 98% cheaper than GPT-4o |
+| **Azure AI Search** | Tax law knowledge base | IRC/GAAP/IFRS/case law retrieval | Fixed + usage |
+| **Azure Doc Intelligence** | Financial document understanding | Extract data from user-uploaded statements | Pay-per-page |
+| **GPT-4o** | General accounting expertise | Standard tax Q&A, general advice | Baseline |
+
+---
+
+## 4. Enhanced Advisory Capabilities
+
+### 4.1 Real-Time Regulatory Intelligence (Perplexity)
+
+**Advisory Gap:** Tax laws change daily. CPAs must stay current.
+
+**Solution:**
+```
+User: "What's the latest guidance on crypto taxation?"
+↓
+Perplexity searches: IRS.gov, Treasury, Tax Court (2024-2025)
+↓
+Returns: Recent Revenue Rulings, proposed regulations, court cases
+↓
+Luca synthesizes: Current authoritative guidance with citations
+```
+
+**Value Proposition:**
+- Same-day awareness of IRS/SEC/FASB updates
+- Cited sources (IRS notices, court cases)
+- Competitive advantage over static-trained models
+
+**Cost:** ~$50-100/month for 10K-20K regulatory searches
+
+---
+
+### 4.2 Deep Multi-Year Analysis (Gemini 2.0 Flash)
+
+**Advisory Gap:** CPAs need to analyze trends across multiple fiscal years
+
+**Solution:**
+- **1M tokens = ~2,500 pages = 5+ years of financial statements**
+- Identify patterns: revenue cycles, expense trends, tax position changes
+- Compare year-over-year: What changed? Why? Tax implications?
+- Scenario modeling: "What if we restructured 2 years ago?"
+
+**Example Query:**
+```
+"Analyze these 5 years of financials. Recommend tax strategies 
+I missed. Calculate potential savings if I restructured last year."
+```
+
+**Value Proposition:**
+- Impossible with 128K token limit (GPT-4o)
+- 98% cost savings on long-context analysis
+- 2x faster response times
+
+**Cost:** $0.20 per 1M tokens (vs. $10 for GPT-4o)
+
+---
+
+### 4.3 Expert Financial Reasoning (Claude 3.5 Sonnet)
+
+**Advisory Gap:** Complex tax strategies require multi-step reasoning
+
+**Why Claude:**
+- #1 ranked for business/finance (S&P Kensho benchmarks)
+- Superior on CPA exam questions, tax code interpretation
+- Better at multi-step logical chains (tool use, agentic workflows)
+- Constitutional AI = safer for regulated advice
+
+**Use Cases:**
+- International tax planning (transfer pricing, treaty navigation)
+- M&A tax structuring
+- Estate planning optimization
+- Complex compliance frameworks (SOX, GDPR + financial reporting)
+
+**Cost Advantage:**
+- Input: $3/M tokens (vs. $5 for GPT-4o)
+- With prompt caching: 90% savings on repeated advisory patterns
+
+---
+
+### 4.4 Tax Law Knowledge Base (Azure AI Search)
+
+**Advisory Gap:** Need instant access to IRC, GAAP, IFRS, regulations
+
+**Solution:** Index authoritative sources
+- US: Title 26 (IRC), Treasury Regulations, IRS Rulings
+- International: OECD guidance, country-specific tax codes
+- Accounting: ASC codification, IFRS standards
+- Case law: Tax Court, Circuit Court decisions
+
+**RAG Workflow:**
+```
+User asks complex tax question
+↓
+Azure Search retrieves relevant IRC sections, regulations, cases
+↓
+LLM generates answer with specific citations
+↓
+User gets: "Per IRC §179(b)(1)... Treasury Reg §1.179-1(a)..."
+```
+
+**Value:** Authoritative, cited advice (required for professional standards)
+
+---
+
+### 4.5 Document Intelligence (Azure + Claude)
+
+**Advisory Gap:** Users upload financials/tax docs, expect instant analysis
+
+**Hybrid Approach:**
+1. **Azure Document Intelligence** - Extract structured data
+   - Balance sheet line items
+   - Income statement categories
+   - Tax form fields (1120, 1065, 1040)
+   
+2. **Claude 3.5 Sonnet** - Contextual analysis
+   - Best vision model for financial documents
+   - Understands accounting context ("Other Income" vs. "Operating Income")
+   - Multi-page document coherence
+
+**Example:**
+```
+User uploads: 3-year P&L, Balance Sheet, Tax Returns
+↓
+Azure extracts: Revenue, COGS, OpEx, Assets, Liabilities, Tax Paid
+↓
+Claude analyzes: Margin trends, working capital, effective tax rate
+↓
+Financial Solvers: Calculate ratios, compare to benchmarks
+↓
+Luca advises: "Your ETR is 32% vs. 27% industry avg. Here's why..."
+```
+
+---
+
+## 5. Cost-Benefit for Advisory Practice
+
+### Scenario: Mid-Sized Accounting Firm
+**Monthly Usage:** 50,000 advisory consultations
+
+**Current (OpenAI Only):**
+| Query Type | Count | Cost/Query | Monthly Cost |
+|------------|-------|------------|--------------|
+| Simple advice (4o-mini) | 20K | $0.001 | $20 |
+| Complex advisory (4o) | 30K | $0.02 | $600 |
+| **TOTAL** | 50K | - | **$620** |
+
+**Limitations:**
+- No real-time regulatory updates
+- Can't handle multi-year deep analysis
+- No authoritative source citations
+
+---
+
+**Enhanced (Multi-Provider):**
+| Advisory Type | Provider | Count | Cost | Monthly Cost |
+|--------------|----------|-------|------|--------------|
+| Regulatory research | Perplexity | 5K | $0.005 | $25 |
+| Multi-year analysis | Gemini 2.0 Flash | 10K | $0.002 | $20 |
+| Complex strategy | Claude 3.5 Sonnet | 15K | $0.012 | $180 |
+| Document analysis | Azure Doc Intel | 5K | $0.005 | $25 |
+| Standard advice | GPT-4o | 10K | $0.02 | $200 |
+| Simple queries | 4o-mini | 5K | $0.001 | $5 |
+| **TOTAL** | Mixed | 50K | - | **$455** |
+
+**Savings:** $165/month (27%)
+
+**But More Importantly:**
+✅ Real-time tax law awareness  
+✅ Multi-year trend analysis (impossible before)  
+✅ Cited, authoritative answers  
+✅ Better document understanding  
+✅ Competitive differentiation  
+
+---
+
+## 6. Implementation Roadmap
+
+### Phase 1: Multi-Provider Foundation (Weeks 1-2)
+**Goal:** Enable provider switching infrastructure
+
+**Tasks:**
+- [ ] Create AIProvider base interface
+- [ ] Implement OpenAI adapter (refactor existing)
+- [ ] Build provider registry/factory
+- [ ] Update query triage with provider routing
+- [ ] Add fallback error handling
+- [ ] Testing framework
+
+**Deliverable:** `server/services/aiProviders/` module
+
+**Dependencies:** None (can start immediately)
+
+---
+
+### Phase 2: Real-Time Regulatory Intelligence (Weeks 3-4)
+**Goal:** Perplexity integration for current tax law
+
+**Tasks:**
+- [ ] Install Perplexity SDK
+- [ ] Request API key via `ask_secrets`
+- [ ] Implement search provider adapter
+- [ ] Add regulatory query detection to triage
+- [ ] Create citation UI component
+- [ ] Test with recent IRS guidance
+
+**Deliverable:** Real-time tax law lookups with sources
+
+**Advisory Impact:**
+- Answer: "What changed in 2025 tax law?"
+- Query recent IRS notices, proposed regulations
+- Cite: "Per Notice 2025-XX released Jan 15..."
+
+---
+
+### Phase 3: Expert Financial Reasoning (Weeks 5-6)
+**Goal:** Claude 3.5 Sonnet for complex advisory
+
+**Tasks:**
+- [ ] Install `@anthropic-ai/sdk`
+- [ ] Request API key
+- [ ] Implement Claude adapter
+- [ ] Route complex tax strategies to Claude
+- [ ] Add document vision support
+- [ ] Implement prompt caching for cost savings
+- [ ] Test with CPA exam questions
+
+**Deliverable:** Superior reasoning for complex queries
+
+**Advisory Impact:**
+- Multi-step tax planning strategies
+- Better M&A/international tax advice
+- Document analysis for uploaded financials
+
+---
+
+### Phase 4: Long-Context Analysis (Weeks 7-8)
+**Goal:** Gemini 2.0 Flash for multi-year insights
+
+**Tasks:**
+- [ ] Install `@google/generative-ai`
+- [ ] Request API key
+- [ ] Implement Gemini adapter
+- [ ] Detect long-context queries (>100K tokens)
+- [ ] Test with multi-year financial data
+- [ ] Optimize for 1M token context
+
+**Deliverable:** Multi-year financial trend analysis
+
+**Advisory Impact:**
+- "Analyze my last 5 years - what tax strategies did I miss?"
+- Deep pattern recognition across fiscal periods
+- Historical tax position analysis
+
+---
+
+### Phase 5: Knowledge Base (Weeks 9-12)
+**Goal:** Azure AI Search for tax law database
+
+**Tasks:**
+- [ ] Set up Azure AI Search resource
+- [ ] Index US IRC (Title 26)
+- [ ] Index IFRS/US GAAP standards
+- [ ] Add international tax codes (Canada, UK, EU, etc.)
+- [ ] Implement semantic search
+- [ ] Integrate RAG workflow
+- [ ] Add citation system
+
+**Deliverable:** Authoritative tax law search
+
+**Advisory Impact:**
+- "What does IRC §263A say about inventory capitalization?"
+- Instant access to regulations with citations
+- Multi-jurisdiction tax code comparison
+
+---
+
+## 7. Provider Routing Logic
+
+### Smart Advisory Routing
 
 ```typescript
-interface ProviderRouter {
-  routeQuery(
-    classification: QueryClassification,
-    userTier: string,
-    hasDocuments: boolean,
-    needsRealTimeData: boolean
-  ): ProviderSelection;
-}
-
-// Example routing logic
-function selectProvider(context: QueryContext): Provider {
-  // Document processing
-  if (context.hasDocuments) {
-    if (isStructuredForm(context.documentType)) {
-      return 'azure-document-intelligence';
-    }
-    if (requiresOCR(context.documentType)) {
-      return 'claude-3.5-sonnet';
-    }
-  }
-  
-  // Real-time data
-  if (context.needsCurrentInfo) {
+function selectAdvisoryProvider(context: QueryContext): AIProvider {
+  // Real-time regulatory questions
+  if (needsCurrentRegulations(context.query)) {
+    // "What's the latest IRS guidance on..."
+    // "Recent tax court cases about..."
     return 'perplexity-sonar';
   }
   
-  // Long context analysis
-  if (context.tokenCount > 100_000) {
+  // Multi-year financial analysis
+  if (context.estimatedTokens > 100_000) {
+    // User uploads 3+ years of financials
+    // "Analyze trends across my last 5 years"
     return 'gemini-2.0-flash';
   }
   
-  // Complex financial reasoning
-  if (context.domain === 'tax' && context.complexity === 'expert') {
+  // Complex tax strategy
+  if (isComplexTaxPlanning(context.classification)) {
+    // International tax, M&A structuring, estate planning
+    // Multi-step reasoning required
     return 'claude-3.5-sonnet';
   }
   
-  // Fast, cheap queries
-  if (context.complexity === 'simple') {
-    return 'gpt-4o-mini';
+  // Document-based consultation
+  if (context.hasDocuments && requiresDeepAnalysis(context)) {
+    // Best vision + reasoning for financial docs
+    return 'claude-3.5-sonnet';
   }
   
-  // Default
+  // Tax law research
+  if (needsAuthoritativeCitation(context)) {
+    // "What does IRC section X say?"
+    // "Compare GAAP vs IFRS treatment of..."
+    return 'azure-ai-search';  // RAG with citations
+  }
+  
+  // Standard accounting questions
+  if (context.complexity <= 'moderate') {
+    return 'gpt-4o-mini';  // Cost-effective
+  }
+  
+  // Default: General advisory
   return 'gpt-4o';
 }
 ```
 
 ---
 
-## 5. Use Case Mapping
+## 8. Advisory Quality Metrics
 
-| Use Case | Current Provider | Recommended Provider | Reason |
-|----------|------------------|----------------------|--------|
-| General tax Q&A | GPT-4o | GPT-4o | Works well |
-| Invoice extraction | GPT-4o (vision) | Azure Doc Intelligence | Purpose-built, 10x faster |
-| W-2/1099 processing | None | Azure Doc Intelligence | Prebuilt models |
-| Multi-year analysis | GPT-4o (128K limit) | Gemini 2.0 Flash | 1M context, 98% cheaper |
-| Current tax law | GPT-4o (static data) | Perplexity Sonar | Real-time, cited |
-| Compliance monitoring | GPT-4o | Claude 3.5 Sonnet | #1 for finance, safety |
-| Financial modeling | GPT-4o | Gemini 2.0 Flash | Better tool use, faster |
-| Audit workflows | GPT-4o | Claude 3.5 Sonnet | Multi-step reasoning |
-| Receipt OCR | GPT-4o | Claude 3.5 Sonnet | Best vision model |
-| Tax law search | None | Azure AI Search + Perplexity | Hybrid approach |
+### Success Criteria
 
----
+**Immediate (3 Months):**
+- [ ] Handle "What changed recently?" queries (Perplexity)
+- [ ] Analyze 3+ year financial histories (Gemini)
+- [ ] Provide cited tax law answers (Azure Search)
+- [ ] 30% cost reduction while improving quality
 
-## 6. Cost-Benefit Analysis
+**Medium-Term (6 Months):**
+- [ ] Real-time awareness of all major jurisdictions
+- [ ] Multi-year trend analysis as core feature
+- [ ] 95%+ citation accuracy on regulatory questions
+- [ ] Support 100+ concurrent CPA-level consultations
 
-### Scenario: 100,000 Monthly Queries
-
-**Current (OpenAI Only):**
-| Query Type | % of Total | Count | Cost/Query | Total Cost |
-|------------|------------|-------|------------|------------|
-| Simple (4o-mini) | 40% | 40K | $0.001 | $40 |
-| Complex (4o) | 60% | 60K | $0.02 | $1,200 |
-| **TOTAL** | 100% | 100K | - | **$1,240** |
-
-**Proposed (Multi-Provider):**
-| Query Type | Provider | Count | Cost/Query | Total Cost |
-|------------|----------|-------|------------|------------|
-| Document processing | Azure Doc Intel | 10K | $0.005 | $50 |
-| Long context | Gemini 2.0 Flash | 20K | $0.002 | $40 |
-| Simple queries | GPT-4o-mini | 30K | $0.001 | $30 |
-| Complex finance | Claude 3.5 Sonnet | 20K | $0.012 | $240 |
-| Real-time search | Perplexity | 10K | $0.005 | $50 |
-| General queries | GPT-4o | 10K | $0.02 | $200 |
-| **TOTAL** | Mixed | 100K | - | **$610** |
-
-**Savings: $630/month (51%)**
+**Long-Term (12 Months):**
+- [ ] Match Big 4 tax partner quality
+- [ ] Sub-second response with citations
+- [ ] Support 50+ jurisdictions with real-time awareness
+- [ ] Custom fine-tuned models for specialized tax areas
 
 ---
 
-## 7. Implementation Roadmap
+## 9. Risk Mitigation
 
-### Phase 1: Foundation (Weeks 1-2)
-**Goal:** Multi-provider abstraction layer
-
-- [ ] Create unified AI provider interface
-- [ ] Implement provider registry/factory pattern
-- [ ] Add environment-based provider selection
-- [ ] Update query triage service with provider routing
-- [ ] Add provider-specific error handling
-
-**Deliverable:** `server/services/aiProviders/` module
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **Outdated advice** | Critical | Perplexity for current regulations |
+| **Incorrect citations** | High | Azure Search with authoritative sources |
+| **Provider outage** | Medium | Multi-provider fallback chain |
+| **Cost overrun** | Medium | Per-user quotas, rate limiting |
+| **Quality inconsistency** | Medium | Provider-specific validation rules |
 
 ---
 
-### Phase 2: Document Intelligence (Weeks 3-4)
-**Goal:** Azure Document Intelligence integration
-
-- [ ] Set up Azure Document Intelligence resource
-- [ ] Install `@azure/ai-document-intelligence` SDK
-- [ ] Request API keys via `ask_secrets` tool
-- [ ] Implement invoice/receipt processing
-- [ ] Add W-2/1099 extraction
-- [ ] Create document upload UI
-- [ ] Test with sample tax forms
-
-**Deliverable:** File upload + automated extraction
-
----
-
-### Phase 3: Cost Optimization (Weeks 5-6)
-**Goal:** Gemini 2.0 Flash + Claude 3.5 Sonnet
-
-- [ ] Install `@google/generative-ai` SDK
-- [ ] Install `@anthropic-ai/sdk`
-- [ ] Request API keys
-- [ ] Implement long-context routing (Gemini)
-- [ ] Implement document OCR routing (Claude)
-- [ ] Add prompt caching for Claude
-- [ ] Performance testing
-
-**Deliverable:** 50% cost reduction
-
----
-
-### Phase 4: Real-Time Intelligence (Weeks 7-8)
-**Goal:** Perplexity integration for current data
-
-- [ ] Install Perplexity SDK
-- [ ] Request API key
-- [ ] Implement real-time regulatory check
-- [ ] Add citation UI for sourced answers
-- [ ] Create search domain filters (IRS.gov, SEC.gov, etc.)
-- [ ] Test with recent tax law changes
-
-**Deliverable:** Current regulatory awareness
-
----
-
-### Phase 5: Knowledge Base (Weeks 9-10)
-**Goal:** Azure AI Search for tax law database
-
-- [ ] Set up Azure AI Search resource
-- [ ] Index US IRC sections (Title 26)
-- [ ] Index IFRS/GAAP standards
-- [ ] Implement semantic search
-- [ ] Integrate with RAG workflow
-- [ ] Add source citations to answers
-
-**Deliverable:** Tax law search engine
-
----
-
-## 8. Technical Integration Patterns
-
-### Pattern 1: Provider Abstraction
-
-```typescript
-// server/services/aiProviders/base.ts
-export interface AIProvider {
-  name: string;
-  generateCompletion(request: CompletionRequest): Promise<CompletionResponse>;
-  estimateCost(request: CompletionRequest): number;
-  supportsFeature(feature: ProviderFeature): boolean;
-}
-
-export enum ProviderFeature {
-  VISION = 'vision',
-  TOOL_CALLING = 'tool_calling',
-  LONG_CONTEXT = 'long_context',
-  REAL_TIME_SEARCH = 'real_time_search',
-  STRUCTURED_OUTPUT = 'structured_output',
-}
-```
-
-### Pattern 2: Smart Routing
-
-```typescript
-// server/services/aiProviders/router.ts
-export class ProviderRouter {
-  async route(
-    classification: QueryClassification,
-    context: QueryContext
-  ): Promise<AIProvider> {
-    // Document processing
-    if (context.hasDocuments && isStructuredForm(context)) {
-      return this.providers.get('azure-document-intelligence');
-    }
-    
-    // Real-time data
-    if (requiresCurrentInfo(classification)) {
-      return this.providers.get('perplexity');
-    }
-    
-    // Cost optimization for long context
-    if (context.estimatedTokens > 100_000) {
-      return this.providers.get('gemini-2.0-flash');
-    }
-    
-    // Default to OpenAI
-    return this.providers.get('openai');
-  }
-}
-```
-
-### Pattern 3: Fallback Chain
-
-```typescript
-// server/services/aiProviders/orchestrator.ts
-export class AIOrchestrator {
-  async processWithFallback(
-    request: CompletionRequest,
-    providers: AIProvider[]
-  ): Promise<CompletionResponse> {
-    const errors = [];
-    
-    for (const provider of providers) {
-      try {
-        return await provider.generateCompletion(request);
-      } catch (error) {
-        errors.push({ provider: provider.name, error });
-        continue;
-      }
-    }
-    
-    throw new AggregateError(errors, 'All providers failed');
-  }
-}
-```
-
----
-
-## 9. API Key Management
-
-### Required Environment Variables
+## 10. API Keys Required
 
 ```bash
-# OpenAI (existing)
+# Existing
 OPENAI_API_KEY=sk-...
 
-# Azure
-AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://...
-AZURE_DOCUMENT_INTELLIGENCE_KEY=...
-AZURE_SEARCH_ENDPOINT=https://...
-AZURE_SEARCH_KEY=...
+# Phase 2: Perplexity
+PERPLEXITY_API_KEY=pplx-...
 
-# Google Gemini
-GOOGLE_AI_API_KEY=...
-
-# Anthropic Claude
+# Phase 3: Claude
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Perplexity
-PERPLEXITY_API_KEY=...
+# Phase 4: Gemini
+GOOGLE_AI_API_KEY=...
+
+# Phase 5: Azure (later)
+AZURE_SEARCH_ENDPOINT=https://...
+AZURE_SEARCH_KEY=...
 ```
 
-### Secret Management Best Practices
+---
 
-1. **Use Replit Secrets** - Already configured for OpenAI
-2. **Rotate keys quarterly** - Security best practice
-3. **Scope permissions** - Read-only where possible
-4. **Monitor usage** - Set billing alerts
-5. **Audit logs** - Track API calls per provider
+## 11. Next Steps
+
+### Immediate Actions:
+1. ✅ Review and approve this advisory-focused analysis
+2. ⏳ Begin Phase 1: Provider abstraction layer
+3. ⏳ Request API keys for Perplexity, Claude, Gemini
+4. ⏳ Update query triage for advisory-specific routing
+
+### Week 1 Deliverables:
+- Multi-provider architecture foundation
+- OpenAI adapter (refactored)
+- Provider registry system
+- Updated documentation
+
+**Timeline:** 12 weeks to full multi-provider advisory platform  
+**Investment:** ~$455/month operational cost (50K consultations)  
+**ROI:** Superior advisory quality + 27% cost savings
 
 ---
 
-## 10. Monitoring & Optimization
-
-### Key Metrics to Track
-
-| Metric | Purpose | Target |
-|--------|---------|--------|
-| Provider usage % | Load balancing | <40% any single provider |
-| Average response time | Performance | <2 seconds |
-| Cost per query | Efficiency | <$0.01 average |
-| Error rate by provider | Reliability | <1% |
-| Fallback frequency | Routing accuracy | <5% |
-
-### Dashboard Requirements
-
-- Provider usage distribution (pie chart)
-- Cost trend by provider (line chart)
-- Response time percentiles (histogram)
-- Error rates (time series)
-- Token usage by model
-
----
-
-## 11. Risks & Mitigation
-
-| Risk | Impact | Likelihood | Mitigation |
-|------|--------|------------|------------|
-| Provider outage | High | Medium | Fallback chain, multi-provider |
-| Cost overrun | High | Medium | Rate limiting, quotas, alerts |
-| API key leak | Critical | Low | Secrets management, rotation |
-| Inconsistent quality | Medium | Medium | A/B testing, quality metrics |
-| Vendor lock-in | Medium | High | Provider abstraction layer |
-
----
-
-## 12. Recommendations
-
-### Immediate Actions (This Quarter)
-
-1. **Implement provider abstraction layer** - Foundation for all integrations
-2. **Add Azure Document Intelligence** - Critical for document processing
-3. **Integrate Gemini 2.0 Flash** - Immediate cost savings (98% on long context)
-4. **Deploy Claude 3.5 Sonnet** - Best for invoice/receipt OCR
-
-**Expected Impact:**
-- 50% cost reduction
-- 10x faster document processing
-- Support for 30+ tax forms
-- Better financial domain accuracy
-
-### Medium-Term (Next 2 Quarters)
-
-5. **Add Perplexity Sonar** - Real-time regulatory updates
-6. **Deploy Azure AI Search** - Tax law knowledge base
-7. **Optimize routing logic** - ML-based provider selection
-8. **Implement prompt caching** - 90% savings on Claude
-
-### Long-Term (Year 1)
-
-9. **Custom fine-tuned models** - Luca-specific accounting expertise
-10. **Multi-model ensembles** - Combine outputs for accuracy
-11. **Edge deployment** - On-device processing for sensitive data
-12. **Agentic workflows** - Multi-provider tool orchestration
-
----
-
-## 13. Success Metrics
-
-### 3-Month Goals
-- [ ] Reduce AI costs by 40%
-- [ ] Support document uploads (invoices, W-2, 1099)
-- [ ] Increase accuracy on financial benchmarks by 15%
-- [ ] Achieve <2s average response time
-
-### 6-Month Goals
-- [ ] Process 50K documents/month
-- [ ] Real-time regulatory awareness (Perplexity)
-- [ ] Support 100+ jurisdictions
-- [ ] Reduce manual data entry by 80%
-
-### 1-Year Goals
-- [ ] Multi-provider architecture (5+ providers)
-- [ ] Custom tax law knowledge base (Azure Search)
-- [ ] Agentic AP/AR automation
-- [ ] Enterprise-grade compliance monitoring
-
----
-
-## 14. Conclusion
-
-**Why Multi-Provider Matters:**
-- **Cost Efficiency:** 50%+ savings through intelligent routing
-- **Capability Enhancement:** Document processing, real-time search, long context
-- **Risk Mitigation:** No single point of failure
-- **Competitive Advantage:** Best-in-class for each specialized task
-
-**Next Steps:**
-1. Review and approve this analysis
-2. Prioritize Phase 1-2 implementations
-3. Request API keys for approved providers
-4. Begin provider abstraction layer development
-
-**Estimated Implementation Timeline:** 10 weeks  
-**Estimated Cost Savings:** $630/month on 100K queries (51%)  
-**ROI:** Positive after Month 1
-
----
-
-**Prepared by:** Luca Development Team  
-**Review Status:** Pending approval  
-**Version:** 1.0
+**Prepared for:** Luca - World-Class CPA/CA Advisory Platform  
+**Focus:** Expert consultation, not automation  
+**Version:** 2.0 (Advisory-Optimized)

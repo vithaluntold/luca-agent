@@ -2,47 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE - PSYCHOLOGICAL COLOR SYSTEM */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --border: 0 0% 92%;
-  --card: 0 0% 98%;
-  --card-foreground: 0 0% 9%;
-  --card-border: 0 0% 94%;
-  --sidebar: 0 0% 96%;
-  --sidebar-foreground: 0 0% 9%;
-  --sidebar-border: 0 0% 91%;
-  --sidebar-primary: 322 85% 55%;
-  --sidebar-primary-foreground: 322 85% 98%;
-  --sidebar-accent: 322 12% 88%;
-  --sidebar-accent-foreground: 322 12% 15%;
-  --sidebar-ring: 322 85% 55%;
-  --popover: 0 0% 95%;
-  --popover-foreground: 0 0% 9%;
-  --popover-border: 0 0% 90%;
-  --primary: 322 85% 55%;
-  --primary-foreground: 322 85% 98%;
-  --secondary: 322 8% 90%;
-  --secondary-foreground: 322 8% 12%;
-  --muted: 322 6% 93%;
-  --muted-foreground: 322 6% 35%;
-  --accent: 280 10% 92%;
-  --accent-foreground: 280 10% 12%;
-  --destructive: 0 85% 45%;
-  --destructive-foreground: 0 85% 98%;
-  --input: 0 0% 70%;
-  --ring: 322 85% 55%;
-  --chart-1: 322 75% 42%;
-  --chart-2: 280 65% 48%;
-  --chart-3: 340 70% 45%;
-  --chart-4: 260 60% 50%;
-  --chart-5: 300 55% 52%;
+  --elevate-1: rgba(0,0,0, .04);
+  --elevate-2: rgba(0,0,0, .09);
+  
+  /* Clean Bright Backgrounds */
+  --background: 0 0% 100%;          /* Pure white */
+  --foreground: 222 47% 11%;        /* Slate 900 - Dark text */
+  --border: 215 21% 89%;            /* Slate 200 */
+  --card: 210 20% 98%;              /* Slightly cool white */
+  --card-foreground: 222 47% 11%;   /* Slate 900 */
+  --card-border: 215 25% 93%;       /* Slate 100 */
+  
+  /* Sidebar */
+  --sidebar: 210 20% 98%;           /* Cool white */
+  --sidebar-foreground: 222 47% 11%; /* Slate 900 */
+  --sidebar-border: 215 21% 89%;    /* Slate 200 */
+  --sidebar-primary: 271 91% 65%;   /* Purple - Brand */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 243 75% 95%;    /* Light indigo tint */
+  --sidebar-accent-foreground: 243 75% 25%; /* Dark indigo */
+  --sidebar-ring: 243 75% 59%;      /* Indigo */
+  
+  /* Popovers */
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 215 21% 89%;
+  
+  /* PSYCHOLOGICAL COLORS - Light Mode */
+  --primary: 271 91% 65%;           /* Purple - Premium intelligence */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 243 75% 59%;         /* Indigo - Trust authority */
+  --secondary-foreground: 0 0% 100%;
+  --muted: 215 25% 93%;             /* Slate 100 */
+  --muted-foreground: 215 16% 47%;  /* Slate 500 */
+  
+  /* ACTION ENERGY - Coral CTAs */
+  --accent: 25 95% 53%;             /* Coral - High energy */
+  --accent-foreground: 0 0% 100%;
+  
+  /* SUCCESS & GROWTH - Emerald */
+  --success: 160 84% 39%;           /* Emerald - Achievements */
+  --success-foreground: 0 0% 100%;
+  
+  /* PREMIUM - Gold */
+  --gold: 38 92% 50%;               /* Gold - Luxury */
+  --gold-foreground: 222 47% 11%;   /* Dark text on gold */
+  
+  /* DESTRUCTIVE - Rose */
+  --destructive: 351 83% 60%;       /* Rose - Urgent */
+  --destructive-foreground: 0 0% 100%;
+  
+  /* Form Elements */
+  --input: 215 21% 89%;             /* Slate 200 */
+  --ring: 271 91% 65%;              /* Purple focus ring */
+  
+  /* Charts - Purple to Magenta gradient */
+  --chart-1: 271 91% 65%;           /* Purple */
+  --chart-2: 292 84% 61%;           /* Magenta */
+  --chart-3: 243 75% 59%;           /* Indigo */
+  --chart-4: 160 84% 39%;           /* Emerald */
+  --chart-5: 38 92% 50%;            /* Gold */
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -85,6 +109,13 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  
+  /* New psychological color borders - Light Mode */
+  --success-border: hsl(var(--success));
+  --success-border: hsl(from hsl(var(--success)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  
+  --gold-border: hsl(var(--gold));
+  --gold-border: hsl(from hsl(var(--gold)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 .dark {

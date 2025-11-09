@@ -445,10 +445,10 @@ export default function Chat() {
       <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-md bg-gradient-to-r from-primary to-secondary flex items-center justify-center glow-primary">
               <span className="text-white font-bold text-sm">L</span>
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Luca
             </h1>
           </div>
@@ -760,8 +760,10 @@ export default function Chat() {
                     data-testid="input-message"
                   />
                   <Button
+                    variant="default"
                     onClick={handleSendMessage}
                     disabled={(inputMessage.trim() === '' && !selectedFile) || sendMessageMutation.isPending || uploadingFile}
+                    className="glow-primary"
                     data-testid="button-send"
                   >
                     {uploadingFile ? (

@@ -1,7 +1,9 @@
 /**
  * Intelligent Query Triage System
- * Classifies accounting queries by domain and complexity to route to optimal models
+ * Classifies accounting queries by domain and complexity to route to optimal models and providers
  */
+
+import { AIProviderName } from './aiProviders';
 
 export interface QueryClassification {
   domain: 'tax' | 'audit' | 'financial_reporting' | 'compliance' | 'general_accounting' | 'advisory';
@@ -11,12 +13,16 @@ export interface QueryClassification {
   requiresCalculation: boolean;
   requiresResearch: boolean;
   requiresDocumentAnalysis: boolean;
+  requiresRealTimeData: boolean;
+  requiresDeepReasoning: boolean;
   keywords: string[];
   confidence: number;
 }
 
 export interface RoutingDecision {
   primaryModel: string;
+  preferredProvider: AIProviderName;
+  fallbackProviders: AIProviderName[];
   fallbackModels: string[];
   solversNeeded: string[];
   estimatedTokens: number;
@@ -38,6 +44,8 @@ export class QueryTriageService {
     const requiresCalculation = this.needsCalculation(lowerQuery);
     const requiresResearch = this.needsResearch(lowerQuery);
     const requiresDocumentAnalysis = this.needsDocumentAnalysis(lowerQuery);
+    const requiresRealTimeData = this.needsRealTimeData(lowerQuery);
+    const requiresDeepReasoning = this.needsDeepReasoning(lowerQuery, complexity);
     const keywords = this.extractKeywords(lowerQuery);
     
     return {
@@ -48,23 +56,56 @@ export class QueryTriageService {
       requiresCalculation,
       requiresResearch,
       requiresDocumentAnalysis,
+      requiresRealTimeData,
+      requiresDeepReasoning,
       keywords,
       confidence: this.calculateConfidence(lowerQuery, domain)
     };
   }
 
   /**
-   * Routes query to optimal model configuration based on classification
+   * Routes query to optimal model and provider based on classification
    */
   routeQuery(classification: QueryClassification, userTier: string): RoutingDecision {
     let primaryModel = 'gpt-4o';
+    let preferredProvider: AIProviderName = AIProviderName.OPENAI;
+    const fallbackProviders: AIProviderName[] = [];
     const fallbackModels: string[] = [];
     const solversNeeded: string[] = [];
     
-    // Model selection based on domain and tier
+    // Provider selection based on query characteristics
+    if (classification.requiresDocumentAnalysis) {
+      // Future: Azure Document Intelligence for document parsing
+      // For now: OpenAI with document parsing solvers
+      preferredProvider = AIProviderName.OPENAI;
+      solversNeeded.push('document-parser');
+    } else if (classification.requiresRealTimeData || classification.requiresResearch) {
+      // Future: Perplexity AI for real-time research
+      // For now: OpenAI with research solvers
+      preferredProvider = AIProviderName.OPENAI;
+      if (classification.requiresResearch) {
+        solversNeeded.push('tax-case-law-search');
+      }
+    } else if (classification.requiresDeepReasoning || classification.complexity === 'expert') {
+      // Future: Claude 3.5 Sonnet for deep reasoning
+      // For now: OpenAI GPT-4o
+      preferredProvider = AIProviderName.OPENAI;
+      primaryModel = 'gpt-4o';
+    } else if (classification.complexity === 'simple' || classification.complexity === 'moderate') {
+      // Future: Gemini 2.0 Flash for cost-effective queries
+      // For now: OpenAI GPT-4o-mini
+      preferredProvider = AIProviderName.OPENAI;
+      primaryModel = 'gpt-4o-mini';
+      fallbackModels.push('gpt-4o');
+    } else {
+      // Default: OpenAI for general queries
+      preferredProvider = AIProviderName.OPENAI;
+      primaryModel = 'gpt-4o';
+    }
+    
+    // Domain-specific model selection (overrides for enterprise tier)
     if (classification.domain === 'tax') {
-      primaryModel = userTier === 'enterprise' ? 'luca-tax-expert' : 'gpt-4o';
-      fallbackModels.push('gpt-4o-mini');
+      primaryModel = userTier === 'enterprise' ? 'luca-tax-expert' : primaryModel;
       
       if (classification.subDomain?.includes('international')) {
         solversNeeded.push('multi-jurisdiction-tax');
@@ -72,17 +113,13 @@ export class QueryTriageService {
       if (classification.requiresCalculation) {
         solversNeeded.push('tax-calculator');
       }
-      if (classification.requiresResearch) {
-        solversNeeded.push('tax-case-law-search');
-      }
     } else if (classification.domain === 'audit') {
-      primaryModel = userTier === 'enterprise' ? 'luca-audit-expert' : 'gpt-4o';
+      primaryModel = userTier === 'enterprise' ? 'luca-audit-expert' : primaryModel;
       solversNeeded.push('risk-assessment');
       if (classification.requiresCalculation) {
         solversNeeded.push('materiality-calculator');
       }
     } else if (classification.domain === 'financial_reporting') {
-      primaryModel = 'gpt-4o';
       if (classification.subDomain?.includes('gaap') || classification.subDomain?.includes('ifrs')) {
         solversNeeded.push('standards-lookup');
       }
@@ -90,16 +127,10 @@ export class QueryTriageService {
         solversNeeded.push('financial-metrics');
       }
     } else if (classification.domain === 'compliance') {
-      primaryModel = 'gpt-4o';
       solversNeeded.push('regulatory-check');
       if (classification.jurisdiction) {
         solversNeeded.push('jurisdiction-rules');
       }
-    }
-    
-    // Add document analysis if needed
-    if (classification.requiresDocumentAnalysis) {
-      solversNeeded.push('document-parser');
     }
     
     // Always add financial calculator for any calculation needs
@@ -107,11 +138,18 @@ export class QueryTriageService {
       solversNeeded.push('financial-calculator');
     }
     
+    // Add fallback provider (always OpenAI for now)
+    if (preferredProvider !== AIProviderName.OPENAI) {
+      fallbackProviders.push(AIProviderName.OPENAI);
+    }
+    
     const estimatedTokens = this.estimateTokenUsage(classification, primaryModel);
-    const reasoning = this.buildRoutingReason(classification, primaryModel, solversNeeded);
+    const reasoning = this.buildRoutingReason(classification, primaryModel, preferredProvider, solversNeeded);
     
     return {
       primaryModel,
+      preferredProvider,
+      fallbackProviders,
       fallbackModels,
       solversNeeded,
       estimatedTokens,
@@ -223,6 +261,22 @@ export class QueryTriageService {
     return docKeywords.some(kw => query.includes(kw));
   }
 
+  private needsRealTimeData(query: string): boolean {
+    const realtimeKeywords = ['current', 'latest', 'recent', 'today', 'now', 'real-time', 
+      'current rate', 'latest ruling', 'recent changes'];
+    return realtimeKeywords.some(kw => query.includes(kw));
+  }
+
+  private needsDeepReasoning(query: string, complexity: QueryClassification['complexity']): boolean {
+    // Expert complexity always needs deep reasoning
+    if (complexity === 'expert' || complexity === 'complex') return true;
+    
+    // Multi-step problems need deep reasoning
+    const reasoningKeywords = ['explain why', 'compare', 'evaluate', 'analyze the impact', 
+      'what would happen if', 'should i', 'best approach', 'recommend', 'strategy'];
+    return reasoningKeywords.some(kw => query.includes(kw));
+  }
+
   private extractKeywords(query: string): string[] {
     const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
       'of', 'with', 'is', 'are', 'was', 'were', 'what', 'how', 'can', 'could', 'should']);
@@ -255,11 +309,12 @@ export class QueryTriageService {
 
   private buildRoutingReason(
     classification: QueryClassification, 
-    model: string, 
+    model: string,
+    provider: AIProviderName,
     solvers: string[]
   ): string {
     let reason = `Classified as ${classification.domain} query with ${classification.complexity} complexity. `;
-    reason += `Using ${model} for optimal domain expertise. `;
+    reason += `Using ${provider} provider with ${model} model for optimal domain expertise. `;
     
     if (solvers.length > 0) {
       reason += `Engaging ${solvers.join(', ')} for enhanced accuracy.`;

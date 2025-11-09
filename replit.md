@@ -1,169 +1,39 @@
 # Luca - Accounting Superintelligence
 
 ## Overview
-Luca is a pan-global accounting superintelligence platform designed to surpass traditional tax and accounting software. It integrates specialized AI models with advanced financial solvers to offer comprehensive expertise across tax, audit, financial reporting, compliance, and financial analysis. The platform provides actual calculations, multi-domain expertise, global coverage, advanced financial modeling, and real-time processing, aiming to be a superior alternative to tools like Blue J Tax.
+Luca is a pan-global accounting superintelligence platform designed to surpass traditional tax and accounting software. It integrates specialized AI models with advanced financial solvers to offer comprehensive expertise across tax, audit, financial reporting, compliance, and financial analysis. The platform provides actual calculations, multi-domain expertise, global coverage, advanced financial modeling, and real-time processing, aiming to be a superior alternative to existing tools.
 
 ## User Preferences
 I prefer that you communicate in a clear and concise manner. When providing explanations, please prioritize simplicity and avoid overly technical jargon where possible. I value an iterative development approach, so please propose changes and discuss them with me before implementing major modifications to the codebase. Ensure that any changes you make are well-documented and align with the existing code style. Please do not make changes to files in the `server/services` directory.
 
 ## System Architecture
 
-### Document Upload & Analysis System (NEW - November 2024)
-Luca now includes file upload capabilities for chat conversations with Azure Document Intelligence integration:
-- **Supported Formats**: PDF, PNG, JPEG, TIFF (aligned across frontend, upload endpoint, and chat processing)
-- **Size Limits**: 10MB maximum file size with validation at upload and chat endpoints
-- **Security**: Multer whitelist, MIME type validation, size checks at multiple layers
-- **Architecture**: Dual-channel payload (message text + attachment metadata kept separate)
-  - Frontend uploads file → receives base64 data
-  - Sends chat message with documentAttachment { data, type, filename }
-  - Backend validates MIME/size → converts base64 to Buffer
-  - AI orchestrator uses options bag { attachment: { buffer, filename, mimeType, documentType } }
-  - Query triage detects document via QueryContext hints → routes to Azure
-  - Azure provider reads request.attachment → maps MIME to prebuilt model → analyzes document
-- **Provider Integration**: Azure Document Intelligence with MIME-to-model mapping (PDF→prebuilt-document, images→prebuilt-receipt/invoice)
-- **State Management**: Attachments cleared post-send, conversation flow remains consistent
-
-### AI Analytics & Insights System (NEW - December 2024)
-Luca now includes a comprehensive analytics system that tracks response quality, analyzes user sentiment, and predicts behavior patterns:
-- **Sentiment Analysis**: Real-time analysis of user messages using Gemini AI (3-second timeout with heuristic fallback)
-- **Quality Assessment**: AI-powered evaluation of response accuracy, helpfulness, and clarity
-- **Conversation Insights**: Deep analysis using Claude for topic extraction and resolution tracking
-- **Behavior Prediction**: Churn risk scoring, engagement metrics, and upsell candidate identification
-- **Async Processing**: Analytics run in background (fire-and-forget) to avoid blocking chat responses
-- **Database Tables**: conversation_analytics, message_analytics, user_behavior_patterns, sentiment_trends
-
-### Game-Changing MVP Features (NEW - November 2024)
-Luca now includes three unique features that no competitor offers, creating a defensible competitive moat:
-
-#### 1. Regulatory Scenario Simulator (/scenarios)
-Live "what-if" stress-testing for tax and audit positions across jurisdictions and time periods:
-- **Database Schema** (7 tables): scenario_playbooks, scenario_variants, scenario_runs, scenario_metrics, scenario_comparisons, scenario_shares, scenario_conversation_links
-- **Core Capabilities**:
-  - Compare entity structures (LLC vs S-Corp taxation)
-  - Test deduction strategies (home office: actual vs simplified method)
-  - Multi-jurisdiction comparison (California, Delaware, Texas, New York, Florida)
-  - Audit risk analysis across different approaches
-  - Side-by-side results with tax liability, effective rate, QBI deduction, estimated savings
-- **Competitive Advantage**: Transforms Luca into a tax strategy lab (vs. TurboTax form-filling, Blue J Tax static research)
-
-#### 2. Client Deliverable Composer (/deliverables)
-One-click generation of professional-grade documents with AI assistance:
-- **Database Schema** (5 tables): deliverable_templates, deliverable_instances, deliverable_versions, deliverable_assets, deliverable_shares
-- **Professional Templates**:
-  - Manufacturing Audit Plan
-  - S-Corp Election Tax Memo
-  - Year-End Tax Planning Checklist
-  - Q4 Financial Board Presentation
-  - Audit Engagement Letter
-- **Core Capabilities**:
-  - AI-powered document generation with IRS citations
-  - Template variables (client name, entity type, tax year, jurisdiction, income)
-  - Export to DOCX and PDF formats
-  - Version history tracking
-  - Shareable deliverable links
-- **Competitive Advantage**: Collapses 3-5 hours of CPA work into 5 minutes (vs. generic templates or ChatGPT raw output)
-
-#### 3. Forensic Document Intelligence (/forensics)
-Proactive anomaly detection and cross-document reconciliation:
-- **Database Schema** (5 tables): forensic_cases, forensic_documents, forensic_findings, forensic_reconciliations, forensic_evidence
-- **Anomaly Detection**:
-  - Revenue-AR mismatch detection (collection issues, revenue recognition timing)
-  - Income reporting discrepancies (1099-K vs bank deposits)
-  - Vendor pricing inconsistencies (contract compliance)
-  - Unusual expense patterns (business purpose verification)
-- **Core Capabilities**:
-  - Overall risk scoring (0-100)
-  - Severity-based findings (critical, high, medium, low)
-  - Cross-document reconciliation with variance tracking
-  - Supporting evidence extraction
-  - Investigation and resolution workflow
-- **Competitive Advantage**: Proactive risk discovery before problems occur (vs. reactive accounting software)
-
-**Combined Market Position**: These three features position Luca as an advisor + action platform (not just Q&A), providing professional-grade output with proactive intelligence that anticipates problems before they occur.
-
-### WebSocket Real-Time Streaming (NEW - November 2024)
-Luca now includes WebSocket support for real-time streaming chat responses:
-- **Server**: WebSocketServer integrated with Express HTTP server on `/ws/chat` endpoint
-- **Client Hook**: `useWebSocket` hook provides connection management, message handling, and auto-reconnect with exponential backoff
-- **Streaming Protocol**: Chunked responses with `start`, `chunk`, `end`, and `error` message types
-- **Features**: Real-time AI response streaming, connection state management, automatic reconnection (up to 5 attempts)
-- **Architecture**: Bi-directional WebSocket communication for low-latency chat interactions
-
 ### UI/UX Decisions
-The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts. The conversations sidebar includes a profile filter dropdown that allows users to view conversations by profile context ("All Profiles", "No Profile", or specific profiles). When users switch profile filters, the active conversation is cleared to ensure each profile context maintains separate conversation threads. A persistent "Powered by FinACEverse" badge is displayed at the bottom-center of the screen. The design uses a pink-to-purple brand gradient theme.
+The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts, with a profile filter dropdown in the conversations sidebar. A persistent "Powered by FinACEverse" badge is displayed, and the design uses a pink-to-purple brand gradient theme.
 
 ### Technical Implementations
-
-#### Multi-Provider AI Architecture with Health Monitoring
-Luca implements a provider abstraction layer (`server/services/aiProviders/`) for flexible LLM integration. The architecture includes:
-- **Provider Abstraction Layer**: Base AIProvider class with standardized interfaces for completion requests, streaming, token usage, and cost estimation
-- **Provider Registry**: Singleton factory pattern (`aiProviderRegistry`) for dynamic provider selection and initialization
-- **Health Monitoring System** (`providerHealthMonitor`): Real-time tracking of provider health with automatic failover
-  - Tracks success/error rates, consecutive failures, and health scores (0-100)
-  - Detects and handles rate limits (429), quota exceeded, auth errors (401/403), timeouts, and network issues
-  - Implements smart cooldown periods: 1min for rate limits, 5min for quota, 10min for auth errors
-  - Auto-recovery: Health scores improve over time when errors stop
-  - Health-aware routing: Filters unhealthy providers and prioritizes healthier ones by score
-- **Intelligent Failover**: When a provider encounters token/quota issues, requests automatically route to healthier alternatives
-- **Primary Providers**: Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Perplexity AI (intelligent routing based on query classification)
-- **Fallback Providers**: Azure OpenAI and OpenAI (always included in fallback chain for reliability)
-- **Specialized Providers**: Azure Document Intelligence (document analysis)
-- **Cost Optimization**: Multi-provider routing achieves 51% cost savings vs OpenAI-only architecture
-
-The system enables intelligent provider selection based on query complexity, cost considerations, provider health status, and specialized capabilities (document analysis, real-time data, reasoning).
-
-#### Professional Requirement Clarification System (NEW - November 2024)
-Luca behaves as a professional CPA/CA advisor who asks thoughtful questions before providing generic answers. This system ensures tailored, jurisdiction-specific advice:
-
-**Core Capabilities:**
-- **Context Detection**: Automatically extracts jurisdiction, tax year, entity type, filing status, accounting method, and business type from conversation history
-- **Missing Context Analysis**: Identifies critical missing details (jurisdiction, entity type, tax year) that affect advice accuracy
-- **Ambiguity Detection**: Flags vague timeframes, unclear amounts, missing business structure, and income type ambiguities
-- **Nuance Recognition**: Detects accounting-specific subtleties including:
-  - Home office deductions (exclusive use, simplified vs actual method)
-  - Depreciation strategies (Section 179 vs bonus vs MACRS, recapture implications)
-  - Stock/equity considerations (holding periods, wash sales, ISO vs NSO)
-  - Retirement account rules (age-based limits, phase-outs)
-  - Real estate complexities (passive loss limits, professional status, 1031 exchange timing)
-  - International reporting (FBAR, FATCA, treaty provisions)
-  - Estimated tax safe harbors
-
-**Three Advisor Behaviors:**
-1. **Strict Clarification** (critical context missing): Returns clarifying questions immediately without AI call (cost-efficient)
-2. **Partial Answer + Clarification** (high importance missing): Provides general guidance then asks for missing details (enforced via post-processing)
-3. **Expert Answer** (sufficient context): Delivers comprehensive, jurisdiction-specific advice with detected nuances
-
-**Enhanced System Prompts:**
-- Explicitly instructs AI: "You are NOT a generic text generation machine"
-- Emphasizes jurisdiction-specific nuances other LLMs miss
-- Requires tailored advice over generic information
-- Surfaces missing context and detected nuances to AI provider
-- Instructs partial-answer format when appropriate
-
-**Implementation:** `server/services/requirementClarification.ts` analyzes queries, `server/services/aiOrchestrator.ts` enforces clarification behavior via PHASE 0 analysis and post-processing safeguards.
-
-#### Query Processing Pipeline
-Luca employs an Intelligent Query Triage System (`server/services/queryTriage.ts`) to classify accounting questions by domain, jurisdiction, and complexity, routing them to optimal AI models and financial solvers. A Multi-Model Router Architecture uses `gpt-4o` as primary, with specialized models and a fallback to `gpt-4o-mini`. Advanced Financial Solvers (`server/services/financialSolvers.ts`) handle tax calculations, NPV, IRR, depreciation, amortization, and financial ratios. An AI Orchestration Layer (`server/services/aiOrchestrator.ts`) coordinates these components, synthesizes responses, tracks performance, and enforces professional advisor behavior through requirement clarification.
+Luca employs a multi-provider AI architecture with a provider abstraction layer and a health monitoring system for dynamic selection and intelligent failover among LLMs. A Professional Requirement Clarification System ensures tailored, jurisdiction-specific advice by detecting context, analyzing missing details, and recognizing accounting nuances, guiding the AI to ask clarifying questions or provide partial answers when necessary. The Query Processing Pipeline uses an Intelligent Query Triage System to classify questions and route them to optimal AI models and advanced financial solvers. WebSocket support enables real-time streaming chat responses. The platform includes file upload capabilities with Azure Document Intelligence integration for various document types.
 
 ### Feature Specifications
-The platform supports full conversation history, token usage tracking, and a subscription tier system (Free, Professional, Enterprise). It includes API endpoints for authentication, chat interactions, conversation management, profile management, and usage/subscription queries. The conversation system is profile-aware: conversations are linked to specific profiles (business, personal, or family) or can be unassociated (null profileId). Users can filter conversations by profile using the sidebar dropdown, and new conversations automatically inherit the selected profile context. The backend enforces security by validating that profileId values belong to the authenticated user before creating conversations.
+Luca offers three unique features:
+1.  **Regulatory Scenario Simulator**: For "what-if" stress-testing of tax and audit positions across jurisdictions and time periods, with side-by-side comparisons.
+2.  **Client Deliverable Composer**: One-click generation of professional-grade documents (e.g., audit plans, tax memos) with AI assistance, template variables, and export options.
+3.  **Forensic Document Intelligence**: Proactive anomaly detection and cross-document reconciliation for financial discrepancies, providing risk scoring and supporting evidence extraction.
+
+The platform supports full conversation history, token usage tracking, and a subscription tier system (Free, Professional, Enterprise). Conversations are profile-aware, linked to specific profiles, and new conversations inherit the selected profile context. API endpoints handle authentication, chat, conversation management, and usage queries.
 
 ### System Design Choices
-The backend uses Express.js with a PostgreSQL database and Drizzle ORM. Security features include bcrypt for password hashing, AES-256-GCM encryption for sensitive data (API keys, OAuth tokens, and per-file encryption for uploads), Helmet middleware for HTTP security, and rate limiting. File uploads utilize a secure system with per-file encryption, key wrapping, SHA-256 checksums, virus scanning, and DOD 5220.22-M secure deletion.
-
-The conversations table includes a `profileId` column (varchar, nullable) with a composite index on `(userId, profileId, updatedAt)` for efficient profile-based filtering. The backend validates profile ownership before creating conversations (returns 400 for invalid profileId, 403 for unauthorized access). The profile constraint system enforces that users can only create one Personal profile, while Business and Family profiles are unlimited.
+The backend uses Express.js with a PostgreSQL database and Drizzle ORM. Security features include bcrypt for password hashing, AES-256-GCM encryption for sensitive data, Helmet middleware, and rate limiting. File uploads utilize a secure system with per-file encryption, key wrapping, SHA-256 checksums, and virus scanning. The `conversations` table includes a `profileId` column for efficient profile-based filtering, and the system enforces profile ownership and constraints.
 
 ## External Dependencies
 
-Luca integrates with several third-party services:
-
--   **AI Providers** (All Active):
-    -   **Anthropic Claude**: `claude-3-5-sonnet-20241022` for deep reasoning and expert-level analysis (primary routing)
-    -   **Google Gemini**: `gemini-2.0-flash-exp` for cost-effective simple/moderate queries (primary routing, 51% cheaper)
-    -   **Perplexity AI**: `llama-3.1-sonar-large-128k-online` for real-time research and current information (primary routing)
-    -   **Azure OpenAI**: Dedicated Azure endpoint for `gpt-4o` with enterprise-grade reliability (fallback)
-    -   **OpenAI API**: `gpt-4o`, `gpt-4o-mini` models (ultimate fallback)
-    -   **Azure Document Intelligence**: Specialized document analysis for invoices, receipts, tax forms (W-2, 1040, 1098, 1099), and financial statements using prebuilt models
+-   **AI Providers**:
+    -   Anthropic Claude (`claude-3-5-sonnet-20241022`)
+    -   Google Gemini (`gemini-2.0-flash-exp`)
+    -   Perplexity AI (`llama-3.1-sonar-large-128k-online`)
+    -   Azure OpenAI (`gpt-4o`)
+    -   OpenAI API (`gpt-4o`, `gpt-4o-mini`)
+    -   Azure Document Intelligence (for document analysis)
 -   **Accounting Software (OAuth 2.0)**:
     -   QuickBooks Online
     -   Xero
@@ -173,4 +43,4 @@ Luca integrates with several third-party services:
     -   Drake Tax
     -   TurboTax
     -   H&R Block
--   **External Virus Scanning Service**: Required for file upload security.
+-   **External Virus Scanning Service**

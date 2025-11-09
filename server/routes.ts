@@ -2139,6 +2139,349 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===============================================
+  // MVP FEATURE ROUTES
+  // ===============================================
+
+  // Scenario Simulator Routes
+  app.post("/api/scenarios/playbooks", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { scenarioPlaybooks, insertScenarioPlaybookSchema } = await import("@shared/schema");
+      
+      const validatedData = insertScenarioPlaybookSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      const [playbook] = await db.insert(scenarioPlaybooks).values(validatedData).returning();
+      res.json(playbook);
+    } catch (error) {
+      console.error('Create playbook error:', error);
+      res.status(500).json({ error: "Failed to create scenario playbook" });
+    }
+  });
+
+  app.get("/api/scenarios/playbooks", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { scenarioPlaybooks } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      
+      const playbooks = await db
+        .select()
+        .from(scenarioPlaybooks)
+        .where(eq(scenarioPlaybooks.userId, userId))
+        .orderBy(desc(scenarioPlaybooks.createdAt));
+      
+      res.json(playbooks);
+    } catch (error) {
+      console.error('Fetch playbooks error:', error);
+      res.status(500).json({ error: "Failed to fetch scenario playbooks" });
+    }
+  });
+
+  app.post("/api/scenarios/playbooks/:playbookId/variants", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { scenarioVariants, scenarioPlaybooks } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      
+      // Verify playbook ownership
+      const [playbook] = await db
+        .select()
+        .from(scenarioPlaybooks)
+        .where(and(
+          eq(scenarioPlaybooks.id, req.params.playbookId),
+          eq(scenarioPlaybooks.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!playbook) {
+        return res.status(404).json({ error: "Playbook not found" });
+      }
+      
+      const [variant] = await db.insert(scenarioVariants).values({
+        playbookId: req.params.playbookId,
+        ...req.body
+      }).returning();
+      
+      res.json(variant);
+    } catch (error) {
+      console.error('Create variant error:', error);
+      res.status(500).json({ error: "Failed to create scenario variant" });
+    }
+  });
+
+  app.post("/api/scenarios/playbooks/:playbookId/simulate", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { ScenarioSolver } = await import("./services/scenarioSolver");
+      const { db } = await import("./db");
+      const { scenarioPlaybooks, scenarioRuns, scenarioMetrics } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      
+      // Verify playbook ownership
+      const [playbook] = await db
+        .select()
+        .from(scenarioPlaybooks)
+        .where(and(
+          eq(scenarioPlaybooks.id, req.params.playbookId),
+          eq(scenarioPlaybooks.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!playbook) {
+        return res.status(404).json({ error: "Playbook not found" });
+      }
+      
+      // Run simulation
+      const result = await ScenarioSolver.runSimulation(playbook, req.body.variantIds || []);
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Simulation error:', error);
+      res.status(500).json({ error: "Failed to run simulation" });
+    }
+  });
+
+  // Deliverable Composer Routes
+  app.get("/api/deliverables/templates", requireAuth, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { deliverableTemplates } = await import("@shared/schema");
+      const { or, eq, isNull } = await import("drizzle-orm");
+      
+      // Get system templates and user's custom templates
+      const templates = await db
+        .select()
+        .from(deliverableTemplates)
+        .where(or(
+          eq(deliverableTemplates.isSystem, true),
+          isNull(deliverableTemplates.ownerUserId)
+        ));
+      
+      res.json(templates);
+    } catch (error) {
+      console.error('Fetch templates error:', error);
+      res.status(500).json({ error: "Failed to fetch deliverable templates" });
+    }
+  });
+
+  app.post("/api/deliverables/generate", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { DeliverableGenerator } = await import("./services/deliverableGenerator");
+      const { db } = await import("./db");
+      const { deliverableInstances } = await import("@shared/schema");
+      
+      const { templateId, variables } = req.body;
+      
+      // Generate deliverable using AI
+      const result = await DeliverableGenerator.generate(templateId, variables, userId);
+      
+      // Store instance
+      const [instance] = await db.insert(deliverableInstances).values({
+        userId,
+        templateId,
+        title: result.title || 'Untitled Document',
+        type: result.type || 'general',
+        variableValues: variables,
+        contentMarkdown: result.content,
+        status: 'draft'
+      }).returning();
+      
+      res.json(instance);
+    } catch (error) {
+      console.error('Generate deliverable error:', error);
+      res.status(500).json({ error: "Failed to generate deliverable" });
+    }
+  });
+
+  app.get("/api/deliverables/instances", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { deliverableInstances } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      
+      const instances = await db
+        .select()
+        .from(deliverableInstances)
+        .where(eq(deliverableInstances.userId, userId))
+        .orderBy(desc(deliverableInstances.createdAt));
+      
+      res.json(instances);
+    } catch (error) {
+      console.error('Fetch instances error:', error);
+      res.status(500).json({ error: "Failed to fetch deliverable instances" });
+    }
+  });
+
+  app.post("/api/deliverables/instances/:instanceId/export", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { DocumentExporter } = await import("./services/documentExporter");
+      const { db } = await import("./db");
+      const { deliverableInstances, deliverableAssets } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      
+      // Verify instance ownership
+      const [instance] = await db
+        .select()
+        .from(deliverableInstances)
+        .where(and(
+          eq(deliverableInstances.id, req.params.instanceId),
+          eq(deliverableInstances.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!instance) {
+        return res.status(404).json({ error: "Deliverable not found" });
+      }
+      
+      const { format } = req.body; // 'docx' or 'pdf'
+      
+      // Export to requested format
+      const asset = await DocumentExporter.export(instance, format);
+      
+      res.json(asset);
+    } catch (error) {
+      console.error('Export deliverable error:', error);
+      res.status(500).json({ error: "Failed to export deliverable" });
+    }
+  });
+
+  // Forensic Intelligence Routes
+  app.post("/api/forensics/cases", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { forensicCases, insertForensicCaseSchema } = await import("@shared/schema");
+      
+      const validatedData = insertForensicCaseSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      const [forensicCase] = await db.insert(forensicCases).values(validatedData).returning();
+      res.json(forensicCase);
+    } catch (error) {
+      console.error('Create forensic case error:', error);
+      res.status(500).json({ error: "Failed to create forensic case" });
+    }
+  });
+
+  app.get("/api/forensics/cases", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { forensicCases } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      
+      const cases = await db
+        .select()
+        .from(forensicCases)
+        .where(eq(forensicCases.userId, userId))
+        .orderBy(desc(forensicCases.createdAt));
+      
+      res.json(cases);
+    } catch (error) {
+      console.error('Fetch forensic cases error:', error);
+      res.status(500).json({ error: "Failed to fetch forensic cases" });
+    }
+  });
+
+  app.post("/api/forensics/cases/:caseId/documents", requireAuth, fileUploadRateLimiter, upload.single('file'), async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { forensicCases, forensicDocuments } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // Verify case ownership
+      const [forensicCase] = await db
+        .select()
+        .from(forensicCases)
+        .where(and(
+          eq(forensicCases.id, req.params.caseId),
+          eq(forensicCases.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!forensicCase) {
+        return res.status(404).json({ error: "Case not found" });
+      }
+      
+      // Store encrypted file
+      const storageKey = await storeEncryptedFile(req.file.buffer, req.file.mimetype);
+      const checksum = calculateChecksum(req.file.buffer);
+      
+      // Store document record
+      const [document] = await db.insert(forensicDocuments).values({
+        caseId: req.params.caseId,
+        filename: req.file.originalname,
+        sourceType: 'upload',
+        extractedData: {}, // Will be filled by analyzer
+        analysisStatus: 'pending'
+      }).returning();
+      
+      // Trigger forensic analysis asynchronously
+      const { ForensicAnalyzer } = await import("./services/forensicAnalyzer");
+      setImmediate(() => {
+        ForensicAnalyzer.analyzeDocument(document.id, req.file!.buffer, req.file!.mimetype).catch((error: any) => {
+          console.error('[Forensics] Analysis failed:', error);
+        });
+      });
+      
+      res.json(document);
+    } catch (error) {
+      console.error('Upload forensic document error:', error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
+  app.get("/api/forensics/cases/:caseId/findings", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { forensicCases, forensicFindings } = await import("@shared/schema");
+      const { eq, and, desc } = await import("drizzle-orm");
+      
+      // Verify case ownership
+      const [forensicCase] = await db
+        .select()
+        .from(forensicCases)
+        .where(and(
+          eq(forensicCases.id, req.params.caseId),
+          eq(forensicCases.userId, userId)
+        ))
+        .limit(1);
+      
+      if (!forensicCase) {
+        return res.status(404).json({ error: "Case not found" });
+      }
+      
+      const findings = await db
+        .select()
+        .from(forensicFindings)
+        .where(eq(forensicFindings.caseId, req.params.caseId))
+        .orderBy(desc(forensicFindings.severity), desc(forensicFindings.createdAt));
+      
+      res.json(findings);
+    } catch (error) {
+      console.error('Fetch findings error:', error);
+      res.status(500).json({ error: "Failed to fetch forensic findings" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Setup WebSocket server for real-time chat streaming

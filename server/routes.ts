@@ -44,17 +44,20 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Allow only specific MIME types
+    // Only allow formats supported by Azure Document Intelligence
     const allowedMimes = [
-      'text/csv',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain'
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/tiff',
+      'image/tif'
     ];
     
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only CSV, Excel, and text files are allowed.'));
+      cb(new Error('Invalid file type. Supported formats: PDF, PNG, JPEG, TIFF'));
     }
   }
 });
@@ -668,10 +671,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { conversationId, message, profileId } = req.body;
+      const { conversationId, message, profileId, documentAttachment } = req.body;
       
       if (!message) {
         return res.status(400).json({ error: "Message required" });
+      }
+      
+      // Convert document attachment from base64 to Buffer for AI processing
+      // Future enhancement: Use temporary encrypted storage with attachmentId lookup
+      let attachmentBuffer: Buffer | undefined;
+      let attachmentMetadata: { filename: string; mimeType: string; documentType?: string } | undefined;
+      
+      if (documentAttachment) {
+        try {
+          // Security validation: Check attachment size and type
+          const ALLOWED_MIME_TYPES = [
+            'application/pdf',
+            'image/png',
+            'image/jpeg',
+            'image/jpg',
+            'image/tiff',
+            'image/tif'
+          ];
+          const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
+          
+          // Validate MIME type
+          if (!ALLOWED_MIME_TYPES.includes(documentAttachment.type)) {
+            return res.status(400).json({ 
+              error: "Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF" 
+            });
+          }
+          
+          // Convert base64 data to Buffer
+          attachmentBuffer = Buffer.from(documentAttachment.data, 'base64');
+          
+          // Validate size
+          if (attachmentBuffer.byteLength > MAX_SIZE_BYTES) {
+            return res.status(400).json({ 
+              error: "File too large. Maximum size is 10MB" 
+            });
+          }
+          
+          attachmentMetadata = {
+            filename: documentAttachment.filename,
+            mimeType: documentAttachment.type,
+            documentType: documentAttachment.type // Use MIME type as document type for now
+          };
+          
+          console.log(`[API] Document attachment validated: ${documentAttachment.filename} (${attachmentBuffer.byteLength} bytes)`);
+        } catch (error) {
+          console.error('[API] Error processing document attachment:', error);
+          return res.status(400).json({ error: "Invalid document attachment data" });
+        }
       }
       
       // Validate profileId ownership if provided
@@ -745,7 +796,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await aiOrchestrator.processQuery(
         message,
         conversationHistory,
-        user.subscriptionTier
+        user.subscriptionTier,
+        attachmentBuffer && attachmentMetadata ? {
+          attachment: {
+            buffer: attachmentBuffer,
+            filename: attachmentMetadata.filename,
+            mimeType: attachmentMetadata.mimeType,
+            documentType: attachmentMetadata.documentType
+          }
+        } : undefined
       );
       
       // Save assistant message
@@ -851,6 +910,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Chat error:', error);
       res.status(500).json({ error: "Failed to process message" });
+    }
+  });
+
+  // Chat file upload endpoint
+  app.post("/api/chat/upload-file", requireAuth, chatRateLimiter, upload.single('file'), async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // Validate MIME type - Azure Document Intelligence only supports these formats
+      const ALLOWED_MIME_TYPES = [
+        'application/pdf',
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'image/tiff',
+        'image/tif'
+      ];
+      
+      if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ 
+          error: "Invalid file type. Supported formats: PDF, PNG, JPEG, TIFF" 
+        });
+      }
+      
+      // Validate file size (10MB limit for chat)
+      if (req.file.size > 10 * 1024 * 1024) {
+        return res.status(400).json({ error: "File too large. Maximum size is 10MB" });
+      }
+      
+      // Convert file buffer to base64 for Azure Document Intelligence
+      const base64Data = req.file.buffer.toString('base64');
+      
+      // Detect document type from filename and mimetype
+      let documentType = 'document';
+      const filename = req.file.originalname.toLowerCase();
+      if (filename.includes('invoice')) documentType = 'invoice';
+      else if (filename.includes('receipt')) documentType = 'receipt';
+      else if (filename.includes('w-2') || filename.includes('w2')) documentType = 'w2';
+      else if (filename.includes('1040')) documentType = '1040';
+      else if (filename.includes('1098')) documentType = '1098';
+      else if (filename.includes('1099')) documentType = '1099';
+      else if (req.file.mimetype === 'application/pdf') documentType = 'document';
+      
+      res.json({
+        success: true,
+        file: {
+          name: req.file.originalname,
+          size: req.file.size,
+          type: req.file.mimetype,
+          base64Data,
+          documentType
+        }
+      });
+    } catch (error) {
+      console.error('Chat file upload error:', error);
+      res.status(500).json({ error: "File upload failed" });
     }
   });
 

@@ -29,11 +29,16 @@ export interface RoutingDecision {
   reasoning: string;
 }
 
+export interface QueryContext {
+  hasDocument?: boolean;
+  documentType?: string;
+}
+
 export class QueryTriageService {
   /**
    * Classifies a user query into accounting domain and complexity
    */
-  classifyQuery(query: string): QueryClassification {
+  classifyQuery(query: string, context?: QueryContext): QueryClassification {
     const lowerQuery = query.toLowerCase();
     
     // Domain classification
@@ -43,7 +48,8 @@ export class QueryTriageService {
     const complexity = this.assessComplexity(lowerQuery);
     const requiresCalculation = this.needsCalculation(lowerQuery);
     const requiresResearch = this.needsResearch(lowerQuery);
-    const requiresDocumentAnalysis = this.needsDocumentAnalysis(lowerQuery);
+    // If context indicates document attachment, automatically require document analysis
+    const requiresDocumentAnalysis = context?.hasDocument || this.needsDocumentAnalysis(lowerQuery);
     const requiresRealTimeData = this.needsRealTimeData(lowerQuery);
     const requiresDeepReasoning = this.needsDeepReasoning(lowerQuery, complexity);
     const keywords = this.extractKeywords(lowerQuery);

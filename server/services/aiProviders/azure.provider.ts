@@ -70,7 +70,39 @@ export class AzureDocumentIntelligenceProvider extends AIProvider {
     }
 
     try {
-      // Extract document URL or data from the last user message
+      // Check for attachment in request first (new architecture)
+      if (request.attachment) {
+        // Use the provided attachment buffer
+        const documentType = this.mapMimeTypeToDocumentType(request.attachment.mimeType, request.attachment.documentType);
+        const model = this.selectModel(documentType);
+        
+        console.log(`[Azure] Analyzing document from attachment: ${request.attachment.filename} (${request.attachment.mimeType})`);
+        
+        const poller = await this.client.beginAnalyzeDocument(model, request.attachment.buffer);
+        const result = await poller.pollUntilDone();
+        
+        // Format the analysis results
+        const formattedResult = this.formatAnalysisResult(result, documentType);
+
+        return {
+          content: formattedResult,
+          tokensUsed: {
+            input: this.estimateTokenCount(request.messages),
+            output: Math.ceil(formattedResult.length / 4),
+            total: this.estimateTokenCount(request.messages) + Math.ceil(formattedResult.length / 4),
+          },
+          model: model,
+          provider: AIProviderName.AZURE_DOCUMENT_INTELLIGENCE,
+          finishReason: 'stop',
+          metadata: {
+            documentType: documentType,
+            pagesAnalyzed: result.pages?.length || 0,
+            filename: request.attachment.filename,
+          },
+        };
+      }
+      
+      // Fallback: Extract document URL or data from the last user message (legacy)
       const lastMessage = request.messages[request.messages.length - 1];
       const documentInfo = this.extractDocumentInfo(lastMessage.content);
 
@@ -229,6 +261,28 @@ export class AzureDocumentIntelligenceProvider extends AIProvider {
   /**
    * Select the appropriate Azure model based on document type
    */
+  /**
+   * Map MIME type to document type for model selection
+   */
+  private mapMimeTypeToDocumentType(mimeType: string, documentType?: string): string {
+    // If explicit documentType provided, use it
+    if (documentType) {
+      return documentType;
+    }
+    
+    // Map common MIME types to document types
+    const mimeToTypeMap: Record<string, string> = {
+      'application/pdf': 'document',
+      'image/png': 'receipt',
+      'image/jpeg': 'receipt',
+      'image/jpg': 'receipt',
+      'image/tiff': 'invoice',
+      'image/tif': 'invoice',
+    };
+    
+    return mimeToTypeMap[mimeType.toLowerCase()] || 'document';
+  }
+
   private selectModel(documentType: string): string {
     const modelMap: Record<string, string> = {
       invoice: 'prebuilt-invoice',

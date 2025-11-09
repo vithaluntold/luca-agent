@@ -17,6 +17,15 @@ export interface OrchestrationResult {
   processingTimeMs: number;
 }
 
+export interface ProcessQueryOptions {
+  attachment?: {
+    buffer: Buffer;
+    filename: string;
+    mimeType: string;
+    documentType?: string;
+  };
+}
+
 export class AIOrchestrator {
   /**
    * Main orchestration method - routes query through triage, models, and solvers
@@ -24,12 +33,17 @@ export class AIOrchestrator {
   async processQuery(
     query: string,
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
-    userTier: string
+    userTier: string,
+    options?: ProcessQueryOptions
   ): Promise<OrchestrationResult> {
     const startTime = Date.now();
     
-    // Step 1: Classify the query
-    const classification = queryTriageService.classifyQuery(query);
+    // Step 1: Classify the query (with document attachment hint)
+    const context = options?.attachment ? {
+      hasDocument: true,
+      documentType: options.attachment.documentType
+    } : undefined;
+    const classification = queryTriageService.classifyQuery(query, context);
     
     // Step 2: Route to appropriate model and solvers
     const routingDecision = queryTriageService.routeQuery(classification, userTier);
@@ -46,7 +60,8 @@ export class AIOrchestrator {
       conversationHistory,
       routingDecision.primaryModel,
       routingDecision.preferredProvider,
-      routingDecision.fallbackProviders
+      routingDecision.fallbackProviders,
+      options?.attachment
     );
     
     const processingTimeMs = Date.now() - startTime;
@@ -182,7 +197,8 @@ export class AIOrchestrator {
     history: Array<{ role: 'user' | 'assistant'; content: string }>,
     model: string,
     preferredProvider?: AIProviderName,
-    fallbackProviders?: AIProviderName[]
+    fallbackProviders?: AIProviderName[],
+    attachment?: ProcessQueryOptions['attachment']
   ): Promise<{ content: string; tokensUsed: number }> {
     // Map custom models to actual OpenAI models
     const modelMap: Record<string, string> = {
@@ -256,6 +272,12 @@ export class AIOrchestrator {
           model: actualModel,
           temperature: 0.7,
           maxTokens: 2000,
+          attachment: attachment ? {
+            buffer: attachment.buffer,
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            documentType: attachment.documentType
+          } : undefined
         });
         
         // Record success with health monitor

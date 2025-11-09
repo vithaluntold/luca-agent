@@ -110,7 +110,16 @@ export const conversationApi = {
 };
 
 export const chatApi = {
-  sendMessage: async (data: { conversationId?: string; message: string; profileId?: string | null }) => {
+  sendMessage: async (data: { 
+    conversationId?: string; 
+    message: string; 
+    profileId?: string | null;
+    documentAttachment?: {
+      data: string;
+      type: string;
+      filename: string;
+    };
+  }) => {
     const res = await fetch('/api/chat', {
       method: 'POST',
       body: JSON.stringify(data),

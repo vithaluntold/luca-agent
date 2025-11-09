@@ -556,6 +556,23 @@ export const insertSentimentTrendsSchema = createInsertSchema(sentimentTrends).p
   conversationCount: true,
 });
 
+// Document Attachment Schema (for temporary chat file uploads)
+// Stored in-memory with 24h retention, not persisted to database
+export const documentAttachmentSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  conversationId: z.string().nullable(),
+  filename: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+  storageKey: z.string(), // encrypted storage key
+  checksum: z.string(), // SHA-256 for integrity
+  uploadedAt: z.date(),
+  expiresAt: z.date(), // 24h retention
+});
+
+export type DocumentAttachment = z.infer<typeof documentAttachmentSchema>;
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

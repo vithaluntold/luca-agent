@@ -8,6 +8,21 @@ I prefer that you communicate in a clear and concise manner. When providing expl
 
 ## System Architecture
 
+### Document Upload & Analysis System (NEW - November 2024)
+Luca now includes file upload capabilities for chat conversations with Azure Document Intelligence integration:
+- **Supported Formats**: PDF, PNG, JPEG, TIFF (aligned across frontend, upload endpoint, and chat processing)
+- **Size Limits**: 10MB maximum file size with validation at upload and chat endpoints
+- **Security**: Multer whitelist, MIME type validation, size checks at multiple layers
+- **Architecture**: Dual-channel payload (message text + attachment metadata kept separate)
+  - Frontend uploads file → receives base64 data
+  - Sends chat message with documentAttachment { data, type, filename }
+  - Backend validates MIME/size → converts base64 to Buffer
+  - AI orchestrator uses options bag { attachment: { buffer, filename, mimeType, documentType } }
+  - Query triage detects document via QueryContext hints → routes to Azure
+  - Azure provider reads request.attachment → maps MIME to prebuilt model → analyzes document
+- **Provider Integration**: Azure Document Intelligence with MIME-to-model mapping (PDF→prebuilt-document, images→prebuilt-receipt/invoice)
+- **State Management**: Attachments cleared post-send, conversation flow remains consistent
+
 ### AI Analytics & Insights System (NEW - December 2024)
 Luca now includes a comprehensive analytics system that tracks response quality, analyzes user sentiment, and predicts behavior patterns:
 - **Sentiment Analysis**: Real-time analysis of user messages using Gemini AI (3-second timeout with heuristic fallback)

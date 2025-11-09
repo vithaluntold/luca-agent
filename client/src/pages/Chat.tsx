@@ -59,7 +59,10 @@ import {
   Share2,
   Trash2,
   Copy,
-  Check
+  Check,
+  Paperclip,
+  X,
+  FileText
 } from "lucide-react";
 
 interface Message {
@@ -101,6 +104,8 @@ export default function Chat() {
   const [renameValue, setRenameValue] = useState("");
   const [shareUrl, setShareUrl] = useState<string>("");
   const [showShareCopied, setShowShareCopied] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const { user, logout} = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -167,7 +172,7 @@ export default function Chat() {
   }, [messagesData]);
 
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) => {
+    mutationFn: async (content: string) => {
       // Determine which profile to use for new conversations
       let profileIdToUse: string | null | undefined = undefined;
       if (!activeConversation) {
@@ -182,10 +187,43 @@ export default function Chat() {
         }
       }
       
+      // If there's a file attached, upload it first
+      let fileData: any = null;
+      if (selectedFile) {
+        setUploadingFile(true);
+        try {
+          const formData = new FormData();
+          formData.append('file', selectedFile);
+          
+          const uploadRes = await fetch('/api/chat/upload-file', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+          });
+          
+          if (!uploadRes.ok) {
+            throw new Error('File upload failed');
+          }
+          
+          const uploadData = await uploadRes.json();
+          fileData = uploadData.file;
+        } finally {
+          setUploadingFile(false);
+        }
+      }
+      
+      // Preserve user's text message and send file data separately
+      const messageContent = content.trim() || (fileData ? 'Please analyze this document' : '');
+      
       return chatApi.sendMessage({
         conversationId: activeConversation,
-        message: content,
-        profileId: profileIdToUse
+        message: messageContent,
+        profileId: profileIdToUse,
+        documentAttachment: fileData ? {
+          data: fileData.base64Data,
+          type: fileData.type, // MIME type (e.g., application/pdf)
+          filename: fileData.name
+        } : undefined
       });
     },
     onSuccess: (data) => {
@@ -200,6 +238,9 @@ export default function Chat() {
         timestamp: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         metadata: data.metadata.calculationResults
       }]);
+      
+      // Clear selected file after successful send
+      setSelectedFile(null);
       
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
@@ -230,11 +271,52 @@ export default function Chat() {
   const handleNewChat = () => {
     setActiveConversation(undefined);
     setMessages([]);
+    setSelectedFile(null);
   };
 
   const handleLogout = () => {
     logout();
     setLocation('/');
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type - only formats supported by Azure Document Intelligence
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+        'image/tiff',
+        'image/tif'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Invalid file type",
+          description: "Supported formats: PDF, PNG, JPEG, TIFF"
+        });
+        return;
+      }
+      
+      // Validate file size (10MB limit for chat)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Maximum file size is 10MB."
+        });
+        return;
+      }
+      
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
   };
 
   // Conversation management mutations
@@ -623,27 +705,71 @@ export default function Chat() {
             </ScrollArea>
 
             <div className="border-t p-4 pb-20">
-              <div className="max-w-4xl mx-auto flex gap-2">
-                <Input
-                  placeholder="Ask anything about accounting, tax, audit..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  className="flex-1"
-                  data-testid="input-message"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim() || sendMessageMutation.isPending}
-                  data-testid="button-send"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+              <div className="max-w-4xl mx-auto space-y-3">
+                {/* File Preview */}
+                {selectedFile && (
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(selectedFile.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleRemoveFile}
+                      data-testid="button-remove-file"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Message Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif"
+                    data-testid="input-file-upload"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    data-testid="button-attach-file"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    placeholder="Ask anything about accounting, tax, audit..."
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    className="flex-1"
+                    data-testid="input-message"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={(inputMessage.trim() === '' && !selectedFile) || sendMessageMutation.isPending || uploadingFile}
+                    data-testid="button-send"
+                  >
+                    {uploadingFile ? (
+                      <span className="text-xs">Uploading...</span>
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

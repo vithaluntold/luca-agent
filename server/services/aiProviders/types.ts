@@ -37,6 +37,12 @@ export interface CompletionRequest {
   stream?: boolean;
   tools?: any[];
   responseFormat?: 'text' | 'json';
+  attachment?: {
+    buffer: Buffer;
+    filename: string;
+    mimeType: string;
+    documentType?: string;
+  };
 }
 
 export interface CompletionResponse {

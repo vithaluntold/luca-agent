@@ -200,6 +200,153 @@ export const taxFileUploads = pgTable("tax_file_uploads", {
   vendorIdx: index("tax_file_uploads_vendor_idx").on(table.vendor),
 }));
 
+// Analytics Tables for AI Response Quality, Sentiment Analysis, and Behavior Prediction
+
+export const conversationAnalytics = pgTable("conversation_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Quality Metrics
+  qualityScore: integer("quality_score"), // 0-100
+  responseRelevanceScore: integer("response_relevance_score"), // 0-100
+  completenessScore: integer("completeness_score"), // 0-100
+  clarityScore: integer("clarity_score"), // 0-100
+  
+  // Conversation Behavior Metrics
+  totalMessages: integer("total_messages").notNull().default(0),
+  averageResponseTime: integer("average_response_time"), // milliseconds
+  conversationDuration: integer("conversation_duration"), // seconds
+  wasAbandoned: boolean("was_abandoned").notNull().default(false),
+  abandonmentPoint: integer("abandonment_point"), // message count when abandoned
+  
+  // User Satisfaction Indicators
+  followUpQuestionCount: integer("follow_up_question_count").notNull().default(0),
+  clarificationRequestCount: integer("clarification_request_count").notNull().default(0),
+  userFrustrationDetected: boolean("user_frustration_detected").notNull().default(false),
+  resolutionAchieved: boolean("resolution_achieved"),
+  
+  // Engagement Metrics
+  topicsDiscussed: jsonb("topics_discussed"), // Array of topics
+  domainCategories: jsonb("domain_categories"), // ['tax', 'audit', 'compliance', etc.]
+  complexityLevel: text("complexity_level"), // 'simple', 'moderate', 'complex', 'expert'
+  
+  // AI Performance
+  providerUsed: text("provider_used"), // Primary AI provider
+  modelSwitchCount: integer("model_switch_count").notNull().default(0),
+  fallbackTriggered: boolean("fallback_triggered").notNull().default(false),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  conversationIdIdx: index("conversation_analytics_conversation_id_idx").on(table.conversationId),
+  userIdIdx: index("conversation_analytics_user_id_idx").on(table.userId),
+  qualityScoreIdx: index("conversation_analytics_quality_score_idx").on(table.qualityScore),
+  createdAtIdx: index("conversation_analytics_created_at_idx").on(table.createdAt),
+}));
+
+export const messageAnalytics = pgTable("message_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Sentiment Analysis
+  userSentiment: text("user_sentiment"), // 'positive', 'neutral', 'negative', 'frustrated', 'satisfied'
+  sentimentScore: integer("sentiment_score"), // -100 to 100
+  emotionalTone: jsonb("emotional_tone"), // { anger: 0.1, joy: 0.7, etc. }
+  
+  // Message Quality (for assistant messages)
+  responseQuality: integer("response_quality"), // 0-100
+  accuracyScore: integer("accuracy_score"), // 0-100
+  helpfulnessScore: integer("helpfulness_score"), // 0-100
+  
+  // User Intent Detection
+  userIntent: text("user_intent"), // 'question', 'clarification', 'complaint', 'appreciation', etc.
+  intentConfidence: integer("intent_confidence"), // 0-100
+  
+  // Response Characteristics
+  responseLength: integer("response_length"), // characters
+  technicalComplexity: text("technical_complexity"), // 'simple', 'moderate', 'advanced'
+  containsCalculations: boolean("contains_calculations").notNull().default(false),
+  containsCitations: boolean("contains_citations").notNull().default(false),
+  
+  // Timing
+  processingTime: integer("processing_time"), // milliseconds
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  messageIdIdx: index("message_analytics_message_id_idx").on(table.messageId),
+  conversationIdIdx: index("message_analytics_conversation_id_idx").on(table.conversationId),
+  userIdIdx: index("message_analytics_user_id_idx").on(table.userId),
+  sentimentIdx: index("message_analytics_sentiment_idx").on(table.userSentiment),
+}));
+
+export const userBehaviorPatterns = pgTable("user_behavior_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  
+  // Usage Patterns
+  totalConversations: integer("total_conversations").notNull().default(0),
+  averageConversationLength: integer("average_conversation_length"), // messages
+  averageSessionDuration: integer("average_session_duration"), // minutes
+  preferredTimeOfDay: text("preferred_time_of_day"), // 'morning', 'afternoon', 'evening', 'night'
+  peakUsageDays: jsonb("peak_usage_days"), // Array of day names
+  
+  // Topic Preferences
+  topTopics: jsonb("top_topics"), // Array of {topic: string, count: number}
+  domainExpertise: jsonb("domain_expertise"), // {tax: 'intermediate', audit: 'beginner', etc.}
+  
+  // Engagement Metrics
+  averageQualityScore: integer("average_quality_score"), // 0-100
+  satisfactionTrend: text("satisfaction_trend"), // 'improving', 'declining', 'stable'
+  churnRisk: text("churn_risk"), // 'low', 'medium', 'high'
+  churnRiskScore: integer("churn_risk_score"), // 0-100
+  
+  // Behavioral Indicators
+  frustrationFrequency: integer("frustration_frequency").notNull().default(0),
+  abandonmentRate: integer("abandonment_rate"), // percentage
+  followUpRate: integer("follow_up_rate"), // percentage
+  
+  // Predictions
+  nextLikelyQuestion: text("next_likely_question"),
+  nextLikelyTopic: text("next_likely_topic"),
+  predictedReturnDate: timestamp("predicted_return_date"),
+  
+  // Value Indicators
+  engagementScore: integer("engagement_score"), // 0-100
+  potentialUpsellCandidate: boolean("potential_upsell_candidate").notNull().default(false),
+  
+  lastAnalyzedAt: timestamp("last_analyzed_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("user_behavior_patterns_user_id_idx").on(table.userId),
+  churnRiskIdx: index("user_behavior_patterns_churn_risk_idx").on(table.churnRisk),
+  engagementScoreIdx: index("user_behavior_patterns_engagement_score_idx").on(table.engagementScore),
+}));
+
+export const sentimentTrends = pgTable("sentiment_trends", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: timestamp("date").notNull(),
+  
+  // Aggregated Sentiment Metrics
+  averageSentimentScore: integer("average_sentiment_score"), // -100 to 100
+  positiveMessageCount: integer("positive_message_count").notNull().default(0),
+  neutralMessageCount: integer("neutral_message_count").notNull().default(0),
+  negativeMessageCount: integer("negative_message_count").notNull().default(0),
+  frustratedMessageCount: integer("frustrated_message_count").notNull().default(0),
+  
+  // Quality Trends
+  averageQualityScore: integer("average_quality_score"), // 0-100
+  conversationCount: integer("conversation_count").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdDateIdx: index("sentiment_trends_user_id_date_idx").on(table.userId, table.date),
+}));
+
 // Password complexity validation helper
 const passwordComplexitySchema = z.string()
   .min(12, "Password must be at least 12 characters long")
@@ -326,6 +473,84 @@ export const insertTaxFileUploadSchema = createInsertSchema(taxFileUploads).pick
   byteLength: z.number().max(50 * 1024 * 1024), // 50MB max
 });
 
+export const insertConversationAnalyticsSchema = createInsertSchema(conversationAnalytics).pick({
+  conversationId: true,
+  userId: true,
+  qualityScore: true,
+  responseRelevanceScore: true,
+  completenessScore: true,
+  clarityScore: true,
+  totalMessages: true,
+  averageResponseTime: true,
+  conversationDuration: true,
+  wasAbandoned: true,
+  abandonmentPoint: true,
+  followUpQuestionCount: true,
+  clarificationRequestCount: true,
+  userFrustrationDetected: true,
+  resolutionAchieved: true,
+  topicsDiscussed: true,
+  domainCategories: true,
+  complexityLevel: true,
+  providerUsed: true,
+  modelSwitchCount: true,
+  fallbackTriggered: true,
+});
+
+export const insertMessageAnalyticsSchema = createInsertSchema(messageAnalytics).pick({
+  messageId: true,
+  conversationId: true,
+  userId: true,
+  userSentiment: true,
+  sentimentScore: true,
+  emotionalTone: true,
+  responseQuality: true,
+  accuracyScore: true,
+  helpfulnessScore: true,
+  userIntent: true,
+  intentConfidence: true,
+  responseLength: true,
+  technicalComplexity: true,
+  containsCalculations: true,
+  containsCitations: true,
+  processingTime: true,
+});
+
+export const insertUserBehaviorPatternsSchema = createInsertSchema(userBehaviorPatterns).pick({
+  userId: true,
+  totalConversations: true,
+  averageConversationLength: true,
+  averageSessionDuration: true,
+  preferredTimeOfDay: true,
+  peakUsageDays: true,
+  topTopics: true,
+  domainExpertise: true,
+  averageQualityScore: true,
+  satisfactionTrend: true,
+  churnRisk: true,
+  churnRiskScore: true,
+  frustrationFrequency: true,
+  abandonmentRate: true,
+  followUpRate: true,
+  nextLikelyQuestion: true,
+  nextLikelyTopic: true,
+  predictedReturnDate: true,
+  engagementScore: true,
+  potentialUpsellCandidate: true,
+});
+
+export const insertSentimentTrendsSchema = createInsertSchema(sentimentTrends).pick({
+  userId: true,
+  date: true,
+  averageSentimentScore: true,
+  positiveMessageCount: true,
+  neutralMessageCount: true,
+  negativeMessageCount: true,
+  frustratedMessageCount: true,
+  averageQualityScore: true,
+  conversationCount: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -351,3 +576,13 @@ export type InsertAccountingIntegration = z.infer<typeof insertAccountingIntegra
 export type GdprConsent = typeof gdprConsents.$inferSelect;
 export type TaxFileUpload = typeof taxFileUploads.$inferSelect;
 export type InsertTaxFileUpload = z.infer<typeof insertTaxFileUploadSchema>;
+
+// Analytics Types
+export type ConversationAnalytics = typeof conversationAnalytics.$inferSelect;
+export type InsertConversationAnalytics = z.infer<typeof insertConversationAnalyticsSchema>;
+export type MessageAnalytics = typeof messageAnalytics.$inferSelect;
+export type InsertMessageAnalytics = z.infer<typeof insertMessageAnalyticsSchema>;
+export type UserBehaviorPatterns = typeof userBehaviorPatterns.$inferSelect;
+export type InsertUserBehaviorPatterns = z.infer<typeof insertUserBehaviorPatternsSchema>;
+export type SentimentTrends = typeof sentimentTrends.$inferSelect;
+export type InsertSentimentTrends = z.infer<typeof insertSentimentTrendsSchema>;

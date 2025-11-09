@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./pgStorage";
 import { aiOrchestrator } from "./services/aiOrchestrator";
+import { AnalyticsProcessor } from "./services/analyticsProcessor";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
 import { 
@@ -721,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       
       // Save user message
-      await storage.createMessage({
+      const userMessage = await storage.createMessage({
         conversationId: conversation.id,
         role: 'user',
         content: message,
@@ -767,6 +768,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateConversation(conversation.id, {
         preview: message.slice(0, 100),
         updatedAt: new Date()
+      });
+      
+      // Fire-and-forget async analytics processing (don't block response)
+      setImmediate(async () => {
+        try {
+          // Process user message analytics
+          await AnalyticsProcessor.processMessage({
+            messageId: userMessage.id,
+            conversationId: conversation.id,
+            userId,
+            role: 'user',
+            content: message,
+            previousMessages: conversationHistory
+          });
+          
+          // Process assistant message analytics
+          await AnalyticsProcessor.processMessage({
+            messageId: assistantMessage.id,
+            conversationId: conversation.id,
+            userId,
+            role: 'assistant',
+            content: result.response,
+            previousMessages: [...conversationHistory, { role: 'user', content: message }]
+          });
+          
+          // Analyze conversation every 5 messages
+          if (conversationHistory.length % 5 === 0) {
+            await AnalyticsProcessor.analyzeConversation(conversation.id);
+          }
+        } catch (error) {
+          console.error('[Analytics] Background analytics processing error:', error);
+        }
       });
       
       res.json({
@@ -1601,6 +1634,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('File deletion error:', error);
       res.status(500).json({ error: "File deletion failed" });
+    }
+  });
+
+  // Analytics API Endpoints (Admin only)
+  
+  app.get("/api/admin/analytics/overview", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { conversationAnalytics, userBehaviorPatterns } = await import("@shared/schema");
+      const { sql } = await import("drizzle-orm");
+      
+      // Get aggregate statistics
+      const totalConversations = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(conversationAnalytics);
+      
+      const avgQuality = await db
+        .select({ avg: sql<number>`avg(${conversationAnalytics.qualityScore})::int` })
+        .from(conversationAnalytics)
+        .where(sql`${conversationAnalytics.qualityScore} IS NOT NULL`);
+      
+      const highChurnUsers = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userBehaviorPatterns)
+        .where(sql`${userBehaviorPatterns.churnRisk} = 'high'`);
+      
+      const upsellCandidates = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userBehaviorPatterns)
+        .where(sql`${userBehaviorPatterns.potentialUpsellCandidate} = true`);
+      
+      res.json({
+        overview: {
+          totalConversations: totalConversations[0]?.count || 0,
+          averageQualityScore: avgQuality[0]?.avg || 0,
+          highChurnUsers: highChurnUsers[0]?.count || 0,
+          upsellCandidates: upsellCandidates[0]?.count || 0
+        }
+      });
+    } catch (error) {
+      console.error('Analytics overview error:', error);
+      res.status(500).json({ error: "Failed to fetch analytics overview" });
+    }
+  });
+  
+  app.get("/api/admin/analytics/users/:userId", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { userBehaviorPatterns, conversationAnalytics } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      
+      const userId = req.params.userId;
+      
+      // Get user behavior patterns
+      const [behavior] = await db
+        .select()
+        .from(userBehaviorPatterns)
+        .where(eq(userBehaviorPatterns.userId, userId))
+        .limit(1);
+      
+      // Get recent conversations
+      const recentConversations = await db
+        .select()
+        .from(conversationAnalytics)
+        .where(eq(conversationAnalytics.userId, userId))
+        .orderBy(desc(conversationAnalytics.createdAt))
+        .limit(10);
+      
+      res.json({
+        behavior,
+        recentConversations
+      });
+    } catch (error) {
+      console.error('User analytics error:', error);
+      res.status(500).json({ error: "Failed to fetch user analytics" });
+    }
+  });
+  
+  app.get("/api/admin/analytics/churn-risks", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { userBehaviorPatterns } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      
+      // Get high churn risk users
+      const highRiskUsers = await db
+        .select()
+        .from(userBehaviorPatterns)
+        .where(eq(userBehaviorPatterns.churnRisk, 'high'))
+        .orderBy(desc(userBehaviorPatterns.churnRiskScore))
+        .limit(50);
+      
+      res.json({ highRiskUsers });
+    } catch (error) {
+      console.error('Churn risk analytics error:', error);
+      res.status(500).json({ error: "Failed to fetch churn risk analytics" });
+    }
+  });
+  
+  app.post("/api/admin/analytics/batch-process", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      // Trigger batch analytics processing
+      setImmediate(() => {
+        AnalyticsProcessor.runBatchAnalytics().catch(error => {
+          console.error('[Analytics] Batch processing failed:', error);
+        });
+      });
+      
+      res.json({ message: "Batch analytics processing initiated" });
+    } catch (error) {
+      console.error('Batch processing error:', error);
+      res.status(500).json({ error: "Failed to initiate batch processing" });
     }
   });
 

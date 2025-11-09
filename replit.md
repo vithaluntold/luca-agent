@@ -8,6 +8,15 @@ I prefer that you communicate in a clear and concise manner. When providing expl
 
 ## System Architecture
 
+### AI Analytics & Insights System (NEW - December 2024)
+Luca now includes a comprehensive analytics system that tracks response quality, analyzes user sentiment, and predicts behavior patterns:
+- **Sentiment Analysis**: Real-time analysis of user messages using Gemini AI (3-second timeout with heuristic fallback)
+- **Quality Assessment**: AI-powered evaluation of response accuracy, helpfulness, and clarity
+- **Conversation Insights**: Deep analysis using Claude for topic extraction and resolution tracking
+- **Behavior Prediction**: Churn risk scoring, engagement metrics, and upsell candidate identification
+- **Async Processing**: Analytics run in background (fire-and-forget) to avoid blocking chat responses
+- **Database Tables**: conversation_analytics, message_analytics, user_behavior_patterns, sentiment_trends
+
 ### UI/UX Decisions
 The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts. The conversations sidebar includes a profile filter dropdown that allows users to view conversations by profile context ("All Profiles", "No Profile", or specific profiles). When users switch profile filters, the active conversation is cleared to ensure each profile context maintains separate conversation threads. A persistent "Powered by FinACEverse" badge is displayed at the bottom-center of the screen. The design uses a pink-to-purple brand gradient theme.
 

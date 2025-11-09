@@ -50,19 +50,21 @@ export class GeminiProvider extends AIProvider {
       // Convert messages to Gemini format
       const { systemInstruction, contents } = this.convertMessages(request.messages);
       
-      const config: any = {
+      const generationConfig = {
         temperature: request.temperature ?? 0.7,
         maxOutputTokens: request.maxTokens || 2000,
       };
 
+      const chatOptions: any = {
+        generationConfig,
+        history: contents.slice(0, -1), // All but the last message
+      };
+
       if (systemInstruction) {
-        config.systemInstruction = systemInstruction;
+        chatOptions.systemInstruction = systemInstruction;
       }
 
-      const chat = model.startChat({
-        generationConfig: config,
-        history: contents.slice(0, -1), // All but the last message
-      });
+      const chat = model.startChat(chatOptions);
 
       // Send the last message
       const lastMessage = contents[contents.length - 1];
@@ -102,19 +104,21 @@ export class GeminiProvider extends AIProvider {
 
       const { systemInstruction, contents } = this.convertMessages(request.messages);
       
-      const config: any = {
+      const generationConfig = {
         temperature: request.temperature ?? 0.7,
         maxOutputTokens: request.maxTokens || 2000,
       };
 
+      const chatOptions: any = {
+        generationConfig,
+        history: contents.slice(0, -1),
+      };
+
       if (systemInstruction) {
-        config.systemInstruction = systemInstruction;
+        chatOptions.systemInstruction = systemInstruction;
       }
 
-      const chat = model.startChat({
-        generationConfig: config,
-        history: contents.slice(0, -1),
-      });
+      const chat = model.startChat(chatOptions);
 
       const lastMessage = contents[contents.length - 1];
       const result = await chat.sendMessageStream(lastMessage.parts[0].text);

@@ -40,11 +40,13 @@ export class AIOrchestrator {
     // Step 4: Build enhanced context with calculation results
     const enhancedContext = this.buildEnhancedContext(query, classification, calculationResults);
     
-    // Step 5: Call the AI model with enhanced context
+    // Step 5: Call the AI provider with enhanced context and provider routing
     const aiResponse = await this.callAIModel(
       enhancedContext,
       conversationHistory,
-      routingDecision.primaryModel
+      routingDecision.primaryModel,
+      routingDecision.preferredProvider,
+      routingDecision.fallbackProviders
     );
     
     const processingTimeMs = Date.now() - startTime;
@@ -173,12 +175,14 @@ export class AIOrchestrator {
   }
 
   /**
-   * Call AI provider with routing decision (multi-provider architecture)
+   * Call AI provider with routing decision (multi-provider architecture with fallback)
    */
   private async callAIModel(
     enhancedContext: string,
     history: Array<{ role: 'user' | 'assistant'; content: string }>,
-    model: string
+    model: string,
+    preferredProvider?: AIProviderName,
+    fallbackProviders?: AIProviderName[]
   ): Promise<{ content: string; tokensUsed: number }> {
     // Map custom models to actual OpenAI models
     const modelMap: Record<string, string> = {
@@ -196,39 +200,97 @@ export class AIOrchestrator {
       ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
     ];
     
-    try {
-      // Get OpenAI provider from registry
-      const provider = aiProviderRegistry.getProvider(AIProviderName.OPENAI);
-      
-      // Use new provider interface
-      const response = await provider.generateCompletion({
-        messages,
-        model: actualModel,
-        temperature: 0.7,
-        maxTokens: 2000,
-      });
-      
-      return {
-        content: response.content,
-        tokensUsed: response.tokensUsed.total
-      };
-    } catch (error: any) {
-      // Handle provider errors with fallback
-      if (error instanceof ProviderError) {
-        console.error(`[AIOrchestrator] ${error.provider} error:`, error.message);
-        return {
-          content: error.message,
-          tokensUsed: 0
-        };
-      }
-      
-      // Generic error fallback
-      console.error('[AIOrchestrator] Unexpected error:', error);
-      return {
-        content: "I apologize, but I encountered an error processing your request. Please try again.",
-        tokensUsed: 0
-      };
+    // Build provider chain: preferred first, then fallbacks, then OpenAI as ultimate fallback
+    const providerChain: AIProviderName[] = [];
+    if (preferredProvider) {
+      providerChain.push(preferredProvider);
     }
+    if (fallbackProviders && fallbackProviders.length > 0) {
+      providerChain.push(...fallbackProviders);
+    }
+    // Ensure OpenAI is always in the chain as ultimate fallback
+    if (!providerChain.includes(AIProviderName.OPENAI)) {
+      providerChain.push(AIProviderName.OPENAI);
+    }
+    
+    // Try each provider in the chain
+    for (let i = 0; i < providerChain.length; i++) {
+      const providerName = providerChain[i];
+      const isLastProvider = i === providerChain.length - 1;
+      
+      try {
+        const provider = aiProviderRegistry.getProvider(providerName);
+        
+        console.log(`[AIOrchestrator] Attempting provider: ${providerName} (${i + 1}/${providerChain.length})`);
+        
+        const response = await provider.generateCompletion({
+          messages,
+          model: actualModel,
+          temperature: 0.7,
+          maxTokens: 2000,
+        });
+        
+        console.log(`[AIOrchestrator] Success with provider: ${providerName}`);
+        
+        return {
+          content: response.content,
+          tokensUsed: response.tokensUsed.total
+        };
+      } catch (error: any) {
+        // Log the error
+        if (error instanceof ProviderError) {
+          console.error(`[AIOrchestrator] ${error.provider} error: ${error.message}`);
+          
+          // If this is the last provider in the chain, return a user-friendly error
+          if (isLastProvider) {
+            return {
+              content: this.buildFallbackErrorMessage(error),
+              tokensUsed: 0
+            };
+          }
+          
+          // Otherwise, continue to next provider if error is retryable
+          if (!error.retryable) {
+            console.log(`[AIOrchestrator] Non-retryable error, trying next provider...`);
+            continue;
+          }
+        } else {
+          console.error(`[AIOrchestrator] Unexpected error with ${providerName}:`, error);
+          
+          // If this is the last provider, return generic error
+          if (isLastProvider) {
+            return {
+              content: "I apologize, but I encountered an error processing your request. Please try again.",
+              tokensUsed: 0
+            };
+          }
+        }
+        
+        // Continue to next provider
+        console.log(`[AIOrchestrator] Falling back to next provider...`);
+      }
+    }
+    
+    // This should never be reached, but just in case
+    return {
+      content: "I apologize, but all AI providers are currently unavailable. Please try again later.",
+      tokensUsed: 0
+    };
+  }
+
+  /**
+   * Build user-friendly error message from ProviderError
+   */
+  private buildFallbackErrorMessage(error: ProviderError): string {
+    if (error.code === 'RATE_LIMIT_EXCEEDED' || error.message.includes('quota')) {
+      return "I'm currently experiencing high demand. The AI service has reached its quota limit. However, I can still help with calculations directly. Please try asking your question again, or contact support for assistance.";
+    } else if (error.code === 'AUTHENTICATION_ERROR' || error.message.includes('API key')) {
+      return "There's a configuration issue with the AI service. Please contact support.";
+    } else if (error.code === 'TIMEOUT_ERROR' || error.message.includes('timeout')) {
+      return "The request took too long to process. Please try a simpler question or try again.";
+    }
+    
+    return "I apologize, but I encountered an error processing your request. Please try again.";
   }
 
   // Helper methods to extract parameters from queries

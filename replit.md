@@ -38,11 +38,11 @@ The conversations table includes a `profileId` column (varchar, nullable) with a
 
 Luca integrates with several third-party services:
 
--   **AI Providers**:
-    -   **OpenAI API** (Active): Primary provider for `gpt-4o`, `gpt-4o-mini` models
-    -   **Anthropic Claude** (Planned): Claude 3.5 Sonnet for advanced reasoning
-    -   **Google Gemini** (Planned): Gemini 2.0 Flash for cost-effective queries
-    -   **Perplexity AI** (Planned): Real-time data and research
+-   **AI Providers** (All Active):
+    -   **OpenAI API**: Primary provider for `gpt-4o`, `gpt-4o-mini` models, ultimate fallback
+    -   **Anthropic Claude**: `claude-3-5-sonnet-20241022` for deep reasoning and expert-level analysis
+    -   **Google Gemini**: `gemini-2.0-flash-exp` for cost-effective simple/moderate queries (51% cheaper)
+    -   **Perplexity AI**: `llama-3.1-sonar-large-128k-online` for real-time research and current information
     -   **Azure AI Services** (Planned): Document Intelligence for financial document analysis
 -   **Accounting Software (OAuth 2.0)**:
     -   QuickBooks Online

@@ -34,9 +34,14 @@ export class AzureOpenAIProvider extends AIProvider {
     }
 
     try {
+      // Ensure endpoint has https:// prefix
+      const normalizedEndpoint = this.endpoint.startsWith('http') 
+        ? this.endpoint 
+        : `https://${this.endpoint}`;
+      
       this.client = new OpenAI({
         apiKey: this.apiKey,
-        baseURL: `${this.endpoint}/openai/deployments/${this.deploymentName}`,
+        baseURL: `${normalizedEndpoint}/openai/deployments/${this.deploymentName}`,
         defaultQuery: { 'api-version': '2024-08-01-preview' },
         defaultHeaders: { 'api-key': this.apiKey },
       });
@@ -74,10 +79,10 @@ export class AzureOpenAIProvider extends AIProvider {
         model: this.deploymentName,
         temperature: request.temperature ?? 0.7,
         max_tokens: request.maxTokens ?? 2000,
-        stream: request.stream ?? false,
-      });
+        stream: false,
+      }) as any;
 
-      const content = completion.choices[0]?.message?.content || '';
+      const content = completion.choices?.[0]?.message?.content || '';
       const inputTokens = completion.usage?.prompt_tokens || 0;
       const outputTokens = completion.usage?.completion_tokens || 0;
 
@@ -90,7 +95,7 @@ export class AzureOpenAIProvider extends AIProvider {
         },
         model: completion.model || this.deploymentName,
         provider: AIProviderName.AZURE_OPENAI,
-        finishReason: completion.choices[0]?.finish_reason === 'stop' ? 'stop' : 'error',
+        finishReason: completion.choices?.[0]?.finish_reason === 'stop' ? 'stop' : 'error',
       };
     } catch (error: any) {
       console.error('[AzureOpenAI] Completion error:', error);
@@ -143,6 +148,24 @@ export class AzureOpenAIProvider extends AIProvider {
       ProviderFeature.TOOL_CALLING,
       ProviderFeature.STRUCTURED_OUTPUT,
     ];
+  }
+
+  supportsFeature(feature: ProviderFeature): boolean {
+    return this.getSupportedFeatures().includes(feature);
+  }
+
+  async healthCheck(): Promise<boolean> {
+    if (!this.client) return false;
+    try {
+      await this.client.chat.completions.create({
+        messages: [{ role: 'user', content: 'test' }],
+        model: this.deploymentName,
+        max_tokens: 5,
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   estimateCost(request: CompletionRequest): CostEstimate {

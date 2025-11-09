@@ -68,6 +68,14 @@ export class GeminiProvider extends AIProvider {
 
       // Send the last message
       const lastMessage = contents[contents.length - 1];
+      if (!lastMessage || !lastMessage.parts || lastMessage.parts.length === 0) {
+        throw new ProviderError(
+          'Invalid message format for Gemini',
+          AIProviderName.GEMINI,
+          'INVALID_REQUEST',
+          false
+        );
+      }
       const result = await chat.sendMessage(lastMessage.parts[0].text);
       const response = result.response;
 
@@ -121,6 +129,14 @@ export class GeminiProvider extends AIProvider {
       const chat = model.startChat(chatOptions);
 
       const lastMessage = contents[contents.length - 1];
+      if (!lastMessage || !lastMessage.parts || lastMessage.parts.length === 0) {
+        throw new ProviderError(
+          'Invalid message format for Gemini',
+          AIProviderName.GEMINI,
+          'INVALID_REQUEST',
+          false
+        );
+      }
       const result = await chat.sendMessageStream(lastMessage.parts[0].text);
 
       for await (const chunk of result.stream) {

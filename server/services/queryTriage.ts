@@ -76,8 +76,11 @@ export class QueryTriageService {
     // Provider selection based on query characteristics
     if (classification.requiresDocumentAnalysis) {
       // Azure Document Intelligence for document parsing
+      // Note: Azure requires actual document attachment (URL or file data)
+      // If no document is attached, it will throw retryable error and fall back
       preferredProvider = AIProviderName.AZURE_DOCUMENT_INTELLIGENCE;
-      fallbackProviders.push(AIProviderName.OPENAI, AIProviderName.CLAUDE);
+      fallbackProviders.push(AIProviderName.OPENAI);
+      fallbackProviders.push(AIProviderName.CLAUDE);
       solversNeeded.push('document-parser');
     } else if (classification.requiresRealTimeData || classification.requiresResearch) {
       // Perplexity AI for real-time research and current data
@@ -140,8 +143,8 @@ export class QueryTriageService {
       solversNeeded.push('financial-calculator');
     }
     
-    // Add fallback provider (always OpenAI for now)
-    if (preferredProvider !== AIProviderName.OPENAI) {
+    // Add OpenAI as ultimate fallback if not already present
+    if (preferredProvider !== AIProviderName.OPENAI && !fallbackProviders.includes(AIProviderName.OPENAI)) {
       fallbackProviders.push(AIProviderName.OPENAI);
     }
     

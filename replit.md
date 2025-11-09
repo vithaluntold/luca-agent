@@ -43,7 +43,7 @@ Luca integrates with several third-party services:
     -   **Anthropic Claude**: `claude-3-5-sonnet-20241022` for deep reasoning and expert-level analysis
     -   **Google Gemini**: `gemini-2.0-flash-exp` for cost-effective simple/moderate queries (51% cheaper)
     -   **Perplexity AI**: `llama-3.1-sonar-large-128k-online` for real-time research and current information
-    -   **Azure AI Services** (Planned): Document Intelligence for financial document analysis
+    -   **Azure Document Intelligence**: Specialized document analysis for invoices, receipts, tax forms (W-2, 1040, 1098, 1099), and financial statements using prebuilt models
 -   **Accounting Software (OAuth 2.0)**:
     -   QuickBooks Online
     -   Xero

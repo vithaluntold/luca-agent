@@ -91,7 +91,13 @@ export class AzureDocumentIntelligenceProvider extends AIProvider {
         const poller = await this.client.beginAnalyzeDocument(model, buffer);
         result = await poller.pollUntilDone();
       } else {
-        throw new Error('No document URL or data provided');
+        // No document - throw retryable error for fallback
+        throw new ProviderError(
+          'No document URL or data provided',
+          AIProviderName.AZURE_DOCUMENT_INTELLIGENCE,
+          'NO_DOCUMENT',
+          true // Retryable - allows fallback to other providers
+        );
       }
 
       // Format the analysis results
@@ -115,6 +121,12 @@ export class AzureDocumentIntelligenceProvider extends AIProvider {
     } catch (error: any) {
       console.error('[Azure] Document analysis failed:', error);
       
+      // If it's already a ProviderError, preserve its retryable status
+      if (error instanceof ProviderError) {
+        throw error;
+      }
+      
+      // For other errors, determine retryability from status code
       const isRetryable = error.statusCode === 429 || error.statusCode >= 500;
       
       throw new ProviderError(
@@ -199,12 +211,18 @@ export class AzureDocumentIntelligenceProvider extends AIProvider {
         return { url: content, type: 'document' };
       }
       
-      // Check if content is base64 data
-      if (content.match(/^[A-Za-z0-9+/]+=*$/)) {
+      // Check if content is base64 data (more than 100 chars, mostly base64 chars)
+      if (content.length > 100 && content.match(/^[A-Za-z0-9+/]+=*$/)) {
         return { base64Data: content, type: 'document' };
       }
 
-      throw new Error('Invalid document format. Expected URL or base64 data.');
+      // No document found - this is a retryable error (fallback to other providers)
+      throw new ProviderError(
+        'No document attached. Azure Document Intelligence requires a document URL or file data.',
+        AIProviderName.AZURE_DOCUMENT_INTELLIGENCE,
+        'NO_DOCUMENT',
+        true // This is retryable - allows fallback to other providers
+      );
     }
   }
 

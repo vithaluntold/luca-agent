@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./pgStorage";
 import { aiOrchestrator } from "./services/aiOrchestrator";
 import { AnalyticsProcessor } from "./services/analyticsProcessor";
+import { providerHealthMonitor } from "./services/aiProviders";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
 import { 
@@ -1746,6 +1747,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Batch processing error:', error);
       res.status(500).json({ error: "Failed to initiate batch processing" });
+    }
+  });
+
+  // AI Provider Health Monitoring Endpoints (Admin only)
+  
+  app.get("/api/admin/ai-providers/health", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const healthStatus = providerHealthMonitor.getAllHealthStatus();
+      res.json({ providers: healthStatus });
+    } catch (error) {
+      console.error('Provider health status error:', error);
+      res.status(500).json({ error: "Failed to fetch provider health status" });
+    }
+  });
+  
+  app.post("/api/admin/ai-providers/:provider/reset-health", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { AIProviderName } = await import("./services/aiProviders");
+      const providerName = req.params.provider as any;
+      
+      // Validate provider name
+      if (!Object.values(AIProviderName).includes(providerName)) {
+        return res.status(400).json({ error: "Invalid provider name" });
+      }
+      
+      providerHealthMonitor.resetProviderHealth(providerName);
+      res.json({ message: `Health metrics reset for ${providerName}` });
+    } catch (error) {
+      console.error('Reset health error:', error);
+      res.status(500).json({ error: "Failed to reset provider health" });
     }
   });
 

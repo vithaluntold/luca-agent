@@ -11,3 +11,4 @@ export * from './gemini.provider';
 export * from './perplexity.provider';
 export * from './registry';
 export { aiProviderRegistry } from './registry';
+export { providerHealthMonitor, ProviderHealthMonitor } from './healthMonitor';

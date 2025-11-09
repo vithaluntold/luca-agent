@@ -10,6 +10,7 @@ import { ClaudeProvider } from './claude.provider';
 import { GeminiProvider } from './gemini.provider';
 import { PerplexityProvider } from './perplexity.provider';
 import { AzureDocumentIntelligenceProvider } from './azure.provider';
+import { providerHealthMonitor } from './healthMonitor';
 
 export class AIProviderRegistry {
   private providers: Map<AIProviderName, AIProvider> = new Map();
@@ -43,6 +44,7 @@ export class AIProviderRegistry {
           enabled: true,
         });
         this.providers.set(AIProviderName.OPENAI, openai);
+        providerHealthMonitor.initializeProvider(AIProviderName.OPENAI);
         console.log('[AIProviders] ✓ OpenAI provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize OpenAI:', error);
@@ -59,6 +61,7 @@ export class AIProviderRegistry {
           enabled: true,
         });
         this.providers.set(AIProviderName.CLAUDE, claude);
+        providerHealthMonitor.initializeProvider(AIProviderName.CLAUDE);
         console.log('[AIProviders] ✓ Claude provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize Claude:', error);
@@ -75,6 +78,7 @@ export class AIProviderRegistry {
           enabled: true,
         });
         this.providers.set(AIProviderName.GEMINI, gemini);
+        providerHealthMonitor.initializeProvider(AIProviderName.GEMINI);
         console.log('[AIProviders] ✓ Gemini provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize Gemini:', error);
@@ -91,6 +95,7 @@ export class AIProviderRegistry {
           enabled: true,
         });
         this.providers.set(AIProviderName.PERPLEXITY, perplexity);
+        providerHealthMonitor.initializeProvider(AIProviderName.PERPLEXITY);
         console.log('[AIProviders] ✓ Perplexity provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize Perplexity:', error);
@@ -108,6 +113,7 @@ export class AIProviderRegistry {
           enabled: true,
         });
         this.providers.set(AIProviderName.AZURE_DOCUMENT_INTELLIGENCE, azure);
+        providerHealthMonitor.initializeProvider(AIProviderName.AZURE_DOCUMENT_INTELLIGENCE);
         console.log('[AIProviders] ✓ Azure Document Intelligence provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize Azure Document Intelligence:', error);

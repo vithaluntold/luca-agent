@@ -5,7 +5,7 @@
 
 import { queryTriageService, type QueryClassification, type RoutingDecision } from './queryTriage';
 import { financialSolverService } from './financialSolvers';
-import { aiProviderRegistry, AIProviderName, ProviderError } from './aiProviders';
+import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonitor } from './aiProviders';
 
 export interface OrchestrationResult {
   response: string;
@@ -175,7 +175,7 @@ export class AIOrchestrator {
   }
 
   /**
-   * Call AI provider with routing decision (multi-provider architecture with fallback)
+   * Call AI provider with health-aware routing and automatic failover
    */
   private async callAIModel(
     enhancedContext: string,
@@ -200,28 +200,56 @@ export class AIOrchestrator {
       ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
     ];
     
-    // Build provider chain: preferred first, then fallbacks, then OpenAI as ultimate fallback
-    const providerChain: AIProviderName[] = [];
+    // Build initial provider list from triage decision
+    const candidateProviders: AIProviderName[] = [];
     if (preferredProvider) {
-      providerChain.push(preferredProvider);
+      candidateProviders.push(preferredProvider);
     }
     if (fallbackProviders && fallbackProviders.length > 0) {
-      providerChain.push(...fallbackProviders);
-    }
-    // Ensure OpenAI is always in the chain as ultimate fallback
-    if (!providerChain.includes(AIProviderName.OPENAI)) {
-      providerChain.push(AIProviderName.OPENAI);
+      candidateProviders.push(...fallbackProviders.filter(p => !candidateProviders.includes(p)));
     }
     
-    // Try each provider in the chain
-    for (let i = 0; i < providerChain.length; i++) {
-      const providerName = providerChain[i];
-      const isLastProvider = i === providerChain.length - 1;
+    // Filter out unhealthy providers (unless it's the only option)
+    let healthyProviders = candidateProviders.filter(p => providerHealthMonitor.isProviderHealthy(p));
+    
+    // If all providers are unhealthy, keep the original list (still try them)
+    if (healthyProviders.length === 0) {
+      console.warn('[AIOrchestrator] All candidate providers are unhealthy - attempting anyway');
+      healthyProviders = candidateProviders;
+    }
+    
+    // Sort by health score (descending) - healthier providers first
+    healthyProviders.sort((a, b) => 
+      providerHealthMonitor.getHealthScore(b) - providerHealthMonitor.getHealthScore(a)
+    );
+    
+    // Ensure OpenAI is always in the chain as ultimate fallback
+    if (!healthyProviders.includes(AIProviderName.OPENAI)) {
+      healthyProviders.push(AIProviderName.OPENAI);
+    }
+    
+    console.log('[AIOrchestrator] Provider chain (by health):', 
+      healthyProviders.map(p => `${p}(${providerHealthMonitor.getHealthScore(p)})`).join(' → ')
+    );
+    
+    let lastError: any = null;
+    
+    // Try each provider in the health-ordered chain
+    for (let i = 0; i < healthyProviders.length; i++) {
+      const providerName = healthyProviders[i];
+      const isLastProvider = i === healthyProviders.length - 1;
+      
+      // Check if provider is in cooldown
+      const metrics = providerHealthMonitor.getHealthMetrics(providerName);
+      if (metrics.rateLimitUntil && new Date() < metrics.rateLimitUntil) {
+        console.log(`[AIOrchestrator] Skipping ${providerName} - in cooldown until ${metrics.rateLimitUntil.toISOString()}`);
+        continue;
+      }
       
       try {
         const provider = aiProviderRegistry.getProvider(providerName);
         
-        console.log(`[AIOrchestrator] Attempting provider: ${providerName} (${i + 1}/${providerChain.length})`);
+        console.log(`[AIOrchestrator] Attempting ${providerName} (health: ${metrics.healthScore}) [${i + 1}/${healthyProviders.length}]`);
         
         const response = await provider.generateCompletion({
           messages,
@@ -230,16 +258,24 @@ export class AIOrchestrator {
           maxTokens: 2000,
         });
         
-        console.log(`[AIOrchestrator] Success with provider: ${providerName}`);
+        // Record success with health monitor
+        providerHealthMonitor.recordSuccess(providerName);
+        
+        console.log(`[AIOrchestrator] ✓ Success with ${providerName}`);
         
         return {
           content: response.content,
           tokensUsed: response.tokensUsed.total
         };
       } catch (error: any) {
+        // Record failure with health monitor
+        providerHealthMonitor.recordFailure(providerName, error);
+        
+        lastError = error;
+        
         // Log the error
         if (error instanceof ProviderError) {
-          console.error(`[AIOrchestrator] ${error.provider} error: ${error.message}`);
+          console.error(`[AIOrchestrator] ✗ ${error.provider} error: ${error.message}`);
           
           // If this is the last provider in the chain, return a user-friendly error
           if (isLastProvider) {
@@ -248,14 +284,8 @@ export class AIOrchestrator {
               tokensUsed: 0
             };
           }
-          
-          // Otherwise, continue to next provider if error is retryable
-          if (!error.retryable) {
-            console.log(`[AIOrchestrator] Non-retryable error, trying next provider...`);
-            continue;
-          }
         } else {
-          console.error(`[AIOrchestrator] Unexpected error with ${providerName}:`, error);
+          console.error(`[AIOrchestrator] ✗ ${providerName} error:`, error?.message || error);
           
           // If this is the last provider, return generic error
           if (isLastProvider) {
@@ -267,11 +297,18 @@ export class AIOrchestrator {
         }
         
         // Continue to next provider
-        console.log(`[AIOrchestrator] Falling back to next provider...`);
+        console.log(`[AIOrchestrator] → Failing over to next provider...`);
       }
     }
     
-    // This should never be reached, but just in case
+    // All providers failed - return most relevant error
+    if (lastError instanceof ProviderError) {
+      return {
+        content: this.buildFallbackErrorMessage(lastError),
+        tokensUsed: 0
+      };
+    }
+    
     return {
       content: "I apologize, but all AI providers are currently unavailable. Please try again later.",
       tokensUsed: 0

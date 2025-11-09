@@ -22,15 +22,22 @@ The user interface features a 3-pane resizable layout: a left pane for conversat
 
 ### Technical Implementations
 
-#### Multi-Provider AI Architecture
+#### Multi-Provider AI Architecture with Health Monitoring
 Luca implements a provider abstraction layer (`server/services/aiProviders/`) for flexible LLM integration. The architecture includes:
 - **Provider Abstraction Layer**: Base AIProvider class with standardized interfaces for completion requests, streaming, token usage, and cost estimation
 - **Provider Registry**: Singleton factory pattern (`aiProviderRegistry`) for dynamic provider selection and initialization
+- **Health Monitoring System** (`providerHealthMonitor`): Real-time tracking of provider health with automatic failover
+  - Tracks success/error rates, consecutive failures, and health scores (0-100)
+  - Detects and handles rate limits (429), quota exceeded, auth errors (401/403), timeouts, and network issues
+  - Implements smart cooldown periods: 1min for rate limits, 5min for quota, 10min for auth errors
+  - Auto-recovery: Health scores improve over time when errors stop
+  - Health-aware routing: Filters unhealthy providers and prioritizes healthier ones by score
+- **Intelligent Failover**: When a provider encounters token/quota issues, requests automatically route to healthier alternatives
 - **OpenAI Provider Adapter**: Primary provider wrapping OpenAI SDK with unified error handling and usage tracking
-- **Extensibility**: Designed to support future integrations with Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Perplexity AI, and Azure AI Search
-- **Cost Optimization**: Multi-provider routing can achieve 51% cost savings vs OpenAI-only architecture
+- **All Providers Active**: Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Perplexity AI, and Azure Document Intelligence
+- **Cost Optimization**: Multi-provider routing achieves 51% cost savings vs OpenAI-only architecture
 
-The system enables intelligent provider selection based on query complexity, cost considerations, and specialized capabilities (document analysis, real-time data, reasoning).
+The system enables intelligent provider selection based on query complexity, cost considerations, provider health status, and specialized capabilities (document analysis, real-time data, reasoning).
 
 #### Query Processing Pipeline
 Luca employs an Intelligent Query Triage System (`server/services/queryTriage.ts`) to classify accounting questions by domain, jurisdiction, and complexity, routing them to optimal AI models and financial solvers. A Multi-Model Router Architecture uses `gpt-4o` as primary, with specialized models and a fallback to `gpt-4o-mini`. Advanced Financial Solvers (`server/services/financialSolvers.ts`) handle tax calculations, NPV, IRR, depreciation, amortization, and financial ratios. An AI Orchestration Layer (`server/services/aiOrchestrator.ts`) coordinates these components, synthesizes responses, and tracks performance.

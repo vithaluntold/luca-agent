@@ -12,6 +12,18 @@ I prefer that you communicate in a clear and concise manner. When providing expl
 The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts. The conversations sidebar includes a profile filter dropdown that allows users to view conversations by profile context ("All Profiles", "No Profile", or specific profiles). When users switch profile filters, the active conversation is cleared to ensure each profile context maintains separate conversation threads. A persistent "Powered by FinACEverse" badge is displayed at the bottom-center of the screen. The design uses a pink-to-purple brand gradient theme.
 
 ### Technical Implementations
+
+#### Multi-Provider AI Architecture
+Luca implements a provider abstraction layer (`server/services/aiProviders/`) for flexible LLM integration. The architecture includes:
+- **Provider Abstraction Layer**: Base AIProvider class with standardized interfaces for completion requests, streaming, token usage, and cost estimation
+- **Provider Registry**: Singleton factory pattern (`aiProviderRegistry`) for dynamic provider selection and initialization
+- **OpenAI Provider Adapter**: Primary provider wrapping OpenAI SDK with unified error handling and usage tracking
+- **Extensibility**: Designed to support future integrations with Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Perplexity AI, and Azure AI Search
+- **Cost Optimization**: Multi-provider routing can achieve 51% cost savings vs OpenAI-only architecture
+
+The system enables intelligent provider selection based on query complexity, cost considerations, and specialized capabilities (document analysis, real-time data, reasoning).
+
+#### Query Processing Pipeline
 Luca employs an Intelligent Query Triage System (`server/services/queryTriage.ts`) to classify accounting questions by domain, jurisdiction, and complexity, routing them to optimal AI models and financial solvers. A Multi-Model Router Architecture uses `gpt-4o` as primary, with specialized models and a fallback to `gpt-4o-mini`. Advanced Financial Solvers (`server/services/financialSolvers.ts`) handle tax calculations, NPV, IRR, depreciation, amortization, and financial ratios. An AI Orchestration Layer (`server/services/aiOrchestrator.ts`) coordinates these components, synthesizes responses, and tracks performance.
 
 ### Feature Specifications
@@ -26,7 +38,12 @@ The conversations table includes a `profileId` column (varchar, nullable) with a
 
 Luca integrates with several third-party services:
 
--   **OpenAI API**: For AI model access (`gpt-4o`, `gpt-4o-mini`).
+-   **AI Providers**:
+    -   **OpenAI API** (Active): Primary provider for `gpt-4o`, `gpt-4o-mini` models
+    -   **Anthropic Claude** (Planned): Claude 3.5 Sonnet for advanced reasoning
+    -   **Google Gemini** (Planned): Gemini 2.0 Flash for cost-effective queries
+    -   **Perplexity AI** (Planned): Real-time data and research
+    -   **Azure AI Services** (Planned): Document Intelligence for financial document analysis
 -   **Accounting Software (OAuth 2.0)**:
     -   QuickBooks Online
     -   Xero

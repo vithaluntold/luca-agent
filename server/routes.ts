@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./pgStorage";
 import { aiOrchestrator } from "./services/aiOrchestrator";
 import { AnalyticsProcessor } from "./services/analyticsProcessor";
-import { providerHealthMonitor } from "./services/aiProviders";
+import { providerHealthMonitor, aiProviderRegistry, AIProviderName } from "./services/aiProviders";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
 import { 
@@ -587,7 +587,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const conversations = await storage.getUserConversations(userId, profileId);
-      res.json({ conversations });
+      
+      // Sort conversations: pinned first, then by updatedAt descending
+      const sortedConversations = conversations.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+      
+      res.json({ conversations: sortedConversations });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch conversations" });
     }
@@ -771,9 +779,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       });
       
-      // Fire-and-forget async analytics processing (don't block response)
+      // Fire-and-forget async analytics processing and auto-title generation (don't block response)
       setImmediate(async () => {
         try {
+          // Auto-generate title after first message
+          if (conversationHistory.length === 0) {
+            try {
+              const provider = aiProviderRegistry.getProvider(AIProviderName.GEMINI);
+              const titleResponse = await provider.generateCompletion({
+                messages: [{
+                  role: 'user',
+                  content: `Generate a very short, concise title (max 6 words) for this accounting question. Only respond with the title, nothing else:\n\n"${message}"`
+                }],
+                temperature: 0.3,
+                maxTokens: 50
+              });
+              
+              const generatedTitle = titleResponse.content.trim().replace(/^["']|["']$/g, '');
+              await storage.updateConversation(conversation.id, { title: generatedTitle });
+              console.log(`[AutoTitle] Generated title: "${generatedTitle}"`);
+            } catch (error) {
+              console.error('[AutoTitle] Failed to generate title:', error);
+            }
+          }
+          
           // Process user message analytics
           await AnalyticsProcessor.processMessage({
             messageId: userMessage.id,
@@ -822,6 +851,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Chat error:', error);
       res.status(500).json({ error: "Failed to process message" });
+    }
+  });
+
+  // Conversation Management Endpoints
+  
+  // Pin/Unpin conversation
+  app.patch("/api/conversations/:id/pin", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.updateConversation(id, { pinned: !conversation.pinned });
+      res.json({ success: true, pinned: !conversation.pinned });
+    } catch (error) {
+      console.error('Pin conversation error:', error);
+      res.status(500).json({ error: "Failed to pin conversation" });
+    }
+  });
+  
+  // Rename conversation
+  app.patch("/api/conversations/:id/rename", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      const { title } = req.body;
+      
+      if (!title || title.trim().length === 0) {
+        return res.status(400).json({ error: "Title is required" });
+      }
+      
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.updateConversation(id, { title: title.trim() });
+      res.json({ success: true, title: title.trim() });
+    } catch (error) {
+      console.error('Rename conversation error:', error);
+      res.status(500).json({ error: "Failed to rename conversation" });
+    }
+  });
+  
+  // Share conversation (create share link)
+  app.post("/api/conversations/:id/share", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Generate unique share token
+      const crypto = await import('crypto');
+      const sharedToken = crypto.randomBytes(32).toString('hex');
+      
+      await storage.updateConversation(id, { 
+        isShared: true, 
+        sharedToken 
+      });
+      
+      const shareUrl = `${req.protocol}://${req.get('host')}/shared/${sharedToken}`;
+      res.json({ success: true, shareUrl, sharedToken });
+    } catch (error) {
+      console.error('Share conversation error:', error);
+      res.status(500).json({ error: "Failed to share conversation" });
+    }
+  });
+  
+  // Unshare conversation
+  app.delete("/api/conversations/:id/share", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.updateConversation(id, { 
+        isShared: false, 
+        sharedToken: null 
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Unshare conversation error:', error);
+      res.status(500).json({ error: "Failed to unshare conversation" });
+    }
+  });
+  
+  // Delete conversation
+  app.delete("/api/conversations/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.deleteConversation(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete conversation error:', error);
+      res.status(500).json({ error: "Failed to delete conversation" });
+    }
+  });
+  
+  // Auto-generate conversation title (called after first message)
+  app.post("/api/conversations/:id/auto-title", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get the first user message
+      const messages = await storage.getConversationMessages(id);
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      
+      if (!firstUserMessage) {
+        return res.status(400).json({ error: "No messages found" });
+      }
+      
+      // Generate a concise title using AI
+      try {
+        const provider = aiProviderRegistry.getProvider(AIProviderName.GEMINI);
+        const response = await provider.generateCompletion({
+          messages: [{
+            role: 'user',
+            content: `Generate a very short, concise title (max 6 words) for this accounting question. Only respond with the title, nothing else:\n\n"${firstUserMessage.content}"`
+          }],
+          temperature: 0.3,
+          maxTokens: 50
+        });
+        
+        const generatedTitle = response.content.trim().replace(/^["']|["']$/g, '');
+        await storage.updateConversation(id, { title: generatedTitle });
+        
+        res.json({ success: true, title: generatedTitle });
+      } catch (error) {
+        // Fallback to simple truncation if AI fails
+        const fallbackTitle = firstUserMessage.content.slice(0, 50) + 
+          (firstUserMessage.content.length > 50 ? '...' : '');
+        await storage.updateConversation(id, { title: fallbackTitle });
+        
+        res.json({ success: true, title: fallbackTitle });
+      }
+    } catch (error) {
+      console.error('Auto-title error:', error);
+      res.status(500).json({ error: "Failed to generate title" });
     }
   });
 

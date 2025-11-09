@@ -17,6 +17,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -43,7 +51,15 @@ import {
   Building2,
   Briefcase,
   Users,
-  UserCircle2
+  UserCircle2,
+  MoreVertical,
+  Pin,
+  PinOff,
+  Edit3,
+  Share2,
+  Trash2,
+  Copy,
+  Check
 } from "lucide-react";
 
 interface Message {
@@ -60,6 +76,9 @@ interface Conversation {
   preview: string | null;
   updatedAt: string;
   profileId: string | null;
+  pinned: boolean;
+  isShared: boolean;
+  sharedToken: string | null;
 }
 
 interface Profile {
@@ -77,7 +96,12 @@ export default function Chat() {
   const [inputMessage, setInputMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProfileFilter, setSelectedProfileFilter] = useState<string>("all");
-  const { user, logout } = useAuth();
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameConvId, setRenameConvId] = useState<string>("");
+  const [renameValue, setRenameValue] = useState("");
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [showShareCopied, setShowShareCopied] = useState(false);
+  const { user, logout} = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -213,6 +237,116 @@ export default function Chat() {
     setLocation('/');
   };
 
+  // Conversation management mutations
+  const pinMutation = useMutation({
+    mutationFn: async (convId: string) => {
+      const res = await fetch(`/api/conversations/${convId}/pin`, {
+        method: 'PATCH',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to pin conversation');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      toast({ title: "Conversation updated" });
+    }
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ convId, title }: { convId: string, title: string }) => {
+      const res = await fetch(`/api/conversations/${convId}/rename`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title })
+      });
+      if (!res.ok) throw new Error('Failed to rename conversation');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      setRenameDialogOpen(false);
+      toast({ title: "Conversation renamed" });
+    }
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async (convId: string) => {
+      const res = await fetch(`/api/conversations/${convId}/share`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to share conversation');
+      return res.json();
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      setShareUrl(data.shareUrl);
+      
+      // Try to copy to clipboard with error handling
+      try {
+        await navigator.clipboard.writeText(data.shareUrl);
+        setShowShareCopied(true);
+        setTimeout(() => setShowShareCopied(false), 2000);
+        toast({ title: "Share link copied to clipboard!" });
+      } catch (error) {
+        // Fallback if clipboard access denied
+        toast({ 
+          title: "Share link created",
+          description: "Copy this link: " + data.shareUrl
+        });
+      }
+    }
+  });
+
+  const unshareMutation = useMutation({
+    mutationFn: async (convId: string) => {
+      const res = await fetch(`/api/conversations/${convId}/share`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to unshare conversation');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      toast({ title: "Conversation unshared" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (convId: string) => {
+      const res = await fetch(`/api/conversations/${convId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to delete conversation');
+      return { convId };
+    },
+    onSuccess: ({ convId }) => {
+      // Clear active conversation if we're deleting the currently active one
+      if (activeConversation === convId) {
+        setActiveConversation(undefined);
+        setMessages([]);
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      toast({ title: "Conversation deleted" });
+    }
+  });
+
+  const handleRename = (convId: string, currentTitle: string) => {
+    setRenameConvId(convId);
+    setRenameValue(currentTitle);
+    setRenameDialogOpen(true);
+  };
+
+  const confirmRename = () => {
+    if (renameValue.trim()) {
+      renameMutation.mutate({ convId: renameConvId, title: renameValue.trim() });
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -340,24 +474,91 @@ export default function Chat() {
                 <ScrollArea className="flex-1">
                   <div className="px-2 py-2 space-y-1">
                     {filteredConversations.map((conv) => (
-                      <button
+                      <div
                         key={conv.id}
-                        onClick={() => setActiveConversation(conv.id)}
-                        className={`w-full text-left px-3 py-2 rounded-md hover-elevate transition-colors ${
+                        className={`group relative flex items-center gap-1 rounded-md ${
                           activeConversation === conv.id
                             ? 'bg-accent text-accent-foreground'
-                            : 'hover:bg-accent/50'
+                            : ''
                         }`}
-                        data-testid={`conversation-${conv.id}`}
                       >
-                        <div className="flex items-start gap-2">
-                          <MessageSquare className="h-4 w-4 mt-1 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{conv.title}</p>
-                            <p className="text-xs text-muted-foreground truncate">{conv.preview || 'No preview'}</p>
+                        <button
+                          onClick={() => setActiveConversation(conv.id)}
+                          className="flex-1 text-left px-3 py-2 hover-elevate transition-colors"
+                          data-testid={`conversation-${conv.id}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {conv.pinned ? (
+                              <Pin className="h-4 w-4 mt-1 flex-shrink-0 text-primary" />
+                            ) : (
+                              <MessageSquare className="h-4 w-4 mt-1 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{conv.title}</p>
+                              <p className="text-xs text-muted-foreground truncate">{conv.preview || 'No preview'}</p>
+                            </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              data-testid={`button-conversation-menu-${conv.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={() => pinMutation.mutate(conv.id)}
+                              data-testid={`menu-item-pin-${conv.id}`}
+                            >
+                              {conv.pinned ? (
+                                <><PinOff className="mr-2 h-4 w-4" /> Unpin</>
+                              ) : (
+                                <><Pin className="mr-2 h-4 w-4" /> Pin</>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleRename(conv.id, conv.title)}
+                              data-testid={`menu-item-rename-${conv.id}`}
+                            >
+                              <Edit3 className="mr-2 h-4 w-4" />
+                              Rename
+                            </DropdownMenuItem>
+                            {conv.isShared ? (
+                              <DropdownMenuItem 
+                                onClick={() => unshareMutation.mutate(conv.id)}
+                                data-testid={`menu-item-unshare-${conv.id}`}
+                              >
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Unshare
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                onClick={() => shareMutation.mutate(conv.id)}
+                                data-testid={`menu-item-share-${conv.id}`}
+                              >
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Share
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => deleteMutation.mutate(conv.id)}
+                              className="text-destructive"
+                              data-testid={`menu-item-delete-${conv.id}`}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     ))}
                   </div>
                 </ScrollArea>
@@ -475,6 +676,46 @@ export default function Chat() {
           </div>
         )}
       </ResizablePanelGroup>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent data-testid="dialog-rename-conversation">
+          <DialogHeader>
+            <DialogTitle>Rename Conversation</DialogTitle>
+            <DialogDescription>
+              Enter a new title for this conversation.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmRename();
+              }
+            }}
+            placeholder="Conversation title"
+            data-testid="input-rename-title"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRenameDialogOpen(false)}
+              data-testid="button-cancel-rename"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRename}
+              disabled={!renameValue.trim()}
+              data-testid="button-confirm-rename"
+            >
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

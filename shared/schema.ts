@@ -57,11 +57,16 @@ export const conversations = pgTable("conversations", {
   profileId: varchar("profile_id").references(() => profiles.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   preview: text("preview"),
+  pinned: boolean("pinned").notNull().default(false),
+  isShared: boolean("is_shared").notNull().default(false),
+  sharedToken: varchar("shared_token").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
   userIdProfileIdUpdatedAtIdx: index("conversations_user_profile_updated_idx")
     .on(table.userId, table.profileId, table.updatedAt),
+  pinnedIdx: index("conversations_pinned_idx").on(table.pinned),
+  sharedTokenIdx: index("conversations_shared_token_idx").on(table.sharedToken),
 }));
 
 export const messages = pgTable("messages", {

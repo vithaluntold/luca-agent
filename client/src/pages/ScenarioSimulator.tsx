@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Play, TrendingUp, FileBarChart, Share2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface ScenarioConfig {
   jurisdiction: string;
@@ -63,37 +64,102 @@ export default function ScenarioSimulator() {
     setVariants([...variants, newVariant]);
   };
 
+  // Fetch playbooks
+  const { data: playbooks } = useQuery({
+    queryKey: ['/api/scenarios/playbooks'],
+    enabled: activeTab === "simulate" || activeTab === "results"
+  });
+
+  // Create playbook mutation
+  const createPlaybookMutation = useMutation({
+    mutationFn: async (playbookData: any) => {
+      return await apiRequest('/api/scenarios/playbooks', {
+        method: 'POST',
+        body: JSON.stringify(playbookData),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scenarios/playbooks'] });
+      toast({
+        title: "Playbook Created",
+        description: "Scenario playbook has been saved successfully",
+      });
+      setActiveTab("simulate");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create playbook",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Run simulation mutation
+  const runSimulationMutation = useMutation({
+    mutationFn: async ({ playbookId, variantIds }: { playbookId: string; variantIds: string[] }) => {
+      return await apiRequest(`/api/scenarios/playbooks/${playbookId}/simulate`, {
+        method: 'POST',
+        body: JSON.stringify({ variantIds }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: (data) => {
+      setComparisonResults(data);
+      setActiveTab("results");
+      toast({
+        title: "Simulation Complete",
+        description: "Results are ready for review",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Simulation Failed",
+        description: error.message || "Failed to run simulation",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleSavePlaybook = async () => {
+    if (!playbookName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a scenario name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    createPlaybookMutation.mutate({
+      name: playbookName,
+      description: playbookDescription,
+      category,
+      baselineConfig
+    });
+  };
+
   const handleRunSimulation = async () => {
+    if (!playbooks || playbooks.length === 0) {
+      toast({
+        title: "No Playbook",
+        description: "Please create a scenario playbook first",
+        variant: "destructive"
+      });
+      return;
+    }
+
     toast({
       title: "Running Simulation",
       description: "Calculating tax implications across all scenarios...",
     });
 
-    // TODO: Implement actual API call to run simulation
-    setTimeout(() => {
-      setComparisonResults({
-        baseline: {
-          totalTax: 45000,
-          effectiveRate: 22.5,
-          qbiDeduction: 0,
-          estimatedSavings: 0
-        },
-        alternatives: variants.map(v => ({
-          name: v.name,
-          totalTax: 38000,
-          effectiveRate: 19.0,
-          qbiDeduction: 15000,
-          estimatedSavings: 7000
-        }))
-      });
-      
-      setActiveTab("results");
-      
-      toast({
-        title: "Simulation Complete",
-        description: "Results are ready for review",
-      });
-    }, 2000);
+    const latestPlaybook = playbooks[0];
+    runSimulationMutation.mutate({
+      playbookId: latestPlaybook.id,
+      variantIds: variants.map(v => v.id)
+    });
   };
 
   return (
@@ -261,15 +327,11 @@ export default function ScenarioSimulator() {
                   <Button
                     className="flex-1"
                     data-testid="button-save-playbook"
-                    onClick={() => {
-                      toast({
-                        title: "Playbook Saved",
-                        description: "Your scenario baseline has been saved successfully",
-                      });
-                    }}
+                    onClick={handleSavePlaybook}
+                    disabled={createPlaybookMutation.isPending}
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    Save Playbook
+                    {createPlaybookMutation.isPending ? "Saving..." : "Save Playbook"}
                   </Button>
                   <Button
                     variant="outline"

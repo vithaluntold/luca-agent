@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { FileText, Download, Share2, Eye, FileSpreadsheet, FileCheck, Presentation, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface DeliverableTemplate {
   id: string;
@@ -19,49 +20,6 @@ interface DeliverableTemplate {
   category: string;
   isSystem: boolean;
 }
-
-const SYSTEM_TEMPLATES: DeliverableTemplate[] = [
-  {
-    id: "audit-plan-manufacturing",
-    name: "Manufacturing Audit Plan",
-    type: "audit_plan",
-    description: "Comprehensive audit approach for manufacturing companies with inventory tracking",
-    category: "audit",
-    isSystem: true
-  },
-  {
-    id: "tax-memo-scorp",
-    name: "S-Corp Election Tax Memo",
-    type: "tax_memo",
-    description: "Client memo explaining S-Corporation election tax implications and savings",
-    category: "tax",
-    isSystem: true
-  },
-  {
-    id: "checklist-year-end",
-    name: "Year-End Tax Planning Checklist",
-    type: "checklist",
-    description: "Comprehensive year-end tax planning checklist for high-net-worth individuals",
-    category: "tax",
-    isSystem: true
-  },
-  {
-    id: "board-presentation-q4",
-    name: "Q4 Financial Board Presentation",
-    type: "board_presentation",
-    description: "Executive-ready quarterly financial performance presentation",
-    category: "advisory",
-    isSystem: true
-  },
-  {
-    id: "client-letter-engagement",
-    name: "Audit Engagement Letter",
-    type: "client_letter",
-    description: "Professional engagement letter for audit services",
-    category: "audit",
-    isSystem: true
-  }
-];
 
 export default function DeliverableComposer() {
   const { toast } = useToast();
@@ -75,10 +33,69 @@ export default function DeliverableComposer() {
     jurisdiction: ""
   });
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Fetch templates from API
+  const { data: templates = [], isLoading: templatesLoading } = useQuery({
+    queryKey: ['/api/deliverables/templates']
+  });
+
+  // Fetch user's deliverable instances
+  const { data: instances = [] } = useQuery({
+    queryKey: ['/api/deliverables/instances']
+  });
+
+  // Generate deliverable mutation
+  const generateMutation = useMutation({
+    mutationFn: async ({ templateId, variables }: { templateId: string; variables: Record<string, any> }) => {
+      return await apiRequest('/api/deliverables/generate', {
+        method: 'POST',
+        body: JSON.stringify({ templateId, variables }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: (data) => {
+      setGeneratedContent(data.contentMarkdown);
+      queryClient.invalidateQueries({ queryKey: ['/api/deliverables/instances'] });
+      toast({
+        title: "Deliverable Generated",
+        description: "Your professional document is ready for review",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate deliverable",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Export deliverable mutation
+  const exportMutation = useMutation({
+    mutationFn: async ({ instanceId, format }: { instanceId: string; format: string }) => {
+      return await apiRequest(`/api/deliverables/instances/${instanceId}/export`, {
+        method: 'POST',
+        body: JSON.stringify({ format }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Export Complete",
+        description: `Document exported to ${data.format?.toUpperCase()}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export deliverable",
+        variant: "destructive"
+      });
+    }
+  });
 
   const handleSelectTemplate = (templateId: string) => {
-    const template = SYSTEM_TEMPLATES.find(t => t.id === templateId);
+    const template = templates.find((t: any) => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
       setDocumentTitle("");
@@ -87,15 +104,58 @@ export default function DeliverableComposer() {
   };
 
   const handleGenerateDeliverable = async () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate) {
+      toast({
+        title: "No Template Selected",
+        description: "Please select a template first",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    setIsGenerating(true);
     toast({
       title: "Generating Deliverable",
       description: "Creating professional document with AI assistance...",
     });
 
-    // TODO: Implement actual API call to generate deliverable
+    generateMutation.mutate({
+      templateId: selectedTemplate.id,
+      variables: {
+        deliverableTitle: documentTitle || selectedTemplate.name,
+        ...variables
+      }
+    });
+  };
+
+  const handleExportDeliverable = (format: 'docx' | 'pdf') => {
+    if (!instances || instances.length === 0) {
+      toast({
+        title: "No Deliverable",
+        description: "Please generate a deliverable first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    exportMutation.mutate({
+      instanceId: instances[0].id,
+      format
+    });
+  };
+
+  if (templatesLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Loading templates...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mock content generation for now since API will use AI
+  if (generateMutation.isPending) {
     setTimeout(() => {
       const mockContent = `# ${documentTitle || selectedTemplate.name}
 

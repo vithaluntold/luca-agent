@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Upload, Search, AlertTriangle, CheckCircle, FileText, TrendingDown, TrendingUp, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface ForensicFinding {
   id: string;
@@ -30,81 +31,161 @@ interface ForensicDocument {
 export default function ForensicIntelligence() {
   const { toast } = useToast();
   const [caseTitle, setCaseTitle] = useState("");
-  const [documents, setDocuments] = useState<ForensicDocument[]>([]);
-  const [findings, setFindings] = useState<ForensicFinding[]>([]);
-  const [overallRiskScore, setOverallRiskScore] = useState<number>(0);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+
+  // Fetch forensic cases
+  const { data: cases = [], isLoading: casesLoading } = useQuery({
+    queryKey: ['/api/forensic/cases']
+  });
+
+  // Fetch documents for selected case
+  const { data: documents = [] } = useQuery({
+    queryKey: ['/api/forensic/cases', selectedCaseId, 'documents'],
+    enabled: !!selectedCaseId
+  });
+
+  // Fetch findings for selected case
+  const { data: findings = [] } = useQuery({
+    queryKey: ['/api/forensic/cases', selectedCaseId, 'findings'],
+    enabled: !!selectedCaseId
+  });
+
+  // Create case mutation
+  const createCaseMutation = useMutation({
+    mutationFn: async (caseData: { caseTitle: string }) => {
+      return await apiRequest('/api/forensic/cases', {
+        method: 'POST',
+        body: JSON.stringify(caseData),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: (data) => {
+      setSelectedCaseId(data.id);
+      queryClient.invalidateQueries({ queryKey: ['/api/forensic/cases'] });
+      toast({
+        title: "Case Created",
+        description: "Ready to upload documents for analysis",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Create Case",
+        description: error.message || "An error occurred",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Upload document mutation
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async ({ caseId, formData }: { caseId: string; formData: FormData }) => {
+      return await apiRequest(`/api/forensic/cases/${caseId}/documents`, {
+        method: 'POST',
+        body: formData
+      });
+    },
+    onSuccess: () => {
+      if (selectedCaseId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/forensic/cases', selectedCaseId, 'documents'] });
+      }
+      toast({
+        title: "Document Uploaded",
+        description: "Document is being analyzed for anomalies...",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload document",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Analyze case mutation
+  const analyzeCaseMutation = useMutation({
+    mutationFn: async (caseId: string) => {
+      return await apiRequest(`/api/forensic/cases/${caseId}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      if (selectedCaseId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/forensic/cases', selectedCaseId, 'findings'] });
+      }
+      toast({
+        title: "Analysis Complete",
+        description: "Forensic analysis has identified potential anomalies",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Failed to analyze case",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleCreateCase = () => {
+    if (!caseTitle.trim()) {
+      toast({
+        title: "Case Title Required",
+        description: "Please enter a case title",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    createCaseMutation.mutate({ caseTitle });
+  };
 
   const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    if (!selectedCaseId) {
+      toast({
+        title: "No Case Selected",
+        description: "Please create a case first",
+        variant: "destructive"
+      });
+      return;
+    }
+
     toast({
-      title: "Analyzing Documents",
-      description: `Processing ${files.length} document(s) for anomaly detection...`,
+      title: "Uploading Documents",
+      description: `Processing ${files.length} document(s)...`,
     });
 
-    // TODO: Implement actual document upload and analysis
-    setTimeout(() => {
-      const newDocs: ForensicDocument[] = Array.from(files).map((file, index) => ({
-        id: `doc-${Date.now()}-${index}`,
-        filename: file.name,
-        documentType: file.name.toLowerCase().includes('invoice') ? 'invoice' : 
-                      file.name.toLowerCase().includes('bank') ? 'bank_statement' :
-                      file.name.toLowerCase().includes('w2') ? 'w2' : 'unknown',
-        analysisStatus: 'analyzed'
-      }));
+    for (const file of Array.from(files)) {
+      const formData = new FormData();
+      formData.append('document', file);
       
-      setDocuments([...documents, ...newDocs]);
-
-      // Mock findings
-      const mockFindings: ForensicFinding[] = [
-        {
-          id: 'finding-1',
-          type: 'mismatch',
-          severity: 'high',
-          title: 'Revenue-AR Mismatch Detected',
-          description: 'Revenue growth of 40% but Accounts Receivable days increased from 30 to 60 days. This may indicate collection issues or revenue recognition timing concerns.',
-          impactedMetrics: { revenue_growth: 40, ar_days_increase: 30 },
-          status: 'new'
-        },
-        {
-          id: 'finding-2',
-          type: 'inconsistency',
-          severity: 'critical',
-          title: 'Income Reporting Discrepancy',
-          description: '1099-K shows $125,000 in payments but bank deposits only total $98,000. Missing $27,000 requires investigation.',
-          impactedMetrics: { reported_1099k: 125000, actual_deposits: 98000, variance: -27000 },
-          status: 'new'
-        },
-        {
-          id: 'finding-3',
-          type: 'pattern_violation',
-          severity: 'medium',
-          title: 'Vendor Pricing Inconsistency',
-          description: 'Vendor ABC charged $1,500/unit in Q1 but $2,200/unit in Q2 for identical services. Review pricing agreement.',
-          impactedMetrics: { price_variance_pct: 47 },
-          status: 'new'
-        },
-        {
-          id: 'finding-4',
-          type: 'anomaly',
-          severity: 'low',
-          title: 'Unusual Expense Pattern',
-          description: 'Travel expenses spiked 250% in March with no corresponding revenue increase. Verify business purpose.',
-          impactedMetrics: { expense_spike_pct: 250 },
-          status: 'new'
-        }
-      ];
-
-      setFindings(mockFindings);
-      setOverallRiskScore(72);
-
-      toast({
-        title: "Analysis Complete",
-        description: `Found ${mockFindings.length} anomalies requiring review`,
+      await uploadDocumentMutation.mutateAsync({
+        caseId: selectedCaseId,
+        formData
       });
-    }, 2500);
+    }
   };
+
+  const handleAnalyzeCase = () => {
+    if (!selectedCaseId) {
+      toast({
+        title: "No Case Selected",
+        description: "Please create a case and upload documents first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    analyzeCaseMutation.mutate(selectedCaseId);
+  };
+
+  // Get overall risk score from case data
+  const selectedCase = cases.find((c: any) => c.id === selectedCaseId);
+  const overallRiskScore = selectedCase?.overallRiskScore || 0;
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -161,6 +242,15 @@ export default function ForensicIntelligence() {
                   />
                 </div>
 
+                <Button
+                  onClick={handleCreateCase}
+                  disabled={createCaseMutation.isPending || !caseTitle.trim()}
+                  className="w-full"
+                  data-testid="button-create-case"
+                >
+                  {createCaseMutation.isPending ? "Creating..." : "Create Case"}
+                </Button>
+
                 <Separator />
 
                 <div>
@@ -188,7 +278,7 @@ export default function ForensicIntelligence() {
                 {documents.length > 0 && (
                   <div className="space-y-2">
                     <Label>Uploaded Documents</Label>
-                    {documents.map((doc) => (
+                    {documents.map((doc: any) => (
                       <div key={doc.id} className="flex items-center gap-2 p-2 border rounded-lg text-sm">
                         <FileText className="w-4 h-4 text-muted-foreground" />
                         <span className="flex-1 truncate">{doc.filename}</span>
@@ -196,6 +286,18 @@ export default function ForensicIntelligence() {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {documents.length > 0 && (
+                  <Button
+                    onClick={handleAnalyzeCase}
+                    disabled={analyzeCaseMutation.isPending}
+                    className="w-full"
+                    data-testid="button-run-analysis"
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    {analyzeCaseMutation.isPending ? "Analyzing..." : "Run Forensic Analysis"}
+                  </Button>
                 )}
               </CardContent>
             </Card>

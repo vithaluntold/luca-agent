@@ -50,18 +50,44 @@ export default function ScenarioSimulator() {
   const [variants, setVariants] = useState<ScenarioVariant[]>([]);
   const [comparisonResults, setComparisonResults] = useState<any>(null);
 
-  const handleAddVariant = () => {
-    const newVariant: ScenarioVariant = {
-      id: `variant-${Date.now()}`,
+  const handleAddVariant = async () => {
+    if (!playbooks || playbooks.length === 0) {
+      toast({
+        title: "No Playbook",
+        description: "Please create a scenario playbook first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const latestPlaybook = playbooks[0];
+    const variantData = {
       name: `Alternative ${variants.length + 1}`,
-      description: "",
-      assumptions: {
+      description: "Scenario variant for comparison",
+      alternativeAssumptions: {
         ...baselineConfig,
         entityType: "s-corp" // Default variation
-      },
-      isBaseline: false
+      }
     };
-    setVariants([...variants, newVariant]);
+
+    try {
+      const savedVariant = await createVariantMutation.mutateAsync({
+        playbookId: latestPlaybook.id,
+        variantData
+      });
+      
+      // Add to local state with the database ID
+      const newVariant: ScenarioVariant = {
+        id: savedVariant.id,
+        name: savedVariant.name,
+        description: savedVariant.description,
+        assumptions: savedVariant.alternativeAssumptions,
+        isBaseline: false
+      };
+      setVariants([...variants, newVariant]);
+    } catch (error) {
+      console.error('Failed to add variant:', error);
+    }
   };
 
   // Fetch playbooks
@@ -91,6 +117,30 @@ export default function ScenarioSimulator() {
       toast({
         title: "Error",
         description: error.message || "Failed to create playbook",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Create variant mutation
+  const createVariantMutation = useMutation({
+    mutationFn: async ({ playbookId, variantData }: { playbookId: string; variantData: any }) => {
+      return await apiRequest(`/api/scenarios/playbooks/${playbookId}/variants`, {
+        method: 'POST',
+        body: JSON.stringify(variantData),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Variant Added",
+        description: "Scenario variant has been saved",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create variant",
         variant: "destructive"
       });
     }

@@ -42,6 +42,7 @@ export interface ProcessQueryOptions {
     mimeType: string;
     documentType?: string;
   };
+  chatMode?: string;
 }
 
 export class AIOrchestrator {
@@ -113,12 +114,13 @@ export class AIOrchestrator {
     // Step 3: Execute any needed calculations/solvers
     const calculationResults = await this.executeCalculations(query, classification, routingDecision);
     
-    // Step 4: Build enhanced context with calculation results and clarification insights
+    // Step 4: Build enhanced context with calculation results, clarification insights, and chat mode
     const enhancedContext = this.buildEnhancedContext(
       query,
       classification,
       calculationResults,
-      clarificationAnalysis
+      clarificationAnalysis,
+      options?.chatMode
     );
     
     // Step 5: Call the AI provider with enhanced context and provider routing
@@ -361,13 +363,14 @@ export class AIOrchestrator {
   }
 
   /**
-   * Build enhanced context with calculation results and clarification insights for AI model
+   * Build enhanced context with calculation results, clarification insights, and chat mode for AI model
    */
   private buildEnhancedContext(
     query: string,
     classification: QueryClassification,
     calculations: any,
-    clarificationAnalysis?: ClarificationAnalysis
+    clarificationAnalysis?: ClarificationAnalysis,
+    chatMode?: string
   ): string {
     let context = `You are Luca, a pan-global accounting superintelligence and expert CPA/CA advisor. `;
     context += `You are NOT a generic text generation machine. You are a thoughtful, detail-oriented professional who:\n`;
@@ -376,6 +379,59 @@ export class AIOrchestrator {
     context += `- Provides tailored, precise advice rather than generic information\n`;
     context += `- Asks clarifying questions when critical context is missing\n`;
     context += `- Acknowledges when additional context would improve your advice\n\n`;
+    
+    // Add chat mode-specific instructions
+    if (chatMode && chatMode !== 'standard') {
+      context += `**PROFESSIONAL MODE SELECTED: ${chatMode.toUpperCase().replace(/-/g, ' ')}**\n\n`;
+      
+      switch (chatMode) {
+        case 'deep-research':
+          context += `INSTRUCTIONS FOR DEEP RESEARCH MODE:\n`;
+          context += `- Conduct comprehensive, multi-source analysis\n`;
+          context += `- Cite specific regulations, tax codes, and accounting standards\n`;
+          context += `- Compare approaches across different jurisdictions when relevant\n`;
+          context += `- Identify edge cases and alternative interpretations\n`;
+          context += `- Provide detailed explanations with supporting evidence\n`;
+          context += `- Include references to authoritative sources (IRS publications, IFRS standards, etc.)\n\n`;
+          break;
+        case 'checklist':
+          context += `INSTRUCTIONS FOR CHECKLIST MODE:\n`;
+          context += `- Create a structured, actionable checklist\n`;
+          context += `- Organize tasks in logical order with clear steps\n`;
+          context += `- Include deadlines and dependencies where applicable\n`;
+          context += `- Add brief explanations for each checklist item\n`;
+          context += `- Prioritize critical tasks at the top\n`;
+          context += `- Format as numbered list with sub-items where needed\n\n`;
+          break;
+        case 'workflow':
+          context += `INSTRUCTIONS FOR WORKFLOW VISUALIZATION MODE:\n`;
+          context += `- Describe the process as a clear, step-by-step workflow\n`;
+          context += `- Identify decision points and branching paths\n`;
+          context += `- Note dependencies between steps\n`;
+          context += `- Include roles/responsibilities for each step\n`;
+          context += `- Highlight critical milestones and approval gates\n`;
+          context += `- Use clear visual formatting (numbered steps, indentation for sub-processes)\n\n`;
+          break;
+        case 'audit-plan':
+          context += `INSTRUCTIONS FOR AUDIT PLAN MODE:\n`;
+          context += `- Develop a comprehensive audit approach\n`;
+          context += `- Identify key risk areas and materiality thresholds\n`;
+          context += `- Outline specific audit procedures and tests\n`;
+          context += `- Specify required documentation and evidence\n`;
+          context += `- Include timing considerations and resource requirements\n`;
+          context += `- Address relevant auditing standards (GAAS, ISA, etc.)\n\n`;
+          break;
+        case 'calculation':
+          context += `INSTRUCTIONS FOR FINANCIAL CALCULATION MODE:\n`;
+          context += `- Perform detailed calculations step-by-step\n`;
+          context += `- Show all formulas and methodology clearly\n`;
+          context += `- Explain assumptions and variables used\n`;
+          context += `- Present results in formatted tables when appropriate\n`;
+          context += `- Include relevant tax brackets, rates, and thresholds\n`;
+          context += `- Verify calculations and note any limitations\n\n`;
+          break;
+      }
+    }
     
     context += `Query Classification:\n`;
     context += `- Domain: ${classification.domain}\n`;

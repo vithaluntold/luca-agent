@@ -672,10 +672,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { conversationId, message, profileId, documentAttachment } = req.body;
+      const { conversationId, message, profileId, chatMode, documentAttachment } = req.body;
       
       if (!message) {
         return res.status(400).json({ error: "Message required" });
+      }
+      
+      // Log chat mode for debugging
+      if (chatMode && chatMode !== 'standard') {
+        console.log(`[API] Professional mode selected: ${chatMode}`);
       }
       
       // Convert document attachment from base64 to Buffer for AI processing
@@ -793,7 +798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tokensUsed: null
       });
       
-      // Process query through AI orchestrator
+      // Process query through AI orchestrator with chat mode
       const result = await aiOrchestrator.processQuery(
         message,
         conversationHistory,
@@ -804,8 +809,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             filename: attachmentMetadata.filename,
             mimeType: attachmentMetadata.mimeType,
             documentType: attachmentMetadata.documentType
-          }
-        } : undefined
+          },
+          chatMode: chatMode || 'standard'
+        } : {
+          chatMode: chatMode || 'standard'
+        }
       );
       
       // Save assistant message with full metadata

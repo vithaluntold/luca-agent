@@ -64,7 +64,13 @@ import {
   X,
   FileText,
   Moon,
-  Sun
+  Sun,
+  Sparkles,
+  ListChecks,
+  Network,
+  FileBarChart,
+  Calculator,
+  ChevronDown
 } from "lucide-react";
 
 interface Message {
@@ -109,9 +115,19 @@ export default function Chat() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [chatMode, setChatMode] = useState<string>('standard');
   const { user, logout} = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  const chatModes = [
+    { id: 'standard', label: 'Standard Chat', icon: MessageSquare, description: 'General accounting advice' },
+    { id: 'deep-research', label: 'Deep Research', icon: Sparkles, description: 'Comprehensive analysis with sources', color: 'text-primary' },
+    { id: 'checklist', label: 'Create Checklist', icon: ListChecks, description: 'Structured task lists', color: 'text-success' },
+    { id: 'workflow', label: 'Workflow Visualization', icon: Network, description: 'Process diagrams & flows', color: 'text-secondary' },
+    { id: 'audit-plan', label: 'Audit Plan', icon: FileBarChart, description: 'Comprehensive audit approach', color: 'text-gold' },
+    { id: 'calculation', label: 'Financial Calculation', icon: Calculator, description: 'Tax & financial computations', color: 'text-accent' },
+  ];
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -246,6 +262,7 @@ export default function Chat() {
         conversationId: activeConversation,
         message: messageContent,
         profileId: profileIdToUse,
+        chatMode: chatMode,
         documentAttachment: fileData ? {
           data: fileData.base64Data,
           type: fileData.type, // MIME type (e.g., application/pdf)
@@ -741,6 +758,55 @@ export default function Chat() {
 
             <div className="border-t p-4 pb-20">
               <div className="max-w-4xl mx-auto space-y-3">
+                {/* Advanced Chat Options */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Professional Mode:</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={`gap-2 ${chatModes.find(m => m.id === chatMode)?.color || ''}`}
+                          data-testid="button-chat-mode"
+                        >
+                          {(() => {
+                            const mode = chatModes.find(m => m.id === chatMode);
+                            const Icon = mode?.icon || MessageSquare;
+                            return (
+                              <>
+                                <Icon className="h-4 w-4" />
+                                <span>{mode?.label || 'Standard Chat'}</span>
+                                <ChevronDown className="h-3 w-3 opacity-50" />
+                              </>
+                            );
+                          })()}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-80">
+                        {chatModes.map((mode) => {
+                          const Icon = mode.icon;
+                          return (
+                            <DropdownMenuItem
+                              key={mode.id}
+                              onClick={() => setChatMode(mode.id)}
+                              className="flex flex-col items-start gap-1 py-3 cursor-pointer"
+                              data-testid={`chat-mode-${mode.id}`}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                <Icon className={`h-4 w-4 ${mode.color || 'text-muted-foreground'}`} />
+                                <span className="font-medium">{mode.label}</span>
+                                {chatMode === mode.id && <Check className="h-4 w-4 ml-auto text-primary" />}
+                              </div>
+                              <p className="text-xs text-muted-foreground">{mode.description}</p>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
                 {/* File Preview */}
                 {selectedFile && (
                   <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
@@ -781,7 +847,14 @@ export default function Chat() {
                     <Paperclip className="h-4 w-4" />
                   </Button>
                   <Input
-                    placeholder="Ask anything about accounting, tax, audit..."
+                    placeholder={
+                      chatMode === 'deep-research' ? "What would you like me to research in depth?" :
+                      chatMode === 'checklist' ? "Describe the task for a checklist..." :
+                      chatMode === 'workflow' ? "Describe the process to visualize..." :
+                      chatMode === 'audit-plan' ? "What type of audit do you need?" :
+                      chatMode === 'calculation' ? "What would you like me to calculate?" :
+                      "Ask anything about accounting, tax, audit..."
+                    }
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={(e) => {

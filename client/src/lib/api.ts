@@ -114,6 +114,7 @@ export const chatApi = {
     conversationId?: string; 
     message: string; 
     profileId?: string | null;
+    chatMode?: string;
     documentAttachment?: {
       data: string;
       type: string;

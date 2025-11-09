@@ -556,7 +556,407 @@ export const insertSentimentTrendsSchema = createInsertSchema(sentimentTrends).p
   conversationCount: true,
 });
 
+// ============================================================================
+// MVP FEATURES: Regulatory Scenario Simulator
+// ============================================================================
+
+export const scenarioPlaybooks = pgTable("scenario_playbooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileId: varchar("profile_id").references(() => profiles.id, { onDelete: "cascade" }),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category"), // 'tax_strategy', 'entity_comparison', 'deduction_analysis', 'audit_risk'
+  
+  // Master scenario configuration
+  baselineConfig: jsonb("baseline_config").notNull(), // jurisdiction, entityType, taxYear, income, etc.
+  
+  isTemplate: boolean("is_template").notNull().default(false),
+  isPublic: boolean("is_public").notNull().default(false),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdProfileIdIdx: index("scenario_playbooks_user_profile_idx").on(table.userId, table.profileId),
+  categoryIdx: index("scenario_playbooks_category_idx").on(table.category),
+}));
+
+export const scenarioVariants = pgTable("scenario_variants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playbookId: varchar("playbook_id").notNull().references(() => scenarioPlaybooks.id, { onDelete: "cascade" }),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  isBaseline: boolean("is_baseline").notNull().default(false),
+  
+  // Variant-specific assumptions and variables
+  assumptions: jsonb("assumptions").notNull(), // overrides/extends baseline config
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  playbookIdBaselineIdx: index("scenario_variants_playbook_baseline_idx").on(table.playbookId, table.isBaseline),
+}));
+
+export const scenarioRuns = pgTable("scenario_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  variantId: varchar("variant_id").notNull().references(() => scenarioVariants.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  status: text("status").notNull().default("pending"), // 'pending', 'running', 'completed', 'failed'
+  
+  // Solver execution metadata
+  solversUsed: jsonb("solvers_used"), // Array of solver names
+  modelUsed: text("model_used"),
+  providerUsed: text("provider_used"),
+  
+  // Results summary
+  resultsSnapshot: jsonb("results_snapshot"), // Complete calculation results
+  errorDetails: jsonb("error_details"),
+  
+  processingTimeMs: integer("processing_time_ms"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  variantIdIdx: index("scenario_runs_variant_id_idx").on(table.variantId),
+  statusIdx: index("scenario_runs_status_idx").on(table.status),
+}));
+
+export const scenarioMetrics = pgTable("scenario_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: varchar("run_id").notNull().references(() => scenarioRuns.id, { onDelete: "cascade" }),
+  
+  metricKey: text("metric_key").notNull(), // 'total_tax_liability', 'effective_rate', 'qbi_deduction', 'audit_risk_score'
+  metricCategory: text("metric_category"), // 'tax', 'financial', 'risk', 'compliance'
+  
+  // Materialized values for fast comparison
+  numericValue: integer("numeric_value"),
+  percentageValue: integer("percentage_value"), // stored as basis points (1% = 100)
+  currencyValue: integer("currency_value"), // stored as cents
+  
+  // Full details
+  detailsJson: jsonb("details_json"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  runIdMetricKeyIdx: index("scenario_metrics_run_metric_idx").on(table.runId, table.metricKey),
+  categoryIdx: index("scenario_metrics_category_idx").on(table.metricCategory),
+}));
+
+export const scenarioComparisons = pgTable("scenario_comparisons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playbookId: varchar("playbook_id").notNull().references(() => scenarioPlaybooks.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  leftRunId: varchar("left_run_id").notNull().references(() => scenarioRuns.id, { onDelete: "cascade" }),
+  rightRunId: varchar("right_run_id").notNull().references(() => scenarioRuns.id, { onDelete: "cascade" }),
+  
+  // Pairwise comparison snapshot
+  comparisonSnapshot: jsonb("comparison_snapshot").notNull(), // side-by-side metrics, deltas, recommendations
+  
+  // Presentation metadata
+  title: text("title"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  playbookIdIdx: index("scenario_comparisons_playbook_idx").on(table.playbookId),
+  leftRightIdx: index("scenario_comparisons_runs_idx").on(table.leftRunId, table.rightRunId),
+}));
+
+export const scenarioShares = pgTable("scenario_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playbookId: varchar("playbook_id").references(() => scenarioPlaybooks.id, { onDelete: "cascade" }),
+  comparisonId: varchar("comparison_id").references(() => scenarioComparisons.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  shareToken: varchar("share_token").notNull().unique(),
+  expiresAt: timestamp("expires_at"),
+  
+  viewCount: integer("view_count").notNull().default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  shareTokenIdx: index("scenario_shares_token_idx").on(table.shareToken),
+  playbookIdIdx: index("scenario_shares_playbook_idx").on(table.playbookId),
+}));
+
+export const scenarioConversationLinks = pgTable("scenario_conversation_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scenarioId: varchar("scenario_id").notNull().references(() => scenarioPlaybooks.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  scenarioConversationIdx: index("scenario_conversation_links_idx").on(table.scenarioId, table.conversationId),
+}));
+
+// ============================================================================
+// MVP FEATURES: Client Deliverable Composer
+// ============================================================================
+
+export const deliverableTemplates = pgTable("deliverable_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerUserId: varchar("owner_user_id").references(() => users.id, { onDelete: "cascade" }), // null = system template
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // 'audit_plan', 'tax_memo', 'checklist', 'board_presentation', 'client_letter'
+  category: text("category"), // 'tax', 'audit', 'compliance', 'advisory'
+  
+  // Template structure
+  contentTemplate: text("content_template").notNull(), // Markdown with {{variables}}
+  variableSchema: jsonb("variable_schema").notNull(), // JSON schema for variables
+  
+  // Styling and formatting
+  styleConfig: jsonb("style_config"), // fonts, colors, layout preferences
+  
+  isSystem: boolean("is_system").notNull().default(false), // system vs user-created
+  isDefault: boolean("is_default").notNull().default(false),
+  isPublic: boolean("is_public").notNull().default(false),
+  
+  usageCount: integer("usage_count").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  ownerTypeDefaultIdx: index("deliverable_templates_owner_type_default_idx")
+    .on(table.ownerUserId, table.type, table.isDefault),
+  typeIdx: index("deliverable_templates_type_idx").on(table.type),
+}));
+
+export const deliverableInstances = pgTable("deliverable_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileId: varchar("profile_id").references(() => profiles.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+  templateId: varchar("template_id").references(() => deliverableTemplates.id, { onDelete: "set null" }),
+  
+  title: text("title").notNull(),
+  type: text("type").notNull(),
+  
+  status: text("status").notNull().default("draft"), // 'draft', 'generated', 'finalized', 'archived'
+  
+  // Content
+  contentMarkdown: text("content_markdown").notNull(),
+  variableValues: jsonb("variable_values"), // actual values used
+  
+  // Citations and sources
+  citationSummary: jsonb("citation_summary"), // sources, regulations, standards referenced
+  
+  // AI generation metadata
+  generatedWithChatMode: text("generated_with_chat_mode"),
+  modelUsed: text("model_used"),
+  tokensUsed: integer("tokens_used"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  finalizedAt: timestamp("finalized_at"),
+}, (table) => ({
+  userProfileStatusIdx: index("deliverable_instances_user_profile_status_idx")
+    .on(table.userId, table.profileId, table.status, table.updatedAt),
+  conversationIdIdx: index("deliverable_instances_conversation_idx").on(table.conversationId),
+}));
+
+export const deliverableVersions = pgTable("deliverable_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  instanceId: varchar("instance_id").notNull().references(() => deliverableInstances.id, { onDelete: "cascade" }),
+  
+  versionNumber: integer("version_number").notNull(),
+  contentMarkdown: text("content_markdown").notNull(),
+  changeDescription: text("change_description"),
+  
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  instanceIdCreatedIdx: index("deliverable_versions_instance_created_idx")
+    .on(table.instanceId, table.createdAt),
+}));
+
+export const deliverableAssets = pgTable("deliverable_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  instanceId: varchar("instance_id").notNull().references(() => deliverableInstances.id, { onDelete: "cascade" }),
+  versionId: varchar("version_id").references(() => deliverableVersions.id, { onDelete: "cascade" }),
+  
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(), // 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'
+  format: text("format").notNull(), // 'docx', 'pdf'
+  
+  storageKey: text("storage_key").notNull(),
+  checksum: text("checksum").notNull(), // SHA-256
+  byteLength: integer("byte_length").notNull(),
+  
+  downloadCount: integer("download_count").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  instanceIdIdx: index("deliverable_assets_instance_idx").on(table.instanceId),
+}));
+
+export const deliverableShares = pgTable("deliverable_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  instanceId: varchar("instance_id").notNull().references(() => deliverableInstances.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  shareToken: varchar("share_token").notNull().unique(),
+  recipientEmail: text("recipient_email"),
+  expiresAt: timestamp("expires_at"),
+  
+  viewCount: integer("view_count").notNull().default(0),
+  downloadCount: integer("download_count").notNull().default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  shareTokenIdx: index("deliverable_shares_token_idx").on(table.shareToken),
+  instanceIdIdx: index("deliverable_shares_instance_idx").on(table.instanceId),
+}));
+
+// ============================================================================
+// MVP FEATURES: Forensic Document Intelligence
+// ============================================================================
+
+export const forensicCases = pgTable("forensic_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileId: varchar("profile_id").references(() => profiles.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category"), // 'revenue_analysis', 'expense_audit', 'reconciliation', 'fraud_detection'
+  
+  status: text("status").notNull().default("active"), // 'active', 'investigating', 'resolved', 'archived'
+  
+  // Scope metadata
+  scopeMetadata: jsonb("scope_metadata"), // time period, entities involved, document types
+  
+  // Risk assessment
+  overallRiskScore: integer("overall_risk_score"), // 0-100
+  severityLevel: text("severity_level"), // 'low', 'medium', 'high', 'critical'
+  
+  // Summary stats
+  totalDocuments: integer("total_documents").notNull().default(0),
+  totalFindings: integer("total_findings").notNull().default(0),
+  criticalFindings: integer("critical_findings").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => ({
+  userProfileStatusIdx: index("forensic_cases_user_profile_status_idx")
+    .on(table.userId, table.profileId, table.status),
+  severityIdx: index("forensic_cases_severity_idx").on(table.severityLevel),
+}));
+
+export const forensicDocuments = pgTable("forensic_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => forensicCases.id, { onDelete: "cascade" }),
+  
+  // Source reference
+  sourceType: text("source_type").notNull(), // 'upload', 'accounting_integration', 'tax_file'
+  sourceId: varchar("source_id"), // reference to taxFileUploads.id or other source
+  
+  filename: text("filename").notNull(),
+  documentType: text("document_type"), // 'invoice', 'receipt', 'bank_statement', 'w2', '1099', 'p_and_l', 'balance_sheet'
+  
+  // Extracted data (from Azure Document Intelligence)
+  extractedData: jsonb("extracted_data").notNull(),
+  documentMetadata: jsonb("document_metadata"), // confidence scores, field counts, etc.
+  
+  // Analysis status
+  analysisStatus: text("analysis_status").notNull().default("pending"), // 'pending', 'analyzed', 'flagged', 'cleared'
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  caseIdSourceIdx: index("forensic_documents_case_source_idx").on(table.caseId, table.sourceType),
+  documentTypeIdx: index("forensic_documents_type_idx").on(table.documentType),
+}));
+
+export const forensicFindings = pgTable("forensic_findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => forensicCases.id, { onDelete: "cascade" }),
+  documentId: varchar("document_id").references(() => forensicDocuments.id, { onDelete: "cascade" }),
+  
+  findingType: text("finding_type").notNull(), // 'mismatch', 'anomaly', 'missing_data', 'inconsistency', 'pattern_violation'
+  severity: text("severity").notNull(), // 'info', 'low', 'medium', 'high', 'critical'
+  
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  
+  // Impacted metrics
+  impactedMetrics: jsonb("impacted_metrics"), // {revenue: -27000, accounts_receivable: +15000}
+  
+  // Supporting details
+  evidenceDetails: jsonb("evidence_details"), // specific values, field references, calculations
+  remediationJson: jsonb("remediation_json"), // suggested fixes, next steps
+  
+  // Status tracking
+  status: text("status").notNull().default("new"), // 'new', 'investigating', 'confirmed', 'false_positive', 'resolved'
+  resolution: text("resolution"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => ({
+  caseSeverityIdx: index("forensic_findings_case_severity_idx").on(table.caseId, table.severity),
+  statusIdx: index("forensic_findings_status_idx").on(table.status),
+}));
+
+export const forensicReconciliations = pgTable("forensic_reconciliations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => forensicCases.id, { onDelete: "cascade" }),
+  
+  // Cross-document pairings
+  sourceDocumentId: varchar("source_document_id").notNull().references(() => forensicDocuments.id, { onDelete: "cascade" }),
+  targetDocumentId: varchar("target_document_id").notNull().references(() => forensicDocuments.id, { onDelete: "cascade" }),
+  
+  reconciliationType: text("reconciliation_type").notNull(), // 'invoice_to_payment', 'revenue_to_deposit', 'expense_to_receipt'
+  
+  status: text("status").notNull().default("pending"), // 'pending', 'matched', 'mismatched', 'partial_match'
+  
+  // Variance tracking
+  expectedValue: integer("expected_value"), // in cents
+  actualValue: integer("actual_value"), // in cents
+  varianceAmount: integer("variance_amount"), // in cents
+  variancePercentage: integer("variance_percentage"), // basis points
+  
+  // Analysis results
+  reconciliationDetails: jsonb("reconciliation_details"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  caseStatusIdx: index("forensic_reconciliations_case_status_idx").on(table.caseId, table.status),
+  documentsIdx: index("forensic_reconciliations_documents_idx").on(table.sourceDocumentId, table.targetDocumentId),
+}));
+
+export const forensicEvidence = pgTable("forensic_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  findingId: varchar("finding_id").notNull().references(() => forensicFindings.id, { onDelete: "cascade" }),
+  documentId: varchar("document_id").references(() => forensicDocuments.id, { onDelete: "cascade" }),
+  
+  evidenceType: text("evidence_type").notNull(), // 'field_value', 'calculation', 'pattern', 'table_extract'
+  
+  // Supporting data
+  snippetText: text("snippet_text"),
+  dataExtract: jsonb("data_extract"), // structured data supporting the finding
+  
+  // Reference information
+  pageNumber: integer("page_number"),
+  fieldReference: text("field_reference"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  findingIdIdx: index("forensic_evidence_finding_idx").on(table.findingId),
+}));
+
+// ============================================================================
 // Document Attachment Schema (for temporary chat file uploads)
+// ============================================================================
+
 // Stored in-memory with 24h retention, not persisted to database
 export const documentAttachmentSchema = z.object({
   id: z.string(),
@@ -608,3 +1008,67 @@ export type UserBehaviorPatterns = typeof userBehaviorPatterns.$inferSelect;
 export type InsertUserBehaviorPatterns = z.infer<typeof insertUserBehaviorPatternsSchema>;
 export type SentimentTrends = typeof sentimentTrends.$inferSelect;
 export type InsertSentimentTrends = z.infer<typeof insertSentimentTrendsSchema>;
+
+// ============================================================================
+// MVP FEATURES: Insert Schemas and Types
+// ============================================================================
+
+// Scenario Simulator
+export const insertScenarioPlaybookSchema = createInsertSchema(scenarioPlaybooks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertScenarioVariantSchema = createInsertSchema(scenarioVariants).omit({ id: true, createdAt: true });
+export const insertScenarioRunSchema = createInsertSchema(scenarioRuns).omit({ id: true, createdAt: true });
+export const insertScenarioMetricSchema = createInsertSchema(scenarioMetrics).omit({ id: true, createdAt: true });
+export const insertScenarioComparisonSchema = createInsertSchema(scenarioComparisons).omit({ id: true, createdAt: true });
+export const insertScenarioShareSchema = createInsertSchema(scenarioShares).omit({ id: true, createdAt: true });
+export const insertScenarioConversationLinkSchema = createInsertSchema(scenarioConversationLinks).omit({ id: true, createdAt: true });
+
+export type ScenarioPlaybook = typeof scenarioPlaybooks.$inferSelect;
+export type InsertScenarioPlaybook = z.infer<typeof insertScenarioPlaybookSchema>;
+export type ScenarioVariant = typeof scenarioVariants.$inferSelect;
+export type InsertScenarioVariant = z.infer<typeof insertScenarioVariantSchema>;
+export type ScenarioRun = typeof scenarioRuns.$inferSelect;
+export type InsertScenarioRun = z.infer<typeof insertScenarioRunSchema>;
+export type ScenarioMetric = typeof scenarioMetrics.$inferSelect;
+export type InsertScenarioMetric = z.infer<typeof insertScenarioMetricSchema>;
+export type ScenarioComparison = typeof scenarioComparisons.$inferSelect;
+export type InsertScenarioComparison = z.infer<typeof insertScenarioComparisonSchema>;
+export type ScenarioShare = typeof scenarioShares.$inferSelect;
+export type InsertScenarioShare = z.infer<typeof insertScenarioShareSchema>;
+export type ScenarioConversationLink = typeof scenarioConversationLinks.$inferSelect;
+export type InsertScenarioConversationLink = z.infer<typeof insertScenarioConversationLinkSchema>;
+
+// Deliverable Composer
+export const insertDeliverableTemplateSchema = createInsertSchema(deliverableTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDeliverableInstanceSchema = createInsertSchema(deliverableInstances).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDeliverableVersionSchema = createInsertSchema(deliverableVersions).omit({ id: true, createdAt: true });
+export const insertDeliverableAssetSchema = createInsertSchema(deliverableAssets).omit({ id: true, createdAt: true });
+export const insertDeliverableShareSchema = createInsertSchema(deliverableShares).omit({ id: true, createdAt: true });
+
+export type DeliverableTemplate = typeof deliverableTemplates.$inferSelect;
+export type InsertDeliverableTemplate = z.infer<typeof insertDeliverableTemplateSchema>;
+export type DeliverableInstance = typeof deliverableInstances.$inferSelect;
+export type InsertDeliverableInstance = z.infer<typeof insertDeliverableInstanceSchema>;
+export type DeliverableVersion = typeof deliverableVersions.$inferSelect;
+export type InsertDeliverableVersion = z.infer<typeof insertDeliverableVersionSchema>;
+export type DeliverableAsset = typeof deliverableAssets.$inferSelect;
+export type InsertDeliverableAsset = z.infer<typeof insertDeliverableAssetSchema>;
+export type DeliverableShare = typeof deliverableShares.$inferSelect;
+export type InsertDeliverableShare = z.infer<typeof insertDeliverableShareSchema>;
+
+// Forensic Document Intelligence
+export const insertForensicCaseSchema = createInsertSchema(forensicCases).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertForensicDocumentSchema = createInsertSchema(forensicDocuments).omit({ id: true, createdAt: true });
+export const insertForensicFindingSchema = createInsertSchema(forensicFindings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertForensicReconciliationSchema = createInsertSchema(forensicReconciliations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertForensicEvidenceSchema = createInsertSchema(forensicEvidence).omit({ id: true, createdAt: true });
+
+export type ForensicCase = typeof forensicCases.$inferSelect;
+export type InsertForensicCase = z.infer<typeof insertForensicCaseSchema>;
+export type ForensicDocument = typeof forensicDocuments.$inferSelect;
+export type InsertForensicDocument = z.infer<typeof insertForensicDocumentSchema>;
+export type ForensicFinding = typeof forensicFindings.$inferSelect;
+export type InsertForensicFinding = z.infer<typeof insertForensicFindingSchema>;
+export type ForensicReconciliation = typeof forensicReconciliations.$inferSelect;
+export type InsertForensicReconciliation = z.infer<typeof insertForensicReconciliationSchema>;
+export type ForensicEvidence = typeof forensicEvidence.$inferSelect;
+export type InsertForensicEvidence = z.infer<typeof insertForensicEvidenceSchema>;

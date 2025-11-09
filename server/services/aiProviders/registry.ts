@@ -6,6 +6,7 @@
 import { AIProvider } from './base';
 import { AIProviderName, ProviderConfig, ProviderError } from './types';
 import { OpenAIProvider } from './openai.provider';
+import { AzureOpenAIProvider } from './azureOpenAI.provider';
 import { ClaudeProvider } from './claude.provider';
 import { GeminiProvider } from './gemini.provider';
 import { PerplexityProvider } from './perplexity.provider';
@@ -99,6 +100,24 @@ export class AIProviderRegistry {
         console.log('[AIProviders] ✓ Perplexity provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize Perplexity:', error);
+      }
+    }
+
+    // Azure OpenAI
+    if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY) {
+      try {
+        const azureOpenAI = new AzureOpenAIProvider({
+          name: AIProviderName.AZURE_OPENAI,
+          endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+          apiKey: process.env.AZURE_OPENAI_API_KEY,
+          defaultModel: process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o',
+          enabled: true,
+        });
+        this.providers.set(AIProviderName.AZURE_OPENAI, azureOpenAI);
+        providerHealthMonitor.initializeProvider(AIProviderName.AZURE_OPENAI);
+        console.log('[AIProviders] ✓ Azure OpenAI provider initialized');
+      } catch (error) {
+        console.error('[AIProviders] ✗ Failed to initialize Azure OpenAI:', error);
       }
     }
 

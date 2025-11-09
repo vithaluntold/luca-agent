@@ -5,6 +5,7 @@
 
 export enum AIProviderName {
   OPENAI = 'openai',
+  AZURE_OPENAI = 'azure-openai',
   CLAUDE = 'claude',
   GEMINI = 'gemini',
   PERPLEXITY = 'perplexity',

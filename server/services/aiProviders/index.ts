@@ -6,6 +6,7 @@
 export * from './types';
 export * from './base';
 export * from './openai.provider';
+export * from './azureOpenAI.provider';
 export * from './claude.provider';
 export * from './gemini.provider';
 export * from './perplexity.provider';

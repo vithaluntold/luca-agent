@@ -32,6 +32,55 @@ Luca now includes a comprehensive analytics system that tracks response quality,
 - **Async Processing**: Analytics run in background (fire-and-forget) to avoid blocking chat responses
 - **Database Tables**: conversation_analytics, message_analytics, user_behavior_patterns, sentiment_trends
 
+### Game-Changing MVP Features (NEW - November 2024)
+Luca now includes three unique features that no competitor offers, creating a defensible competitive moat:
+
+#### 1. Regulatory Scenario Simulator (/scenarios)
+Live "what-if" stress-testing for tax and audit positions across jurisdictions and time periods:
+- **Database Schema** (7 tables): scenario_playbooks, scenario_variants, scenario_runs, scenario_metrics, scenario_comparisons, scenario_shares, scenario_conversation_links
+- **Core Capabilities**:
+  - Compare entity structures (LLC vs S-Corp taxation)
+  - Test deduction strategies (home office: actual vs simplified method)
+  - Multi-jurisdiction comparison (California, Delaware, Texas, New York, Florida)
+  - Audit risk analysis across different approaches
+  - Side-by-side results with tax liability, effective rate, QBI deduction, estimated savings
+- **Competitive Advantage**: Transforms Luca into a tax strategy lab (vs. TurboTax form-filling, Blue J Tax static research)
+
+#### 2. Client Deliverable Composer (/deliverables)
+One-click generation of professional-grade documents with AI assistance:
+- **Database Schema** (5 tables): deliverable_templates, deliverable_instances, deliverable_versions, deliverable_assets, deliverable_shares
+- **Professional Templates**:
+  - Manufacturing Audit Plan
+  - S-Corp Election Tax Memo
+  - Year-End Tax Planning Checklist
+  - Q4 Financial Board Presentation
+  - Audit Engagement Letter
+- **Core Capabilities**:
+  - AI-powered document generation with IRS citations
+  - Template variables (client name, entity type, tax year, jurisdiction, income)
+  - Export to DOCX and PDF formats
+  - Version history tracking
+  - Shareable deliverable links
+- **Competitive Advantage**: Collapses 3-5 hours of CPA work into 5 minutes (vs. generic templates or ChatGPT raw output)
+
+#### 3. Forensic Document Intelligence (/forensics)
+Proactive anomaly detection and cross-document reconciliation:
+- **Database Schema** (5 tables): forensic_cases, forensic_documents, forensic_findings, forensic_reconciliations, forensic_evidence
+- **Anomaly Detection**:
+  - Revenue-AR mismatch detection (collection issues, revenue recognition timing)
+  - Income reporting discrepancies (1099-K vs bank deposits)
+  - Vendor pricing inconsistencies (contract compliance)
+  - Unusual expense patterns (business purpose verification)
+- **Core Capabilities**:
+  - Overall risk scoring (0-100)
+  - Severity-based findings (critical, high, medium, low)
+  - Cross-document reconciliation with variance tracking
+  - Supporting evidence extraction
+  - Investigation and resolution workflow
+- **Competitive Advantage**: Proactive risk discovery before problems occur (vs. reactive accounting software)
+
+**Combined Market Position**: These three features position Luca as an advisor + action platform (not just Q&A), providing professional-grade output with proactive intelligence that anticipates problems before they occur.
+
 ### WebSocket Real-Time Streaming (NEW - November 2024)
 Luca now includes WebSocket support for real-time streaming chat responses:
 - **Server**: WebSocketServer integrated with Express HTTP server on `/ws/chat` endpoint

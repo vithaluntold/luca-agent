@@ -808,14 +808,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : undefined
       );
       
-      // Save assistant message
+      // Save assistant message with full metadata
       const assistantMessage = await storage.createMessage({
         conversationId: conversation.id,
         role: 'assistant',
         content: result.response,
         modelUsed: result.modelUsed,
         routingDecision: result.routingDecision,
-        calculationResults: result.calculationResults,
+        calculationResults: result.metadata, // Store full metadata instead of just calculations
         tokensUsed: result.tokensUsed
       });
       

@@ -7,12 +7,27 @@ import { queryTriageService, type QueryClassification, type RoutingDecision } fr
 import { financialSolverService } from './financialSolvers';
 import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonitor } from './aiProviders';
 
+export type ResponseType = 'research' | 'analysis' | 'document' | 'calculation' | 'visualization' | 'export' | 'general';
+
+export interface ResponseMetadata {
+  responseType: ResponseType;
+  showInOutputPane: boolean;
+  hasDocument?: boolean;
+  hasVisualization?: boolean;
+  hasCalculation?: boolean;
+  hasExport?: boolean;
+  hasResearch?: boolean;
+  classification: QueryClassification;
+  calculationResults?: any;
+}
+
 export interface OrchestrationResult {
   response: string;
   modelUsed: string;
   routingDecision: RoutingDecision;
   classification: QueryClassification;
   calculationResults?: any;
+  metadata: ResponseMetadata;
   tokensUsed: number;
   processingTimeMs: number;
 }
@@ -67,15 +82,106 @@ export class AIOrchestrator {
     
     const processingTimeMs = Date.now() - startTime;
     
+    // Build response metadata
+    const metadata = this.buildResponseMetadata(
+      query,
+      classification,
+      routingDecision,
+      calculationResults,
+      options?.attachment
+    );
+    
     return {
       response: aiResponse.content,
       modelUsed: routingDecision.primaryModel,
       routingDecision,
       classification,
       calculationResults,
+      metadata,
       tokensUsed: aiResponse.tokensUsed,
       processingTimeMs
     };
+  }
+
+  /**
+   * Build response metadata to control output pane display
+   */
+  private buildResponseMetadata(
+    query: string,
+    classification: QueryClassification,
+    routing: RoutingDecision,
+    calculations: any,
+    attachment?: ProcessQueryOptions['attachment']
+  ): ResponseMetadata {
+    const lowerQuery = query.toLowerCase();
+    
+    // Detect visualization requests
+    const hasVisualization = this.detectVisualizationRequest(lowerQuery);
+    
+    // Detect export requests
+    const hasExport = this.detectExportRequest(lowerQuery);
+    
+    // Determine response type based on classification and routing
+    let responseType: ResponseType = 'general';
+    
+    if (classification.requiresDocumentAnalysis || attachment) {
+      responseType = 'document';
+    } else if (hasVisualization) {
+      responseType = 'visualization';
+    } else if (hasExport) {
+      responseType = 'export';
+    } else if (calculations && Object.keys(calculations).length > 0) {
+      responseType = 'calculation';
+    } else if (classification.requiresResearch || classification.requiresRealTimeData) {
+      responseType = 'research';
+    } else if (classification.requiresDeepReasoning || classification.complexity === 'expert') {
+      responseType = 'analysis';
+    }
+    
+    // Determine if output pane should show this response
+    // Show in output pane for: document, visualization, export, calculation
+    // Hide for: research, analysis, general (these stay in main chat)
+    const showInOutputPane = 
+      responseType === 'document' ||
+      responseType === 'visualization' ||
+      responseType === 'export' ||
+      (responseType === 'calculation' && calculations);
+    
+    return {
+      responseType,
+      showInOutputPane,
+      hasDocument: !!attachment || classification.requiresDocumentAnalysis,
+      hasVisualization,
+      hasExport,
+      hasCalculation: !!calculations && Object.keys(calculations).length > 0,
+      hasResearch: classification.requiresResearch || classification.requiresRealTimeData,
+      classification,
+      calculationResults: calculations
+    };
+  }
+
+  /**
+   * Detect if user is requesting a visualization/chart
+   */
+  private detectVisualizationRequest(query: string): boolean {
+    const visualizationKeywords = [
+      'chart', 'graph', 'plot', 'visualize', 'visualization', 'diagram',
+      'show me', 'display', 'draw', 'create a chart', 'create a graph',
+      'bar chart', 'line chart', 'pie chart', 'scatter plot', 'histogram'
+    ];
+    return visualizationKeywords.some(kw => query.includes(kw));
+  }
+
+  /**
+   * Detect if user is requesting an export
+   */
+  private detectExportRequest(query: string): boolean {
+    const exportKeywords = [
+      'export', 'download', 'save as', 'generate pdf', 'generate csv',
+      'export to', 'download as', 'create pdf', 'create csv',
+      'excel', 'spreadsheet', '.pdf', '.csv', '.xlsx'
+    ];
+    return exportKeywords.some(kw => query.includes(kw));
   }
 
   /**

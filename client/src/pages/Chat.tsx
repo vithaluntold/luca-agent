@@ -116,8 +116,9 @@ export default function Chat() {
     setMessages([]);
   }, [selectedProfileFilter]);
 
+  // Only show output pane content for document/visualization/export/calculation responses
   const outputContent = messages
-    .filter(m => m.role === 'assistant')
+    .filter(m => m.role === 'assistant' && m.metadata?.showInOutputPane)
     .map(m => m.content)
     .join('\n\n---\n\n');
 

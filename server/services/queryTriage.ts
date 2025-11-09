@@ -261,8 +261,38 @@ export class QueryTriageService {
   }
 
   private needsResearch(query: string): boolean {
-    const researchKeywords = ['case law', 'precedent', 'ruling', 'regulation', 'standard', 
-      'guidance', 'interpretation', 'comparison', 'difference between'];
+    const researchKeywords = [
+      // Legal & Regulatory Research
+      'case law', 'precedent', 'ruling', 'regulation', 'standard', 'guidance', 'interpretation',
+      
+      // General Research Patterns
+      'research', 'find out', 'look up', 'search for', 'tell me about', 'information on',
+      'details about', 'data on', 'statistics', 'trends', 'analysis', 'study', 'report',
+      
+      // Comparative Research
+      'comparison', 'compare', 'difference between', 'versus', 'vs', 'contrast',
+      'how does', 'which is better', 'advantages of', 'disadvantages of',
+      
+      // Market & Industry Research
+      'market', 'industry', 'sector', 'competitors', 'competitive', 'benchmark',
+      'best practices', 'industry standard', 'market trends', 'market data',
+      
+      // Current Events & News
+      'news', 'updates', 'recent developments', 'what happened', 'announcement',
+      'press release', 'breaking', 'new regulations', 'changes in',
+      
+      // Historical & Trend Analysis
+      'history of', 'historical', 'evolution', 'over time', 'trend', 'patterns',
+      'how has', 'track record', 'performance over',
+      
+      // Expert Opinion & Advisory
+      'expert opinion', 'what do experts', 'according to', 'sources say',
+      'professional view', 'industry experts', 'thought leaders',
+      
+      // Specific Accounting Research
+      'accounting treatment', 'irs position', 'gaap guidance', 'ifrs guidance',
+      'fasb', 'iasb', 'sec guidance', 'revenue recognition', 'lease accounting'
+    ];
     return researchKeywords.some(kw => query.includes(kw));
   }
 
@@ -273,8 +303,25 @@ export class QueryTriageService {
   }
 
   private needsRealTimeData(query: string): boolean {
-    const realtimeKeywords = ['current', 'latest', 'recent', 'today', 'now', 'real-time', 
-      'current rate', 'latest ruling', 'recent changes'];
+    const realtimeKeywords = [
+      // Time-sensitive queries
+      'current', 'latest', 'recent', 'today', 'now', 'real-time', 'live',
+      'current rate', 'latest ruling', 'recent changes', 'up to date', 'updated',
+      
+      // Date-specific
+      '2024', '2025', 'this year', 'this month', 'this week', 'right now',
+      
+      // Market data
+      'stock price', 'exchange rate', 'currency', 'forex', 'market cap',
+      'trading', 'index', 'commodity price',
+      
+      // News & Updates
+      'breaking', 'just announced', 'new law', 'new regulation', 'recent announcement',
+      'upcoming', 'scheduled', 'deadline',
+      
+      // Status & Availability
+      'is available', 'currently', 'as of', 'status of', 'still valid'
+    ];
     return realtimeKeywords.some(kw => query.includes(kw));
   }
 

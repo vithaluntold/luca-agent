@@ -63,8 +63,38 @@ Luca implements a provider abstraction layer (`server/services/aiProviders/`) fo
 
 The system enables intelligent provider selection based on query complexity, cost considerations, provider health status, and specialized capabilities (document analysis, real-time data, reasoning).
 
+#### Professional Requirement Clarification System (NEW - November 2024)
+Luca behaves as a professional CPA/CA advisor who asks thoughtful questions before providing generic answers. This system ensures tailored, jurisdiction-specific advice:
+
+**Core Capabilities:**
+- **Context Detection**: Automatically extracts jurisdiction, tax year, entity type, filing status, accounting method, and business type from conversation history
+- **Missing Context Analysis**: Identifies critical missing details (jurisdiction, entity type, tax year) that affect advice accuracy
+- **Ambiguity Detection**: Flags vague timeframes, unclear amounts, missing business structure, and income type ambiguities
+- **Nuance Recognition**: Detects accounting-specific subtleties including:
+  - Home office deductions (exclusive use, simplified vs actual method)
+  - Depreciation strategies (Section 179 vs bonus vs MACRS, recapture implications)
+  - Stock/equity considerations (holding periods, wash sales, ISO vs NSO)
+  - Retirement account rules (age-based limits, phase-outs)
+  - Real estate complexities (passive loss limits, professional status, 1031 exchange timing)
+  - International reporting (FBAR, FATCA, treaty provisions)
+  - Estimated tax safe harbors
+
+**Three Advisor Behaviors:**
+1. **Strict Clarification** (critical context missing): Returns clarifying questions immediately without AI call (cost-efficient)
+2. **Partial Answer + Clarification** (high importance missing): Provides general guidance then asks for missing details (enforced via post-processing)
+3. **Expert Answer** (sufficient context): Delivers comprehensive, jurisdiction-specific advice with detected nuances
+
+**Enhanced System Prompts:**
+- Explicitly instructs AI: "You are NOT a generic text generation machine"
+- Emphasizes jurisdiction-specific nuances other LLMs miss
+- Requires tailored advice over generic information
+- Surfaces missing context and detected nuances to AI provider
+- Instructs partial-answer format when appropriate
+
+**Implementation:** `server/services/requirementClarification.ts` analyzes queries, `server/services/aiOrchestrator.ts` enforces clarification behavior via PHASE 0 analysis and post-processing safeguards.
+
 #### Query Processing Pipeline
-Luca employs an Intelligent Query Triage System (`server/services/queryTriage.ts`) to classify accounting questions by domain, jurisdiction, and complexity, routing them to optimal AI models and financial solvers. A Multi-Model Router Architecture uses `gpt-4o` as primary, with specialized models and a fallback to `gpt-4o-mini`. Advanced Financial Solvers (`server/services/financialSolvers.ts`) handle tax calculations, NPV, IRR, depreciation, amortization, and financial ratios. An AI Orchestration Layer (`server/services/aiOrchestrator.ts`) coordinates these components, synthesizes responses, and tracks performance.
+Luca employs an Intelligent Query Triage System (`server/services/queryTriage.ts`) to classify accounting questions by domain, jurisdiction, and complexity, routing them to optimal AI models and financial solvers. A Multi-Model Router Architecture uses `gpt-4o` as primary, with specialized models and a fallback to `gpt-4o-mini`. Advanced Financial Solvers (`server/services/financialSolvers.ts`) handle tax calculations, NPV, IRR, depreciation, amortization, and financial ratios. An AI Orchestration Layer (`server/services/aiOrchestrator.ts`) coordinates these components, synthesizes responses, tracks performance, and enforces professional advisor behavior through requirement clarification.
 
 ### Feature Specifications
 The platform supports full conversation history, token usage tracking, and a subscription tier system (Free, Professional, Enterprise). It includes API endpoints for authentication, chat interactions, conversation management, profile management, and usage/subscription queries. The conversation system is profile-aware: conversations are linked to specific profiles (business, personal, or family) or can be unassociated (null profileId). Users can filter conversations by profile using the sidebar dropdown, and new conversations automatically inherit the selected profile context. The backend enforces security by validating that profileId values belong to the authenticated user before creating conversations.

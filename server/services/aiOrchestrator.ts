@@ -6,6 +6,7 @@
 import { queryTriageService, type QueryClassification, type RoutingDecision } from './queryTriage';
 import { financialSolverService } from './financialSolvers';
 import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonitor } from './aiProviders';
+import { requirementClarificationService, type ClarificationAnalysis } from './requirementClarification';
 
 export type ResponseType = 'research' | 'analysis' | 'document' | 'calculation' | 'visualization' | 'export' | 'general';
 
@@ -28,6 +29,8 @@ export interface OrchestrationResult {
   classification: QueryClassification;
   calculationResults?: any;
   metadata: ResponseMetadata;
+  clarificationAnalysis?: ClarificationAnalysis;
+  needsClarification?: boolean;
   tokensUsed: number;
   processingTimeMs: number;
 }
@@ -44,6 +47,11 @@ export interface ProcessQueryOptions {
 export class AIOrchestrator {
   /**
    * Main orchestration method - routes query through triage, models, and solvers
+   * 
+   * Now includes professional requirement clarification phase:
+   * - Analyzes queries for missing context before providing answers
+   * - Asks thoughtful clarifying questions like a real CPA/CA advisor
+   * - Only provides answers when sufficient context is available
    */
   async processQuery(
     query: string,
@@ -52,6 +60,13 @@ export class AIOrchestrator {
     options?: ProcessQueryOptions
   ): Promise<OrchestrationResult> {
     const startTime = Date.now();
+    
+    // PHASE 0: Requirement Clarification Analysis
+    // Analyze if we need to ask clarifying questions before providing advice
+    const clarificationAnalysis = requirementClarificationService.analyzeQuery(
+      query,
+      conversationHistory
+    );
     
     // Step 1: Classify the query (with document attachment hint)
     const context = options?.attachment ? {
@@ -63,11 +78,48 @@ export class AIOrchestrator {
     // Step 2: Route to appropriate model and solvers
     const routingDecision = queryTriageService.routeQuery(classification, userTier);
     
+    // If clarification is needed (critical context missing), ask questions instead of answering
+    if (clarificationAnalysis.recommendedApproach === 'clarify' && 
+        clarificationAnalysis.needsClarification) {
+      const questions = requirementClarificationService.generateClarifyingQuestions(
+        clarificationAnalysis
+      );
+      
+      const clarificationResponse = this.buildClarificationResponse(
+        questions,
+        clarificationAnalysis
+      );
+      
+      const processingTimeMs = Date.now() - startTime;
+      
+      return {
+        response: clarificationResponse,
+        modelUsed: 'clarification',
+        routingDecision,
+        classification,
+        metadata: {
+          responseType: 'general',
+          showInOutputPane: false,
+          classification,
+          calculationResults: undefined
+        },
+        clarificationAnalysis,
+        needsClarification: true,
+        tokensUsed: 0,
+        processingTimeMs
+      };
+    }
+    
     // Step 3: Execute any needed calculations/solvers
     const calculationResults = await this.executeCalculations(query, classification, routingDecision);
     
-    // Step 4: Build enhanced context with calculation results
-    const enhancedContext = this.buildEnhancedContext(query, classification, calculationResults);
+    // Step 4: Build enhanced context with calculation results and clarification insights
+    const enhancedContext = this.buildEnhancedContext(
+      query,
+      classification,
+      calculationResults,
+      clarificationAnalysis
+    );
     
     // Step 5: Call the AI provider with enhanced context and provider routing
     const aiResponse = await this.callAIModel(
@@ -79,6 +131,33 @@ export class AIOrchestrator {
       routingDecision.fallbackProviders,
       options?.attachment
     );
+    
+    let finalResponse = aiResponse.content;
+    
+    // CRITICAL ENFORCEMENT: For partial_answer_then_clarify, ALWAYS append clarifying questions
+    // This ensures the advisor behavior is guaranteed regardless of model compliance
+    // Check for generated questions (handles both missing context AND ambiguities)
+    if (clarificationAnalysis.recommendedApproach === 'partial_answer_then_clarify') {
+      const questions = requirementClarificationService.generateClarifyingQuestions(
+        clarificationAnalysis
+      );
+      
+      // Only append if there are actual questions to ask
+      if (questions.length > 0) {
+        // Append clarifying questions to response
+        finalResponse += `\n\n**To provide more specific, tailored advice, I need a bit more information:**\n\n`;
+        questions.forEach((question, index) => {
+          finalResponse += `${index + 1}. ${question}\n`;
+        });
+        
+        if (clarificationAnalysis.detectedNuances.length > 0) {
+          finalResponse += `\n**Important considerations to keep in mind:**\n`;
+          clarificationAnalysis.detectedNuances.slice(0, 2).forEach(nuance => {
+            finalResponse += `- ${nuance}\n`;
+          });
+        }
+      }
+    }
     
     const processingTimeMs = Date.now() - startTime;
     
@@ -92,12 +171,14 @@ export class AIOrchestrator {
     );
     
     return {
-      response: aiResponse.content,
+      response: finalResponse,
       modelUsed: routingDecision.primaryModel,
       routingDecision,
       classification,
       calculationResults,
       metadata,
+      clarificationAnalysis,
+      needsClarification: clarificationAnalysis.recommendedApproach === 'partial_answer_then_clarify',
       tokensUsed: aiResponse.tokensUsed,
       processingTimeMs
     };
@@ -254,15 +335,47 @@ export class AIOrchestrator {
   }
 
   /**
-   * Build enhanced context with calculation results for AI model
+   * Build clarification response when critical context is missing
+   */
+  private buildClarificationResponse(
+    questions: string[],
+    analysis: ClarificationAnalysis
+  ): string {
+    let response = `I want to provide you with the most accurate and tailored advice possible. To ensure I give you expert guidance specific to your situation, I need to understand a few more details:\n\n`;
+    
+    questions.forEach((question, index) => {
+      response += `${index + 1}. ${question}\n`;
+    });
+    
+    response += `\nOnce I have this information, I'll be able to provide precise, jurisdiction-specific advice that accounts for all relevant rules, deadlines, and nuances.`;
+    
+    // Add detected nuances as helpful context
+    if (analysis.detectedNuances.length > 0) {
+      response += `\n\n**Important Considerations:**\n`;
+      analysis.detectedNuances.slice(0, 3).forEach(nuance => {
+        response += `- ${nuance}\n`;
+      });
+    }
+    
+    return response;
+  }
+
+  /**
+   * Build enhanced context with calculation results and clarification insights for AI model
    */
   private buildEnhancedContext(
     query: string,
     classification: QueryClassification,
-    calculations: any
+    calculations: any,
+    clarificationAnalysis?: ClarificationAnalysis
   ): string {
-    let context = `You are Luca, an advanced accounting superintelligence with expertise across global jurisdictions. `;
-    context += `You go beyond basic AI assistants by combining specialized knowledge with precise financial calculations.\n\n`;
+    let context = `You are Luca, a pan-global accounting superintelligence and expert CPA/CA advisor. `;
+    context += `You are NOT a generic text generation machine. You are a thoughtful, detail-oriented professional who:\n`;
+    context += `- Considers jurisdiction-specific nuances that other LLMs miss\n`;
+    context += `- Identifies subtle details that matter in accounting and tax (filing status, entity type, accounting method)\n`;
+    context += `- Provides tailored, precise advice rather than generic information\n`;
+    context += `- Asks clarifying questions when critical context is missing\n`;
+    context += `- Acknowledges when additional context would improve your advice\n\n`;
     
     context += `Query Classification:\n`;
     context += `- Domain: ${classification.domain}\n`;
@@ -273,6 +386,46 @@ export class AIOrchestrator {
       context += `- Jurisdiction(s): ${classification.jurisdiction.join(', ')}\n`;
     }
     context += `- Complexity: ${classification.complexity}\n\n`;
+    
+    // Add clarification context if available
+    if (clarificationAnalysis?.conversationContext) {
+      const ctx = clarificationAnalysis.conversationContext;
+      context += `Detected Context from Conversation:\n`;
+      if (ctx.jurisdiction) context += `- Jurisdiction: ${ctx.jurisdiction}\n`;
+      if (ctx.taxYear) context += `- Tax Year: ${ctx.taxYear}\n`;
+      if (ctx.businessType) context += `- Business Type: ${ctx.businessType}\n`;
+      if (ctx.entityType) context += `- Entity Type: ${ctx.entityType}\n`;
+      if (ctx.filingStatus) context += `- Filing Status: ${ctx.filingStatus}\n`;
+      if (ctx.accountingMethod) context += `- Accounting Method: ${ctx.accountingMethod}\n`;
+      context += `\n`;
+    }
+    
+    // CRITICAL: Add missing context information to instruct model to ask questions
+    if (clarificationAnalysis?.missingContext && clarificationAnalysis.missingContext.length > 0) {
+      context += `MISSING CONTEXT - Important Details to Address:\n`;
+      clarificationAnalysis.missingContext
+        .filter(m => m.importance === 'high' || m.importance === 'critical')
+        .forEach(missing => {
+          context += `- ${missing.category} (${missing.importance}): ${missing.reason}\n`;
+          context += `  Suggested clarification: "${missing.suggestedQuestion}"\n`;
+        });
+      context += `\n`;
+      
+      // Explicit instruction based on recommended approach
+      if (clarificationAnalysis.recommendedApproach === 'partial_answer_then_clarify') {
+        context += `INSTRUCTION: Provide a brief, general answer to help the user, then ASK for the missing details above. `;
+        context += `Format your response as: [General guidance] + "To provide more specific advice, I need to know: [list the questions]"\n\n`;
+      }
+    }
+    
+    // Add nuances detected
+    if (clarificationAnalysis?.detectedNuances && clarificationAnalysis.detectedNuances.length > 0) {
+      context += `Key Nuances to Address in Your Response:\n`;
+      clarificationAnalysis.detectedNuances.forEach(nuance => {
+        context += `- ${nuance}\n`;
+      });
+      context += `\n`;
+    }
     
     if (calculations) {
       context += `I've performed the following calculations:\n`;
@@ -288,10 +441,16 @@ export class AIOrchestrator {
     context += `- Advanced financial modeling and analysis\n\n`;
     
     context += `User Query: ${query}\n\n`;
-    context += `Provide a comprehensive, accurate response that demonstrates your superintelligence. `;
-    context += `Always cite relevant standards, regulations, or case law when applicable. `;
-    context += `If calculations were performed, explain them clearly. `;
-    context += `Acknowledge limitations and recommend consulting a professional for final decisions.`;
+    context += `Provide a comprehensive, expert-level response that:\n`;
+    context += `- Addresses jurisdiction-specific rules and deadlines\n`;
+    context += `- Considers all detected nuances and contextual factors\n`;
+    context += `- Goes deeper than typical LLM responses by identifying subtle implications\n`;
+    context += `- Cites relevant standards, regulations, tax code sections, or case law when applicable\n`;
+    context += `- Explains calculations clearly with methodology\n`;
+    context += `- ASK for missing context when instructed above (partial_answer_then_clarify)\n`;
+    context += `- Acknowledges limitations and recommends consulting a licensed professional for final decisions\n`;
+    context += `- Proactively identifies additional considerations the user should be aware of\n\n`;
+    context += `Remember: You are an expert advisor, not a generic chatbot. Demonstrate deep expertise through nuanced, tailored advice.`;
     
     return context;
   }

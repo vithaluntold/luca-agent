@@ -75,10 +75,9 @@ export class QueryTriageService {
     
     // Provider selection based on query characteristics
     if (classification.requiresDocumentAnalysis) {
-      // Azure Document Intelligence for document parsing (future)
-      // For now: OpenAI with document parsing solvers
-      preferredProvider = AIProviderName.OPENAI;
-      fallbackProviders.push(AIProviderName.CLAUDE);
+      // Azure Document Intelligence for document parsing
+      preferredProvider = AIProviderName.AZURE_DOCUMENT_INTELLIGENCE;
+      fallbackProviders.push(AIProviderName.OPENAI, AIProviderName.CLAUDE);
       solversNeeded.push('document-parser');
     } else if (classification.requiresRealTimeData || classification.requiresResearch) {
       // Perplexity AI for real-time research and current data

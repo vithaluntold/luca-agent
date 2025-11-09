@@ -9,6 +9,7 @@ import { OpenAIProvider } from './openai.provider';
 import { ClaudeProvider } from './claude.provider';
 import { GeminiProvider } from './gemini.provider';
 import { PerplexityProvider } from './perplexity.provider';
+import { AzureDocumentIntelligenceProvider } from './azure.provider';
 
 export class AIProviderRegistry {
   private providers: Map<AIProviderName, AIProvider> = new Map();
@@ -93,6 +94,23 @@ export class AIProviderRegistry {
         console.log('[AIProviders] ✓ Perplexity provider initialized');
       } catch (error) {
         console.error('[AIProviders] ✗ Failed to initialize Perplexity:', error);
+      }
+    }
+
+    // Azure Document Intelligence
+    if (process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT && process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY) {
+      try {
+        const azure = new AzureDocumentIntelligenceProvider({
+          name: AIProviderName.AZURE_DOCUMENT_INTELLIGENCE,
+          endpoint: process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
+          apiKey: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY,
+          defaultModel: 'prebuilt-document',
+          enabled: true,
+        });
+        this.providers.set(AIProviderName.AZURE_DOCUMENT_INTELLIGENCE, azure);
+        console.log('[AIProviders] ✓ Azure Document Intelligence provider initialized');
+      } catch (error) {
+        console.error('[AIProviders] ✗ Failed to initialize Azure Document Intelligence:', error);
       }
     }
 

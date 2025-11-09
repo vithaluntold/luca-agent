@@ -25,6 +25,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { storeEncryptedFile, retrieveEncryptedFile, secureDeleteFile, calculateChecksum } from "./utils/fileEncryption";
+import { setupWebSocket } from "./websocket";
 
 // Extend session type to include OAuth and MFA properties
 declare module 'express-session' {
@@ -2131,5 +2132,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Setup WebSocket server for real-time chat streaming
+  setupWebSocket(httpServer);
+  
   return httpServer;
 }

@@ -32,6 +32,14 @@ Luca now includes a comprehensive analytics system that tracks response quality,
 - **Async Processing**: Analytics run in background (fire-and-forget) to avoid blocking chat responses
 - **Database Tables**: conversation_analytics, message_analytics, user_behavior_patterns, sentiment_trends
 
+### WebSocket Real-Time Streaming (NEW - November 2024)
+Luca now includes WebSocket support for real-time streaming chat responses:
+- **Server**: WebSocketServer integrated with Express HTTP server on `/ws/chat` endpoint
+- **Client Hook**: `useWebSocket` hook provides connection management, message handling, and auto-reconnect with exponential backoff
+- **Streaming Protocol**: Chunked responses with `start`, `chunk`, `end`, and `error` message types
+- **Features**: Real-time AI response streaming, connection state management, automatic reconnection (up to 5 attempts)
+- **Architecture**: Bi-directional WebSocket communication for low-latency chat interactions
+
 ### UI/UX Decisions
 The user interface features a 3-pane resizable layout: a left pane for conversations, a middle chat interface with markdown rendering, and a right output pane for professional features like formatted views, search, and export options. It includes a multi-profile system for managing business, personal, and family accounting contexts. The conversations sidebar includes a profile filter dropdown that allows users to view conversations by profile context ("All Profiles", "No Profile", or specific profiles). When users switch profile filters, the active conversation is cleared to ensure each profile context maintains separate conversation threads. A persistent "Powered by FinACEverse" badge is displayed at the bottom-center of the screen. The design uses a pink-to-purple brand gradient theme.
 

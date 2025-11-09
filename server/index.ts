@@ -9,9 +9,17 @@ const app = express();
 
 const MemoryStoreSession = MemoryStore(session);
 
+// Create session store (export for WebSocket authentication)
+export const sessionStore = new MemoryStoreSession({
+  checkPeriod: 86400000 // Prune expired entries every 24h
+});
+
+// Session secret (export for WebSocket authentication)
+export const SESSION_SECRET = process.env.SESSION_SECRET || 'luca-session-secret-change-in-production';
+
 // Session configuration with hardened security
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'luca-session-secret-change-in-production',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   name: 'luca.sid', // Custom session name (hides tech stack)
@@ -22,9 +30,7 @@ app.use(session({
     sameSite: 'strict', // Strongest CSRF protection
     // domain: undefined, // Set to your domain in production if needed
   },
-  store: new MemoryStoreSession({
-    checkPeriod: 86400000 // Prune expired entries every 24h
-  }),
+  store: sessionStore,
   rolling: true, // Reset maxAge on every request (keeps active sessions alive)
 }));
 

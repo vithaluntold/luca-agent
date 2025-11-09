@@ -561,7 +561,7 @@ export default function Chat() {
                         key={conv.id}
                         className={`group relative flex items-center gap-1 rounded-md ${
                           activeConversation === conv.id
-                            ? 'bg-accent text-accent-foreground'
+                            ? 'bg-primary/10 border border-primary/20'
                             : ''
                         }`}
                       >

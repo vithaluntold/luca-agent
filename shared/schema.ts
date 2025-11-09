@@ -352,22 +352,10 @@ export const sentimentTrends = pgTable("sentiment_trends", {
   userIdDateIdx: index("sentiment_trends_user_id_date_idx").on(table.userId, table.date),
 }));
 
-// Password complexity validation helper
-const passwordComplexitySchema = z.string()
-  .min(12, "Password must be at least 12 characters long")
-  .max(128, "Password must not exceed 128 characters")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character (!@#$%^&*)")
-  .refine(
-    (password) => {
-      // Check for common weak passwords
-      const weakPasswords = ['Password123!', 'Welcome123!', 'Admin123!', 'Qwerty123!'];
-      return !weakPasswords.includes(password);
-    },
-    "This password is too common. Please choose a stronger password"
-  );
+// Simple password validation
+const passwordSchema = z.string()
+  .min(6, "Password must be at least 6 characters")
+  .max(128, "Password must not exceed 128 characters");
 
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -376,7 +364,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   name: true,
 }).extend({
   email: z.string().email("Please enter a valid email address"),
-  password: passwordComplexitySchema,
+  password: passwordSchema,
   name: z.string().min(1, "Name is required"),
 });
 

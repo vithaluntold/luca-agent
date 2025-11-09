@@ -8,11 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 export default function Auth() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [, setLocation] = useLocation();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [requireMfa, setRequireMfa] = useState(false);
   const [lockoutMessage, setLockoutMessage] = useState<string | undefined>();
   const [storedCredentials, setStoredCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   const handleSubmit = async (email: string, password: string, name?: string, mfaToken?: string) => {
     try {
@@ -30,11 +31,11 @@ export default function Auth() {
         setUser(user);
         setRequireMfa(false);
         setLockoutMessage(undefined);
+        setShouldRedirect(true);
         toast({
           title: "Welcome to Luca!",
           description: "Your account has been created successfully."
         });
-        setLocation('/chat');
       } else {
         // Store credentials for MFA retry if not already stored
         if (!requireMfa) {
@@ -48,12 +49,12 @@ export default function Auth() {
         setRequireMfa(false);
         setLockoutMessage(undefined);
         setStoredCredentials(null);
+        setShouldRedirect(true);
         
         toast({
           title: "Welcome back!",
           description: "You've successfully logged in."
         });
-        setLocation('/chat');
       }
     } catch (error: any) {
       const message = error.message || "Authentication failed";
@@ -94,6 +95,13 @@ export default function Auth() {
     }
   };
 
+  // Redirect to chat after successful auth
+  useEffect(() => {
+    if (shouldRedirect && user) {
+      setLocation('/chat');
+    }
+  }, [shouldRedirect, user, setLocation]);
+  
   // Auto-submit with stored credentials when MFA is required
   useEffect(() => {
     if (requireMfa && storedCredentials && mode === 'login') {

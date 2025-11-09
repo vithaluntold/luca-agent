@@ -562,7 +562,42 @@ export default function Chat() {
                   </div>
                 </div>
 
-                <div className="px-3 py-2 space-y-2">
+                <div className="px-3 py-2 space-y-2 border-b">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase px-1">
+                    Professional Features
+                  </h3>
+                  <div className="space-y-1">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-2 h-9"
+                      onClick={() => setLocation('/scenarios')}
+                      data-testid="button-nav-scenarios"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span className="text-sm">Scenario Simulator</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-2 h-9"
+                      onClick={() => setLocation('/deliverables')}
+                      data-testid="button-nav-deliverables"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span className="text-sm">Deliverable Composer</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-2 h-9"
+                      onClick={() => setLocation('/forensics')}
+                      data-testid="button-nav-forensics"
+                    >
+                      <Search className="h-4 w-4" />
+                      <span className="text-sm">Forensic Intelligence</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="px-3 py-2 space-y-2 border-b">
                   <Select value={selectedProfileFilter} onValueChange={setSelectedProfileFilter}>
                     <SelectTrigger data-testid="select-profile-filter">
                       <SelectValue placeholder="All Profiles" />

@@ -12,6 +12,9 @@ import type { Express } from 'express';
  */
 
 export function setupSecurityMiddleware(app: Express) {
+  // Trust proxy for rate limiting behind reverse proxy
+  app.set('trust proxy', 1);
+  
   // Helmet - Security headers
   app.use(helmet({
     // HTTP Strict Transport Security (HSTS)

@@ -23,21 +23,15 @@ export default function AuthCard({ mode, onSubmit, onToggleMode, requireMfa, loc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Password strength validation
-  const hasMinLength = password.length >= 12;
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasLowercase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-  
-  const passwordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+  // Simple password validation
+  const passwordValid = password.length >= 6;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
     
     if (mode === 'register' && !passwordValid) {
-      setValidationError("Please ensure all password requirements are met");
+      setValidationError("Password must be at least 6 characters");
       return;
     }
     
@@ -124,34 +118,9 @@ export default function AuthCard({ mode, onSubmit, onToggleMode, requireMfa, loc
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
                 data-testid="input-password"
               />
-              
-              {!isLogin && (
-                <div className="space-y-1.5 text-xs mt-2" data-testid="password-requirements">
-                  <p className="text-muted-foreground font-medium">Password must include:</p>
-                  <PasswordRequirement 
-                    met={hasMinLength} 
-                    text="At least 12 characters" 
-                  />
-                  <PasswordRequirement 
-                    met={hasUppercase} 
-                    text="One uppercase letter" 
-                  />
-                  <PasswordRequirement 
-                    met={hasLowercase} 
-                    text="One lowercase letter" 
-                  />
-                  <PasswordRequirement 
-                    met={hasNumber} 
-                    text="One number" 
-                  />
-                  <PasswordRequirement 
-                    met={hasSpecial} 
-                    text="One special character (!@#$%^&*...)" 
-                  />
-                </div>
-              )}
             </div>
 
             {requireMfa && (

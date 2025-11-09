@@ -116,7 +116,7 @@ export default function Chat() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [chatMode, setChatMode] = useState<string>('standard');
-  const { user, logout} = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -165,10 +165,10 @@ export default function Chat() {
     .join('\n\n---\n\n');
 
   useEffect(() => {
-    if (!user) {
+    if (!isLoading && !user) {
       setLocation('/auth');
     }
-  }, [user, setLocation]);
+  }, [user, isLoading, setLocation]);
 
   const { data: profilesData } = useQuery<{ profiles: Profile[] }>({
     queryKey: ['/api/profiles'],

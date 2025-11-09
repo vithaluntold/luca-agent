@@ -99,11 +99,8 @@ export default function ScenarioSimulator() {
   // Create playbook mutation
   const createPlaybookMutation = useMutation({
     mutationFn: async (playbookData: any) => {
-      return await apiRequest('/api/scenarios/playbooks', {
-        method: 'POST',
-        body: JSON.stringify(playbookData),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await apiRequest('POST', '/api/scenarios/playbooks', playbookData);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/scenarios/playbooks'] });
@@ -125,11 +122,8 @@ export default function ScenarioSimulator() {
   // Create variant mutation
   const createVariantMutation = useMutation({
     mutationFn: async ({ playbookId, variantData }: { playbookId: string; variantData: any }) => {
-      return await apiRequest(`/api/scenarios/playbooks/${playbookId}/variants`, {
-        method: 'POST',
-        body: JSON.stringify(variantData),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await apiRequest('POST', `/api/scenarios/playbooks/${playbookId}/variants`, variantData);
+      return await res.json();
     },
     onSuccess: (data) => {
       toast({
@@ -149,11 +143,8 @@ export default function ScenarioSimulator() {
   // Run simulation mutation
   const runSimulationMutation = useMutation({
     mutationFn: async ({ playbookId, variantIds }: { playbookId: string; variantIds: string[] }) => {
-      return await apiRequest(`/api/scenarios/playbooks/${playbookId}/simulate`, {
-        method: 'POST',
-        body: JSON.stringify({ variantIds }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await apiRequest('POST', `/api/scenarios/playbooks/${playbookId}/simulate`, { variantIds });
+      return await res.json();
     },
     onSuccess: (data) => {
       setComparisonResults(data);

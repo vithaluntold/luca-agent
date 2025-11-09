@@ -5,12 +5,14 @@ interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   logout: () => void;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check for stored user on mount
@@ -22,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('luca_user');
       }
     }
+    setIsLoading(false);
   }, []);
 
   const handleSetUser = (newUser: User | null) => {
@@ -38,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser: handleSetUser, logout }}>
+    <AuthContext.Provider value={{ user, setUser: handleSetUser, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

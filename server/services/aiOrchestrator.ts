@@ -56,6 +56,7 @@ export class AIOrchestrator {
     
     // Step 5: Call the AI provider with enhanced context and provider routing
     const aiResponse = await this.callAIModel(
+      query,
       enhancedContext,
       conversationHistory,
       routingDecision.primaryModel,
@@ -193,6 +194,7 @@ export class AIOrchestrator {
    * Call AI provider with health-aware routing and automatic failover
    */
   private async callAIModel(
+    userQuery: string,
     enhancedContext: string,
     history: Array<{ role: 'user' | 'assistant'; content: string }>,
     model: string,
@@ -213,7 +215,8 @@ export class AIOrchestrator {
     
     const messages = [
       { role: 'system' as const, content: enhancedContext },
-      ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content }))
+      ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+      { role: 'user' as const, content: userQuery }
     ];
     
     // Build initial provider list from triage decision

@@ -41,52 +41,63 @@ export default function ChatSidebar({
       
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-4">
-          <div className="space-y-1">
-            <div className="px-2 py-1.5">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Professional Features
-              </h3>
+          <nav role="navigation" aria-label="Professional Features">
+            <div className="space-y-1">
+              <div className="px-2 py-1.5">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Professional Features
+                </h3>
+              </div>
+              <Link href="/scenarios" data-testid="link-nav-scenarios">
+                <Button 
+                  variant="ghost" 
+                  className={cn(
+                    "w-full justify-start gap-2",
+                    location === '/scenarios' && "bg-sidebar-accent"
+                  )}
+                  aria-current={location === '/scenarios' ? 'page' : undefined}
+                  asChild
+                >
+                  <a>
+                    <Sparkles className="w-4 h-4" />
+                    Scenario Simulator
+                  </a>
+                </Button>
+              </Link>
+              <Link href="/deliverables" data-testid="link-nav-deliverables">
+                <Button 
+                  variant="ghost" 
+                  className={cn(
+                    "w-full justify-start gap-2",
+                    location === '/deliverables' && "bg-sidebar-accent"
+                  )}
+                  aria-current={location === '/deliverables' ? 'page' : undefined}
+                  asChild
+                >
+                  <a>
+                    <FileText className="w-4 h-4" />
+                    Deliverable Composer
+                  </a>
+                </Button>
+              </Link>
+              <Link href="/forensics" data-testid="link-nav-forensics">
+                <Button 
+                  variant="ghost" 
+                  className={cn(
+                    "w-full justify-start gap-2",
+                    location === '/forensics' && "bg-sidebar-accent"
+                  )}
+                  aria-current={location === '/forensics' ? 'page' : undefined}
+                  asChild
+                >
+                  <a>
+                    <Search className="w-4 h-4" />
+                    Forensic Intelligence
+                  </a>
+                </Button>
+              </Link>
             </div>
-            <Link href="/scenarios">
-              <Button 
-                variant="ghost" 
-                className={cn(
-                  "w-full justify-start gap-2",
-                  location === '/scenarios' && "bg-sidebar-accent"
-                )}
-                data-testid="button-nav-scenarios"
-              >
-                <Sparkles className="w-4 h-4" />
-                Scenario Simulator
-              </Button>
-            </Link>
-            <Link href="/deliverables">
-              <Button 
-                variant="ghost" 
-                className={cn(
-                  "w-full justify-start gap-2",
-                  location === '/deliverables' && "bg-sidebar-accent"
-                )}
-                data-testid="button-nav-deliverables"
-              >
-                <FileText className="w-4 h-4" />
-                Deliverable Composer
-              </Button>
-            </Link>
-            <Link href="/forensics">
-              <Button 
-                variant="ghost" 
-                className={cn(
-                  "w-full justify-start gap-2",
-                  location === '/forensics' && "bg-sidebar-accent"
-                )}
-                data-testid="button-nav-forensics"
-              >
-                <Search className="w-4 h-4" />
-                Forensic Intelligence
-              </Button>
-            </Link>
-          </div>
+          </nav>
           
           <div className="space-y-1">
             <div className="px-2 py-1.5">
@@ -119,28 +130,34 @@ export default function ChatSidebar({
       </ScrollArea>
       
       <div className="p-2 border-t border-sidebar-border space-y-1">
-        <Link href="/settings">
+        <Link href="/settings" data-testid="link-settings">
           <Button 
             variant="ghost" 
             className={cn(
               "w-full justify-start gap-2",
               location === '/settings' && "bg-sidebar-accent"
             )}
-            data-testid="button-settings"
+            aria-current={location === '/settings' ? 'page' : undefined}
+            asChild
           >
-            <Settings className="w-4 h-4" />
-            Settings
+            <a>
+              <Settings className="w-4 h-4" />
+              Settings
+            </a>
           </Button>
         </Link>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start gap-2"
-          data-testid="button-logout"
-          onClick={() => console.log('Logout clicked')}
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </Button>
+        <Link href="/auth" data-testid="link-logout">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-2"
+            asChild
+          >
+            <a>
+              <LogOut className="w-4 h-4" />
+              Logout
+            </a>
+          </Button>
+        </Link>
       </div>
     </div>
   );

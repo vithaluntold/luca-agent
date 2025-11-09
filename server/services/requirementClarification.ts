@@ -238,7 +238,12 @@ class RequirementClarificationService {
       ambiguities.push('Business structure unclear - tax treatment varies by entity type');
     }
     
-    if (query.includes('deduct') && !query.includes('personal') && !query.includes('business')) {
+    // Only flag personal vs business ambiguity if no clear indicators present
+    if (query.includes('deduct') && 
+        !query.includes('personal') && 
+        !query.includes('business') &&
+        !this.hasPersonalTaxIndicators(query) &&
+        !this.hasEntityTypeIndicators(query)) {
       ambiguities.push('Personal vs business deduction unclear - rules differ significantly');
     }
     
@@ -409,6 +414,16 @@ class RequirementClarificationService {
     const indicators = [
       'llc', 's-corp', 's corp', 'c-corp', 'c corp', 'corporation',
       'partnership', 'sole proprietor', 'proprietorship'
+    ];
+    return indicators.some(indicator => query.includes(indicator));
+  }
+  
+  private hasPersonalTaxIndicators(query: string): boolean {
+    const indicators = [
+      'single', 'married', 'filing jointly', 'filing separately',
+      'head of household', 'qualifying widow', 'individual',
+      'personal return', 'my return', 'standard deduction',
+      'itemized deduction', 'filer', 'filing status'
     ];
     return indicators.some(indicator => query.includes(indicator));
   }

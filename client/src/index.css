@@ -88,45 +88,71 @@
 }
 
 .dark {
+  /* PSYCHOLOGICAL COLOR SYSTEM - ADDICTIVE UI/UX */
+  
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
   --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-  --background: 0 0% 6%;
-  --foreground: 0 0% 95%;
-  --border: 0 0% 14%;
-  --card: 0 0% 8%;
-  --card-foreground: 0 0% 95%;
-  --card-border: 0 0% 12%;
-  --sidebar: 0 0% 10%;
-  --sidebar-foreground: 0 0% 95%;
-  --sidebar-border: 0 0% 14%;
-  --sidebar-primary: 322 85% 60%;
-  --sidebar-primary-foreground: 322 85% 98%;
-  --sidebar-accent: 322 12% 16%;
-  --sidebar-accent-foreground: 322 12% 90%;
-  --sidebar-ring: 322 85% 60%;
-  --popover: 0 0% 12%;
-  --popover-foreground: 0 0% 95%;
-  --popover-border: 0 0% 16%;
-  --primary: 322 85% 55%;
-  --primary-foreground: 322 85% 98%;
-  --secondary: 322 8% 18%;
-  --secondary-foreground: 322 8% 90%;
-  --muted: 322 6% 20%;
-  --muted-foreground: 322 6% 70%;
-  --accent: 280 10% 16%;
-  --accent-foreground: 280 10% 90%;
-  --destructive: 0 85% 45%;
-  --destructive-foreground: 0 85% 98%;
-  --input: 0 0% 30%;
-  --ring: 322 85% 60%;
-  --chart-1: 322 75% 65%;
-  --chart-2: 280 65% 70%;
-  --chart-3: 340 70% 68%;
-  --chart-4: 260 60% 72%;
-  --chart-5: 300 55% 70%;
+  --elevate-1: rgba(255,255,255, .06);
+  --elevate-2: rgba(255,255,255, .12);
+  
+  /* Premium Dark Backgrounds - Slate-based for long sessions */
+  --background: 222 47% 11%;        /* Slate 900 - Rich comfortable base */
+  --foreground: 0 0% 100%;          /* Pure white - Maximum contrast */
+  --border: 215 20% 35%;            /* Slate 600 - Subtle dividers */
+  --card: 217 33% 17%;              /* Slate 800 - Elevated surface */
+  --card-foreground: 0 0% 100%;     /* Pure white */
+  --card-border: 215 28% 27%;       /* Slate 700 - Card edges */
+  
+  /* Sidebar - Trust & Authority with Indigo accents */
+  --sidebar: 222 47% 11%;           /* Slate 900 matching background */
+  --sidebar-foreground: 0 0% 100%;  /* Pure white */
+  --sidebar-border: 215 20% 35%;    /* Slate 600 */
+  --sidebar-primary: 271 91% 65%;   /* Purple - Brand intelligence */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 215 28% 27%;    /* Slate 700 - Active item */
+  --sidebar-accent-foreground: 214 32% 84%; /* Slate 300 */
+  --sidebar-ring: 243 75% 59%;      /* Indigo - Trust authority */
+  
+  /* Popovers & Dropdowns */
+  --popover: 217 33% 17%;           /* Slate 800 */
+  --popover-foreground: 0 0% 100%;
+  --popover-border: 215 28% 27%;    /* Slate 700 */
+  
+  /* DOPAMINE TRIGGERS - High-contrast action colors */
+  --primary: 271 91% 65%;           /* Purple #8B5CF6 - Brand premium */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 243 75% 59%;         /* Indigo #4F46E5 - Trust authority */
+  --secondary-foreground: 0 0% 100%;
+  --muted: 215 28% 27%;             /* Slate 700 */
+  --muted-foreground: 215 21% 66%;  /* Slate 400 */
+  
+  /* ACTION ENERGY - Coral for CTAs that demand clicks */
+  --accent: 25 95% 53%;             /* Coral #F97316 - High energy */
+  --accent-foreground: 0 0% 100%;
+  
+  /* SUCCESS & GROWTH - Emerald for dopamine rewards */
+  --success: 160 84% 39%;           /* Emerald #10B981 - Achievements */
+  --success-foreground: 0 0% 100%;
+  
+  /* PREMIUM - Gold for exclusive features */
+  --gold: 38 92% 50%;               /* Gold #F59E0B - Luxury */
+  --gold-foreground: 222 47% 11%;   /* Dark text on gold */
+  
+  /* DESTRUCTIVE - Rose for critical actions */
+  --destructive: 351 83% 60%;       /* Rose #F43F5E - Urgent */
+  --destructive-foreground: 0 0% 100%;
+  
+  /* Form Elements */
+  --input: 215 28% 27%;             /* Slate 700 */
+  --ring: 271 91% 65%;              /* Purple focus ring */
+  
+  /* Charts - Purple to Magenta gradient palette */
+  --chart-1: 271 91% 65%;           /* Purple */
+  --chart-2: 292 84% 61%;           /* Magenta */
+  --chart-3: 243 75% 59%;           /* Indigo */
+  --chart-4: 160 84% 39%;           /* Emerald */
+  --chart-5: 38 92% 50%;            /* Gold */
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
   --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
@@ -163,6 +189,13 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  
+  /* New psychological color borders */
+  --success-border: hsl(var(--success));
+  --success-border: hsl(from hsl(var(--success)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  
+  --gold-border: hsl(var(--gold));
+  --gold-border: hsl(from hsl(var(--gold)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 @layer base {
@@ -173,6 +206,63 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+}
+
+/* ADDICTIVE ANIMATIONS - Strategic Dopamine Triggers */
+@keyframes pulse-success {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+  }
+}
+
+/* Utility classes for addictive interactions */
+.animate-pulse-success {
+  animation: pulse-success 0.3s ease-out;
+}
+
+.shimmer-effect {
+  background: linear-gradient(90deg, transparent, hsl(var(--gold) / 0.3), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.glow-primary {
+  box-shadow: 0 0 15px hsl(var(--primary) / 0.4);
+}
+
+.glow-success {
+  box-shadow: 0 0 15px hsl(var(--success) / 0.4);
+}
+
+.glow-accent {
+  box-shadow: 0 0 15px hsl(var(--accent) / 0.4);
+}
+
+.glow-gold {
+  box-shadow: 0 0 15px hsl(var(--gold) / 0.4);
 }
 
 /**

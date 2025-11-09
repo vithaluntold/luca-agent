@@ -75,32 +75,35 @@ export class QueryTriageService {
     
     // Provider selection based on query characteristics
     if (classification.requiresDocumentAnalysis) {
-      // Future: Azure Document Intelligence for document parsing
+      // Azure Document Intelligence for document parsing (future)
       // For now: OpenAI with document parsing solvers
       preferredProvider = AIProviderName.OPENAI;
+      fallbackProviders.push(AIProviderName.CLAUDE);
       solversNeeded.push('document-parser');
     } else if (classification.requiresRealTimeData || classification.requiresResearch) {
-      // Future: Perplexity AI for real-time research
-      // For now: OpenAI with research solvers
-      preferredProvider = AIProviderName.OPENAI;
+      // Perplexity AI for real-time research and current data
+      preferredProvider = AIProviderName.PERPLEXITY;
+      fallbackProviders.push(AIProviderName.OPENAI, AIProviderName.CLAUDE);
       if (classification.requiresResearch) {
         solversNeeded.push('tax-case-law-search');
       }
     } else if (classification.requiresDeepReasoning || classification.complexity === 'expert') {
-      // Future: Claude 3.5 Sonnet for deep reasoning
-      // For now: OpenAI GPT-4o
-      preferredProvider = AIProviderName.OPENAI;
-      primaryModel = 'gpt-4o';
-    } else if (classification.complexity === 'simple' || classification.complexity === 'moderate') {
-      // Future: Gemini 2.0 Flash for cost-effective queries
-      // For now: OpenAI GPT-4o-mini
-      preferredProvider = AIProviderName.OPENAI;
-      primaryModel = 'gpt-4o-mini';
+      // Claude 3.5 Sonnet for deep reasoning and complex analysis
+      preferredProvider = AIProviderName.CLAUDE;
+      fallbackProviders.push(AIProviderName.OPENAI);
+      primaryModel = 'claude-3-5-sonnet-20241022';
       fallbackModels.push('gpt-4o');
+    } else if (classification.complexity === 'simple' || classification.complexity === 'moderate') {
+      // Gemini 2.0 Flash for cost-effective queries
+      preferredProvider = AIProviderName.GEMINI;
+      fallbackProviders.push(AIProviderName.OPENAI);
+      primaryModel = 'gemini-2.0-flash-exp';
+      fallbackModels.push('gpt-4o-mini', 'gpt-4o');
     } else {
       // Default: OpenAI for general queries
       preferredProvider = AIProviderName.OPENAI;
       primaryModel = 'gpt-4o';
+      fallbackProviders.push(AIProviderName.CLAUDE, AIProviderName.GEMINI);
     }
     
     // Domain-specific model selection (overrides for enterprise tier)

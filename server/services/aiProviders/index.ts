@@ -6,5 +6,8 @@
 export * from './types';
 export * from './base';
 export * from './openai.provider';
+export * from './claude.provider';
+export * from './gemini.provider';
+export * from './perplexity.provider';
 export * from './registry';
 export { aiProviderRegistry } from './registry';

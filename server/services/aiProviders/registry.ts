@@ -6,6 +6,9 @@
 import { AIProvider } from './base';
 import { AIProviderName, ProviderConfig, ProviderError } from './types';
 import { OpenAIProvider } from './openai.provider';
+import { ClaudeProvider } from './claude.provider';
+import { GeminiProvider } from './gemini.provider';
+import { PerplexityProvider } from './perplexity.provider';
 
 export class AIProviderRegistry {
   private providers: Map<AIProviderName, AIProvider> = new Map();
@@ -39,29 +42,66 @@ export class AIProviderRegistry {
           enabled: true,
         });
         this.providers.set(AIProviderName.OPENAI, openai);
-        console.log('[AIProviders] OpenAI provider initialized');
+        console.log('[AIProviders] ✓ OpenAI provider initialized');
       } catch (error) {
-        console.error('[AIProviders] Failed to initialize OpenAI:', error);
+        console.error('[AIProviders] ✗ Failed to initialize OpenAI:', error);
       }
     }
 
-    // Claude (Anthropic) - Future
+    // Claude (Anthropic)
     if (process.env.ANTHROPIC_API_KEY) {
-      console.log('[AIProviders] Claude API key found (provider not yet implemented)');
+      try {
+        const claude = new ClaudeProvider({
+          name: AIProviderName.CLAUDE,
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          defaultModel: 'claude-3-5-sonnet-20241022',
+          enabled: true,
+        });
+        this.providers.set(AIProviderName.CLAUDE, claude);
+        console.log('[AIProviders] ✓ Claude provider initialized');
+      } catch (error) {
+        console.error('[AIProviders] ✗ Failed to initialize Claude:', error);
+      }
     }
 
-    // Gemini (Google) - Future
+    // Gemini (Google)
     if (process.env.GOOGLE_AI_API_KEY) {
-      console.log('[AIProviders] Gemini API key found (provider not yet implemented)');
+      try {
+        const gemini = new GeminiProvider({
+          name: AIProviderName.GEMINI,
+          apiKey: process.env.GOOGLE_AI_API_KEY,
+          defaultModel: 'gemini-2.0-flash-exp',
+          enabled: true,
+        });
+        this.providers.set(AIProviderName.GEMINI, gemini);
+        console.log('[AIProviders] ✓ Gemini provider initialized');
+      } catch (error) {
+        console.error('[AIProviders] ✗ Failed to initialize Gemini:', error);
+      }
     }
 
-    // Perplexity - Future
+    // Perplexity
     if (process.env.PERPLEXITY_API_KEY) {
-      console.log('[AIProviders] Perplexity API key found (provider not yet implemented)');
+      try {
+        const perplexity = new PerplexityProvider({
+          name: AIProviderName.PERPLEXITY,
+          apiKey: process.env.PERPLEXITY_API_KEY,
+          defaultModel: 'llama-3.1-sonar-large-128k-online',
+          enabled: true,
+        });
+        this.providers.set(AIProviderName.PERPLEXITY, perplexity);
+        console.log('[AIProviders] ✓ Perplexity provider initialized');
+      } catch (error) {
+        console.error('[AIProviders] ✗ Failed to initialize Perplexity:', error);
+      }
     }
 
+    // Log summary
+    const activeProviders = Array.from(this.providers.keys()).join(', ');
     if (this.providers.size === 0) {
-      console.warn('[AIProviders] No AI providers initialized! Check environment variables.');
+      console.warn('[AIProviders] ⚠ No AI providers initialized! Check environment variables.');
+    } else {
+      console.log(`[AIProviders] ${this.providers.size} provider(s) active: ${activeProviders}`);
     }
   }
 

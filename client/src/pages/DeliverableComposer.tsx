@@ -265,7 +265,7 @@ This document is provided for informational purposes only and does not constitut
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {SYSTEM_TEMPLATES.map((template) => (
+                {templates.map((template: any) => (
                   <div
                     key={template.id}
                     className={`p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
@@ -401,11 +401,11 @@ This document is provided for informational purposes only and does not constitut
                       className="w-full"
                       size="lg"
                       onClick={handleGenerateDeliverable}
-                      disabled={isGenerating || !variables.client_name}
+                      disabled={generateMutation.isPending || !variables.client_name}
                       data-testid="button-generate-deliverable"
                     >
                       <FileText className="w-4 h-4 mr-2" />
-                      {isGenerating ? "Generating..." : "Generate Deliverable"}
+                      {generateMutation.isPending ? "Generating..." : "Generate Deliverable"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -423,20 +423,22 @@ This document is provided for informational purposes only and does not constitut
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleExport('docx')}
+                            onClick={() => handleExportDeliverable('docx')}
+                            disabled={exportMutation.isPending}
                             data-testid="button-export-docx"
                           >
                             <Download className="w-4 h-4 mr-2" />
-                            Export DOCX
+                            {exportMutation.isPending ? "Exporting..." : "Export DOCX"}
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleExport('pdf')}
+                            onClick={() => handleExportDeliverable('pdf')}
+                            disabled={exportMutation.isPending}
                             data-testid="button-export-pdf"
                           >
                             <Download className="w-4 h-4 mr-2" />
-                            Export PDF
+                            {exportMutation.isPending ? "Exporting..." : "Export PDF"}
                           </Button>
                           <Button
                             variant="outline"

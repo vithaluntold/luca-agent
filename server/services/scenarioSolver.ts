@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { scenarioRuns, scenarioMetrics, scenarioComparisons, scenarioVariants } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { aiOrchestrator } from "../ai/aiOrchestrator";
 
 /**
  * ScenarioSolver - Runs financial simulations for tax and audit scenarios
@@ -108,11 +109,17 @@ export class ScenarioSolver {
               unit: 'score'
             });
             
-            // Create comparison
+            // Create comparison with AI-powered advisory insights
             const savings = baselineMetrics.taxLiability - variantMetrics.taxLiability;
-            const recommendation = savings > 0 
-              ? `${variant.name} saves $${savings.toLocaleString()} annually compared to baseline`
-              : `Baseline is more favorable by $${Math.abs(savings).toLocaleString()}`;
+            
+            // Generate CPA-level advisory insights using AI
+            const aiAdvisory = await this.generateAdvisoryInsights({
+              baseline: baselineMetrics,
+              variant: variantMetrics,
+              variantName: variant.name,
+              config: { ...playbook.baselineConfig, ...variant.alternativeAssumptions },
+              savings
+            });
             
             await db.insert(scenarioComparisons).values({
               runId: run.id,
@@ -124,7 +131,7 @@ export class ScenarioSolver {
                 qbiDeduction: variantMetrics.qbiDeduction - baselineMetrics.qbiDeduction,
                 auditRiskScore: variantMetrics.auditRiskScore - baselineMetrics.auditRiskScore
               },
-              recommendation
+              recommendation: aiAdvisory
             });
             
             variantResults.push({
@@ -249,5 +256,65 @@ export class ScenarioSolver {
       qbiDeduction: Math.round(qbiDeduction),
       auditRiskScore: Math.min(auditRiskScore, 100) // Cap at 100
     };
+  }
+  
+  /**
+   * Generate CPA-level advisory insights using AI
+   * This elevates Luca from a tax calculator to a strategic advisory platform
+   */
+  private static async generateAdvisoryInsights(evidencePack: {
+    baseline: any;
+    variant: any;
+    variantName: string;
+    config: any;
+    savings: number;
+  }) {
+    const { baseline, variant, variantName, config, savings } = evidencePack;
+    
+    const prompt = `You are a seasoned CPA/CA advising a client on tax strategy optimization. Analyze this tax scenario comparison and provide strategic advisory insights.
+
+**Scenario Comparison:**
+- Variant: ${variantName}
+- Annual Tax Savings: $${savings.toLocaleString()} (${savings > 0 ? 'favorable' : 'unfavorable'})
+- Entity Type: ${config.entityType}
+- Jurisdiction: ${config.jurisdiction}
+- Tax Year: ${config.taxYear}
+- Gross Income: $${config.grossIncome?.toLocaleString() || 'N/A'}
+
+**Baseline Metrics:**
+- Tax Liability: $${baseline.taxLiability.toLocaleString()}
+- Effective Tax Rate: ${baseline.effectiveTaxRate}%
+- QBI Deduction: $${baseline.qbiDeduction.toLocaleString()}
+- Audit Risk Score: ${baseline.auditRiskScore}/100
+
+**${variantName} Metrics:**
+- Tax Liability: $${variant.taxLiability.toLocaleString()}
+- Effective Tax Rate: ${variant.effectiveTaxRate}%
+- QBI Deduction: $${variant.qbiDeduction.toLocaleString()}
+- Audit Risk Score: ${variant.auditRiskScore}/100
+
+Provide a concise CPA-level advisory recommendation (max 3-4 sentences) that includes:
+1. Strategic assessment of the variant vs baseline
+2. Jurisdiction-specific considerations for ${config.jurisdiction}
+3. Risk/benefit tradeoff analysis
+4. One actionable next step or documentation requirement
+
+Focus on professional accounting advisory value, not just number recitation.`;
+
+    try {
+      const response = await aiOrchestrator.complete({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3, // Lower temperature for professional, factual advice
+        maxTokens: 300
+      });
+      
+      return response.content;
+    } catch (error) {
+      console.error('[ScenarioSolver] AI advisory generation failed:', error);
+      // Fallback to basic recommendation if AI fails
+      return savings > 0 
+        ? `${variantName} provides $${savings.toLocaleString()} in annual tax savings compared to baseline. Consider implementing this strategy for ${config.taxYear} and consult with a tax professional for jurisdiction-specific compliance in ${config.jurisdiction}.`
+        : `Baseline strategy remains more favorable by $${Math.abs(savings).toLocaleString()}. Current structure is optimized for ${config.jurisdiction} tax regulations.`;
+    }
   }
 }

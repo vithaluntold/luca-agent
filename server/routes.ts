@@ -17,6 +17,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import multer from "multer";
 import { MFAService } from "./services/mfaService";
+import { DocumentExporter } from "./services/documentExporter";
 import { 
   insertUserSchema,
   insertSupportTicketSchema,
@@ -1009,6 +1010,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Chat file upload error:', error);
       res.status(500).json({ error: "File upload failed" });
+    }
+  });
+
+  // Export content endpoint
+  app.post("/api/export", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { content, format, title } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      
+      if (!format || !['docx', 'pdf', 'pptx', 'xlsx', 'csv', 'txt'].includes(format)) {
+        return res.status(400).json({ error: "Invalid format" });
+      }
+
+      // Handle simple text formats on the fly
+      if (format === 'txt' || format === 'csv') {
+        let fileContent = content;
+        let mimeType = 'text/plain';
+        
+        if (format === 'csv') {
+          const lines = content.split('\n').filter((l: string) => l.trim());
+          fileContent = lines.map((line: string) => `"${line.replace(/"/g, '""')}"`).join('\n');
+          mimeType = 'text/csv';
+        }
+        
+        const buffer = Buffer.from(fileContent, 'utf-8');
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="luca-output-${Date.now()}.${format}"`);
+        return res.send(buffer);
+      }
+
+      // Use DocumentExporter for complex formats
+      const buffer = await DocumentExporter.export(content, format as any, title || 'Luca Output');
+      
+      const mimeTypes: Record<string, string> = {
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        pdf: 'application/pdf',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      };
+      
+      res.setHeader('Content-Type', mimeTypes[format] || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="luca-output-${Date.now()}.${format}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('Export error:', error);
+      res.status(500).json({ error: "Failed to export content" });
     }
   });
 

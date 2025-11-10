@@ -21,6 +21,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useToast } from "@/hooks/use-toast";
 
 interface OutputPaneProps {
   content: string;
@@ -33,30 +34,51 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
   const [viewMode, setViewMode] = useState<'formatted' | 'code'>('formatted');
   const [currentPage, setCurrentPage] = useState(1);
   const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
   const itemsPerPage = 1000; // characters per page
 
-  const handleExport = (format: 'txt' | 'csv') => {
-    let mimeType = 'text/plain';
-    let exportContent = content;
+  const handleExport = async (format: 'docx' | 'pdf' | 'pptx' | 'xlsx' | 'csv' | 'txt') => {
+    try {
+      const response = await fetch('/api/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          content,
+          format,
+          title: 'Luca Output'
+        })
+      });
 
-    // Format-specific handling
-    if (format === 'csv') {
-      // Convert content to CSV format
-      const lines = content.split('\n').filter(l => l.trim());
-      exportContent = lines.map(line => `"${line.replace(/"/g, '""')}"`).join('\n');
-      mimeType = 'text/csv';
-    } else if (format === 'txt') {
-      // Plain text export - strip markdown formatting
-      mimeType = 'text/plain';
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get the file blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `luca-output-${Date.now()}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Export successful",
+        description: `Output exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export failed",
+        description: "Unable to export output. Please try again.",
+        variant: "destructive",
+      });
     }
-
-    const blob = new Blob([exportContent], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `luca-output-${Date.now()}.${format}`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleCopy = () => {
@@ -153,16 +175,16 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
           <Button variant="outline" size="sm" onClick={() => handleExport('csv')} data-testid="button-export-csv">
             CSV
           </Button>
-          <Button variant="outline" size="sm" disabled data-testid="button-export-docx" title="Coming Soon">
+          <Button variant="outline" size="sm" onClick={() => handleExport('docx')} data-testid="button-export-docx">
             Word
           </Button>
-          <Button variant="outline" size="sm" disabled data-testid="button-export-pdf" title="Coming Soon">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} data-testid="button-export-pdf">
             PDF
           </Button>
-          <Button variant="outline" size="sm" disabled data-testid="button-export-pptx" title="Coming Soon">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} data-testid="button-export-pptx">
             PPT
           </Button>
-          <Button variant="outline" size="sm" disabled data-testid="button-export-xlsx" title="Coming Soon">
+          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} data-testid="button-export-xlsx">
             Excel
           </Button>
         </div>

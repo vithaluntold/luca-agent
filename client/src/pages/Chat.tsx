@@ -662,15 +662,14 @@ export default function Chat() {
                           className="flex-1 text-left px-3 py-2 hover-elevate transition-colors"
                           data-testid={`conversation-${conv.id}`}
                         >
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-center gap-2">
                             {conv.pinned ? (
-                              <Pin className="h-4 w-4 mt-1 flex-shrink-0 text-primary" />
+                              <Pin className="h-4 w-4 flex-shrink-0 text-primary" />
                             ) : (
-                              <MessageSquare className="h-4 w-4 mt-1 flex-shrink-0" />
+                              <MessageSquare className="h-4 w-4 flex-shrink-0" />
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{conv.title}</p>
-                              <p className="text-xs text-muted-foreground truncate">{conv.preview || 'No preview'}</p>
                             </div>
                           </div>
                         </button>

@@ -301,15 +301,20 @@ export default function Chat() {
     if (!user) return;
     if (!inputMessage.trim() && !selectedFile) return;
     
+    // Build message content - include both text and filename if both are present
+    const messageContent = inputMessage.trim() 
+      ? (selectedFile ? `${inputMessage} [Attached: ${selectedFile.name}]` : inputMessage)
+      : (selectedFile ? `[Attached: ${selectedFile.name}]` : '');
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage || (selectedFile ? `[Attached: ${selectedFile.name}]` : ''),
+      content: messageContent,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     
     setMessages(prev => [...prev, userMessage]);
-    sendMessageMutation.mutate(inputMessage);
+    sendMessageMutation.mutate(messageContent);
     setInputMessage("");
   };
 

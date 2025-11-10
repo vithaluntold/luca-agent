@@ -136,6 +136,7 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
             variant="ghost"
             size="icon"
             onClick={handleCopy}
+            disabled={!content}
             data-testid="button-copy-output"
           >
             {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -160,6 +161,7 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
+            disabled={!content}
             data-testid="input-search-output"
           />
         </div>
@@ -169,22 +171,22 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
       <div className="px-4 py-2 border-b">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">Export:</span>
-          <Button variant="outline" size="sm" onClick={() => handleExport('txt')} data-testid="button-export-txt">
+          <Button variant="outline" size="sm" onClick={() => handleExport('txt')} disabled={!content} data-testid="button-export-txt">
             TXT
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} data-testid="button-export-csv">
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} disabled={!content} data-testid="button-export-csv">
             CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('docx')} data-testid="button-export-docx">
+          <Button variant="outline" size="sm" onClick={() => handleExport('docx')} disabled={!content} data-testid="button-export-docx">
             Word
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} data-testid="button-export-pdf">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} disabled={!content} data-testid="button-export-pdf">
             PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} data-testid="button-export-pptx">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} disabled={!content} data-testid="button-export-pptx">
             PPT
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} data-testid="button-export-xlsx">
+          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} disabled={!content} data-testid="button-export-xlsx">
             Excel
           </Button>
         </div>
@@ -229,8 +231,12 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Output will appear here
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm p-6 text-center">
+            <FileText className="h-12 w-12 mb-4 opacity-50" />
+            <p className="font-medium mb-2">No output to display</p>
+            <p className="text-xs max-w-sm">
+              Exportable output appears here when you use professional features like calculations, document generation, or data analysis.
+            </p>
           </div>
         )}
       </ScrollArea>

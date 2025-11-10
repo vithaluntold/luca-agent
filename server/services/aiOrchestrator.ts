@@ -7,6 +7,7 @@ import { queryTriageService, type QueryClassification, type RoutingDecision } fr
 import { financialSolverService } from './financialSolvers';
 import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonitor } from './aiProviders';
 import { requirementClarificationService, type ClarificationAnalysis } from './requirementClarification';
+import { documentAnalyzerAgent } from './agents/documentAnalyzer';
 
 export type ResponseType = 'research' | 'analysis' | 'document' | 'calculation' | 'visualization' | 'export' | 'general';
 
@@ -61,6 +62,9 @@ export class AIOrchestrator {
     options?: ProcessQueryOptions
   ): Promise<OrchestrationResult> {
     const startTime = Date.now();
+    
+    // CRITICAL DEBUGGING: Log attachment status immediately
+    console.log(`[Orchestrator] processQuery called with attachment:`, options?.attachment ? `YES (${options.attachment.filename})` : 'NO');
     
     // Step 1: Classify the query (with document attachment hint)
     const context = options?.attachment ? {
@@ -117,12 +121,43 @@ export class AIOrchestrator {
       }
     }
     
+    // PHASE 1: Document Analysis (if attachment present)
+    // Extract text from attached documents and enrich the query
+    let enrichedQuery = query;
+    let documentAnalysis: any = null;
+    
+    if (options?.attachment) {
+      console.log(`[Orchestrator] Analyzing attached document: ${options.attachment.filename}`);
+      
+      try {
+        const analysisResult = await documentAnalyzerAgent.analyzeDocument(
+          options.attachment.buffer,
+          options.attachment.filename,
+          options.attachment.mimeType
+        );
+        
+        if (analysisResult.success && analysisResult.analysis.extractedText) {
+          documentAnalysis = analysisResult.analysis;
+          
+          // Enrich the query with extracted document text
+          enrichedQuery = `${query}\n\n--- Document Content (${options.attachment.filename}) ---\n${analysisResult.analysis.extractedText}`;
+          
+          console.log(`[Orchestrator] Document analyzed successfully. Extracted ${analysisResult.analysis.extractedText.length} characters`);
+        } else {
+          console.warn(`[Orchestrator] Document analysis failed or returned no text:`, analysisResult.error);
+        }
+      } catch (error) {
+        console.error('[Orchestrator] Error analyzing document:', error);
+        // Continue without document analysis - fallback to original query
+      }
+    }
+    
     // Step 3: Execute any needed calculations/solvers
-    const calculationResults = await this.executeCalculations(query, classification, routingDecision);
+    const calculationResults = await this.executeCalculations(enrichedQuery, classification, routingDecision);
     
     // Step 4: Build enhanced context with calculation results, clarification insights, and chat mode
     const enhancedContext = this.buildEnhancedContext(
-      query,
+      enrichedQuery,
       classification,
       calculationResults,
       clarificationAnalysis,
@@ -130,8 +165,9 @@ export class AIOrchestrator {
     );
     
     // Step 5: Call the AI provider with enhanced context and provider routing
+    // Use enrichedQuery (includes document text) instead of original query
     const aiResponse = await this.callAIModel(
-      query,
+      enrichedQuery,
       enhancedContext,
       conversationHistory,
       routingDecision.primaryModel,

@@ -298,12 +298,13 @@ export default function Chat() {
   });
 
   const handleSendMessage = () => {
-    if (!user || !inputMessage.trim()) return;
+    if (!user) return;
+    if (!inputMessage.trim() && !selectedFile) return;
     
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage,
+      content: inputMessage || (selectedFile ? `[Attached: ${selectedFile.name}]` : ''),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     

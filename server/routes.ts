@@ -853,8 +853,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: result.response,
         modelUsed: result.modelUsed,
         routingDecision: result.routingDecision,
-        calculationResults: result.metadata, // Store full metadata instead of just calculations
-        tokensUsed: result.tokensUsed
+        calculationResults: result.calculationResults,
+        tokensUsed: result.tokensUsed,
+        metadata: result.metadata // Store full metadata (showInOutputPane, visualization, etc.)
       });
       
       // Create routing log

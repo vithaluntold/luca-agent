@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Upload, Search, AlertTriangle, CheckCircle, FileText, TrendingDown, TrendingUp, Info } from "lucide-react";
+import { Upload, Search, AlertTriangle, CheckCircle, FileText, TrendingDown, TrendingUp, Info, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -210,6 +211,16 @@ export default function ForensicIntelligence() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Back to Chat Button */}
+        <div>
+          <Button variant="ghost" size="sm" asChild data-testid="button-back-to-chat">
+            <Link href="/chat">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Chat
+            </Link>
+          </Button>
+        </div>
+        
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">

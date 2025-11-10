@@ -4,7 +4,6 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import * as pdf from 'pdf-parse';
 import { AIProvider } from './base';
 import {
   AIProviderName,
@@ -55,7 +54,10 @@ export class ClaudeProvider extends AIProvider {
       if (request.attachment && request.attachment.mimeType === 'application/pdf') {
         try {
           console.log(`[Claude] Extracting text from PDF: ${request.attachment.filename}`);
-          const pdfData = await pdf(request.attachment.buffer);
+          
+          // Use dynamic import for pdf-parse (CommonJS module)
+          const pdfParse = (await import('pdf-parse')).default;
+          const pdfData = await pdfParse(request.attachment.buffer);
           
           // Add extracted text to the last message
           const extractedText = pdfData.text.trim();

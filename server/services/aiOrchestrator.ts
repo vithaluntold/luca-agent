@@ -236,7 +236,8 @@ export class AIOrchestrator {
       routingDecision,
       calculationResults,
       options?.attachment,
-      visualization
+      visualization,
+      options?.chatMode
     );
     
     return {
@@ -262,7 +263,8 @@ export class AIOrchestrator {
     routing: RoutingDecision,
     calculations: any,
     attachment?: ProcessQueryOptions['attachment'],
-    visualization?: VisualizationData | null
+    visualization?: VisualizationData | null,
+    chatMode?: string
   ): ResponseMetadata {
     const lowerQuery = query.toLowerCase();
     
@@ -289,10 +291,19 @@ export class AIOrchestrator {
       responseType = 'analysis';
     }
     
-    // Determine if output pane should show this response
-    // Show in output pane for: document, visualization, export, calculation
-    // Hide for: research, analysis, general (these stay in main chat)
+    // CRITICAL: Determine if output pane should show this response
+    // Professional modes ALWAYS show in Output Pane:
+    // - deep-research: Research results and findings
+    // - checklist: Generated checklists
+    // - workflow: Workflow descriptions/diagrams
+    // - audit-plan: Audit plans and procedures
+    // - calculation: Financial calculations
+    // Standard chat stays in main chat area only
+    const professionalModes = ['deep-research', 'checklist', 'workflow', 'audit-plan', 'calculation'];
+    const isProfessionalMode = chatMode && professionalModes.includes(chatMode);
+    
     const showInOutputPane = 
+      isProfessionalMode ||  // All professional modes → Output Pane
       responseType === 'document' ||
       responseType === 'visualization' ||
       responseType === 'export' ||

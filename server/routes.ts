@@ -822,6 +822,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tokensUsed: null
       });
       
+      // CRITICAL DEBUG: Log attachment status before calling processQuery
+      console.log(`[API] About to call processQuery with attachment:`, attachmentBuffer && attachmentMetadata ? `YES (${attachmentMetadata.filename})` : 'NO');
+      console.log(`[API] attachmentBuffer exists:`, !!attachmentBuffer);
+      console.log(`[API] attachmentMetadata exists:`, !!attachmentMetadata);
+      
       // Process query through AI orchestrator with chat mode
       const result = await aiOrchestrator.processQuery(
         message,

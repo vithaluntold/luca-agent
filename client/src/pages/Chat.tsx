@@ -233,7 +233,15 @@ export default function Chat() {
       // If there's a file attached, upload it first
       let fileData: any = null;
       if (file) {
+        // Show "Uploading document..." status
         setUploadingFile(true);
+        setMessages(prev => [...prev, {
+          id: 'uploading-temp',
+          role: 'assistant',
+          content: 'Uploading document...',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+        
         try {
           const formData = new FormData();
           formData.append('file', file);
@@ -250,6 +258,13 @@ export default function Chat() {
           
           const uploadData = await uploadRes.json();
           fileData = uploadData.file;
+          
+          // Update status to "Analyzing document..."
+          setMessages(prev => prev.map(msg => 
+            msg.id === 'uploading-temp' 
+              ? { ...msg, content: 'Analyzing document and extracting content...' }
+              : msg
+          ));
         } finally {
           setUploadingFile(false);
         }
@@ -275,13 +290,17 @@ export default function Chat() {
         setActiveConversation(data.conversationId);
       }
       
-      setMessages(prev => [...prev, {
-        id: data.message.id,
-        role: 'assistant',
-        content: data.message.content,
-        timestamp: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        metadata: data.metadata.calculationResults
-      }]);
+      // Remove temporary "uploading/analyzing" message and add actual response
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== 'uploading-temp');
+        return [...filtered, {
+          id: data.message.id,
+          role: 'assistant',
+          content: data.message.content,
+          timestamp: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          metadata: data.metadata.calculationResults
+        }];
+      });
       
       // Clear selected file after successful send
       setSelectedFile(null);
@@ -289,6 +308,9 @@ export default function Chat() {
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
     onError: (error: any) => {
+      // Remove temporary "uploading/analyzing" message on error
+      setMessages(prev => prev.filter(msg => msg.id !== 'uploading-temp'));
+      
       toast({
         variant: "destructive",
         title: "Error",

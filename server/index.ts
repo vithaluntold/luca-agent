@@ -27,7 +27,7 @@ app.use(session({
     httpOnly: true, // Prevents client-side JavaScript access
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    sameSite: 'strict', // Strongest CSRF protection
+    sameSite: 'lax', // Good CSRF protection while allowing normal navigation
     // domain: undefined, // Set to your domain in production if needed
   },
   store: sessionStore,

@@ -13,6 +13,7 @@ I prefer that you communicate in a clear and concise manner. When providing expl
 4. **MVP Feature Navigation**: Added three navigation buttons to the Chat page sidebar for direct access to: Regulatory Scenario Simulator (/scenarios), Client Deliverable Composer (/deliverables), and Forensic Document Intelligence (/forensics). All buttons include proper data-testid attributes for testing.
 5. **Auth Redirect Fix**: Fixed race condition in authentication flow where redirect to /chat would fail due to user state not being set before navigation. Implemented using useEffect that waits for user state to be set via shouldRedirect flag before triggering navigation.
 6. **Session Cookie Fix**: Changed session cookie sameSite setting from 'strict' to 'lax' in server/index.ts to resolve "authentication required" errors. The strict setting was preventing session cookies from being sent during normal navigation. The lax setting maintains CSRF protection while allowing cookies to persist across page navigation.
+7. **File Attachment Enhancement**: Enhanced handleSendMessage in Chat.tsx to support three scenarios: (1) file-only sends show `[Attached: filename]`, (2) text-only sends show the user's message, and (3) text+file sends show `message [Attached: filename]`. This ensures conversation history accurately reflects all attachments in both the UI and database, improving message traceability.
 
 ## System Architecture
 

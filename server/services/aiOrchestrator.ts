@@ -166,6 +166,9 @@ export class AIOrchestrator {
     
     // Step 5: Call the AI provider with enhanced context and provider routing
     // Use enrichedQuery (includes document text) instead of original query
+    // CRITICAL: Don't pass attachment to AI model - we've already extracted the text
+    // and added it to enrichedQuery. Passing the attachment causes providers to
+    // respond with "I can't view files" instead of using the extracted content.
     const aiResponse = await this.callAIModel(
       enrichedQuery,
       enhancedContext,
@@ -173,7 +176,7 @@ export class AIOrchestrator {
       routingDecision.primaryModel,
       routingDecision.preferredProvider,
       routingDecision.fallbackProviders,
-      options?.attachment
+      undefined // Don't pass attachment - content already in enrichedQuery
     );
     
     let finalResponse = aiResponse.content;

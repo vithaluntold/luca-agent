@@ -24,6 +24,7 @@ export interface Message {
   content: string;
   modelUsed?: string | null;
   calculationResults?: any;
+  metadata?: any;
   createdAt: string;
 }
 

@@ -163,10 +163,13 @@ export default function Chat() {
   }, [selectedProfileFilter]);
 
   // Only show output pane content for document/visualization/export/calculation responses
-  const outputContent = messages
-    .filter(m => m.role === 'assistant' && m.metadata?.showInOutputPane)
-    .map(m => m.content)
-    .join('\n\n---\n\n');
+  const outputMessages = messages.filter(m => m.role === 'assistant' && m.metadata?.showInOutputPane);
+  const outputContent = outputMessages.map(m => m.content).join('\n\n---\n\n');
+  
+  // Get the most recent visualization from output messages
+  const outputVisualization = outputMessages
+    .reverse()
+    .find(m => m.metadata?.visualization)?.metadata?.visualization;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -213,7 +216,7 @@ export default function Chat() {
         role: msg.role,
         content: msg.content,
         timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        metadata: msg.calculationResults
+        metadata: msg.metadata || (msg.calculationResults ? { calculationResults: msg.calculationResults } : undefined)
       })));
     }
   }, [messagesData]);
@@ -981,6 +984,7 @@ export default function Chat() {
             <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
               <OutputPane
                 content={outputContent}
+                visualization={outputVisualization}
                 onCollapse={() => setRightPaneCollapsed(true)}
                 isCollapsed={false}
               />

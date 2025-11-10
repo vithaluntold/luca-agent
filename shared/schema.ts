@@ -77,6 +77,7 @@ export const messages = pgTable("messages", {
   modelUsed: text("model_used"),
   routingDecision: jsonb("routing_decision"),
   calculationResults: jsonb("calculation_results"),
+  metadata: jsonb("metadata"),
   tokensUsed: integer("tokens_used"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

@@ -1,8 +1,9 @@
-import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
 import PptxGenJS from 'pptxgenjs';
 import { Readable } from 'stream';
+import type { VisualizationData } from '../../shared/types/visualization';
 
 /**
  * DocumentExporter - Exports content to various document formats
@@ -11,6 +12,41 @@ import { Readable } from 'stream';
  * suitable for distribution and archival.
  */
 export class DocumentExporter {
+  /**
+   * Convert visualization data to a markdown table
+   */
+  private static visualizationToMarkdown(viz: VisualizationData): string {
+    if (!viz || !viz.data || viz.data.length === 0) {
+      return '';
+    }
+
+    let markdown = '\n\n';
+    if (viz.title) {
+      markdown += `## ${viz.title}\n\n`;
+    }
+
+    // Get all unique keys from the data
+    const allKeys = Array.from(
+      new Set(viz.data.flatMap(obj => Object.keys(obj)))
+    );
+
+    // Create table header
+    markdown += '| ' + allKeys.join(' | ') + ' |\n';
+    markdown += '|' + allKeys.map(() => '---').join('|') + '|\n';
+
+    // Create table rows
+    for (const row of viz.data) {
+      markdown += '| ' + allKeys.map(key => {
+        const value = row[key];
+        if (typeof value === 'number') {
+          return value.toLocaleString();
+        }
+        return value || '';
+      }).join(' | ') + ' |\n';
+    }
+
+    return markdown + '\n';
+  }
   /**
    * Export content to DOCX format
    */
@@ -271,20 +307,29 @@ export class DocumentExporter {
   /**
    * Export content to specified format
    */
-  static async export(
-    content: string,
-    format: 'docx' | 'pdf' | 'pptx' | 'xlsx',
-    title?: string
-  ): Promise<Buffer> {
+  static async export(options: {
+    content: string;
+    visualization?: VisualizationData;
+    format: 'docx' | 'pdf' | 'pptx' | 'xlsx';
+    title?: string;
+  }): Promise<Buffer> {
+    const { content, visualization, format, title } = options;
+    
+    // Combine content with visualization table if present
+    let fullContent = content;
+    if (visualization) {
+      fullContent += this.visualizationToMarkdown(visualization);
+    }
+    
     switch (format) {
       case 'docx':
-        return this.exportToDocx(content, title);
+        return this.exportToDocx(fullContent, title);
       case 'pdf':
-        return this.exportToPdf(content, title);
+        return this.exportToPdf(fullContent, title);
       case 'pptx':
-        return this.exportToPptx(content, title);
+        return this.exportToPptx(fullContent, title);
       case 'xlsx':
-        return this.exportToExcel(content, title);
+        return this.exportToExcel(fullContent, title);
       default:
         throw new Error(`Unsupported format: ${format}`);
     }

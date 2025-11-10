@@ -22,14 +22,16 @@ import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useToast } from "@/hooks/use-toast";
+import VisualizationRenderer, { ChartData } from "./visualizations/VisualizationRenderer";
 
 interface OutputPaneProps {
   content: string;
+  visualization?: ChartData;
   onCollapse?: () => void;
   isCollapsed?: boolean;
 }
 
-export default function OutputPane({ content, onCollapse, isCollapsed }: OutputPaneProps) {
+export default function OutputPane({ content, visualization, onCollapse, isCollapsed }: OutputPaneProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'formatted' | 'code'>('formatted');
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,6 +49,7 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
         credentials: 'include',
         body: JSON.stringify({
           content,
+          visualization,
           format,
           title: 'Luca Output'
         })
@@ -82,7 +85,24 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(content);
+    let textToCopy = content;
+    
+    // Add visualization data as text if present
+    if (visualization && visualization.data && visualization.data.length > 0) {
+      if (textToCopy) textToCopy += '\n\n';
+      if (visualization.title) textToCopy += visualization.title + '\n\n';
+      
+      const allKeys = Array.from(
+        new Set(visualization.data.flatMap((obj: any) => Object.keys(obj)))
+      );
+      
+      textToCopy += allKeys.join('\t') + '\n';
+      for (const row of visualization.data) {
+        textToCopy += allKeys.map((key: string) => row[key] ?? '').join('\t') + '\n';
+      }
+    }
+    
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -136,7 +156,7 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
             variant="ghost"
             size="icon"
             onClick={handleCopy}
-            disabled={!content}
+            disabled={!content && !visualization}
             data-testid="button-copy-output"
           >
             {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -161,7 +181,7 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
-            disabled={!content}
+            disabled={!content && !visualization}
             data-testid="input-search-output"
           />
         </div>
@@ -171,22 +191,22 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
       <div className="px-4 py-2 border-b">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">Export:</span>
-          <Button variant="outline" size="sm" onClick={() => handleExport('txt')} disabled={!content} data-testid="button-export-txt">
+          <Button variant="outline" size="sm" onClick={() => handleExport('txt')} disabled={!content && !visualization} data-testid="button-export-txt">
             TXT
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} disabled={!content} data-testid="button-export-csv">
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} disabled={!content && !visualization} data-testid="button-export-csv">
             CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('docx')} disabled={!content} data-testid="button-export-docx">
+          <Button variant="outline" size="sm" onClick={() => handleExport('docx')} disabled={!content && !visualization} data-testid="button-export-docx">
             Word
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} disabled={!content} data-testid="button-export-pdf">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} disabled={!content && !visualization} data-testid="button-export-pdf">
             PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} disabled={!content} data-testid="button-export-pptx">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} disabled={!content && !visualization} data-testid="button-export-pptx">
             PPT
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} disabled={!content} data-testid="button-export-xlsx">
+          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} disabled={!content && !visualization} data-testid="button-export-xlsx">
             Excel
           </Button>
         </div>
@@ -196,38 +216,48 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
 
       {/* Output Content */}
       <ScrollArea className="flex-1 p-4">
-        {content ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            {viewMode === 'formatted' ? (
-              <ReactMarkdown
-                remarkPlugins={[remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-                components={{
-                  code({ inline, className, children, ...props }: any) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return !inline && match ? (
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-                        language={match[1]}
-                        PreTag="div"
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    );
-                  }
-                }}
-              >
-                {paginatedContent}
-              </ReactMarkdown>
-            ) : (
-              <pre className="bg-muted p-4 rounded-md overflow-x-auto">
-                <code className="text-sm">{paginatedContent}</code>
-              </pre>
+        {content || visualization ? (
+          <div className="space-y-6">
+            {visualization && (
+              <div className="bg-card border rounded-lg p-4" data-testid="visualization-container">
+                <VisualizationRenderer chartData={visualization} />
+              </div>
+            )}
+            
+            {content && (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                {viewMode === 'formatted' ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                    components={{
+                      code({ inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={vscDarkPlus}
+                            language={match[1]}
+                            PreTag="div"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      }
+                    }}
+                  >
+                    {paginatedContent}
+                  </ReactMarkdown>
+                ) : (
+                  <pre className="bg-muted p-4 rounded-md overflow-x-auto">
+                    <code className="text-sm">{paginatedContent}</code>
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         ) : (

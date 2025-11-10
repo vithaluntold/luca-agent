@@ -1019,26 +1019,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getCurrentUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
       
-      const { content, format, title } = req.body;
+      const { content, visualization, format, title } = req.body;
       
-      if (!content) {
-        return res.status(400).json({ error: "Content is required" });
+      if (!content && !visualization) {
+        return res.status(400).json({ error: "Content or visualization is required" });
       }
       
       if (!format || !['docx', 'pdf', 'pptx', 'xlsx', 'csv', 'txt'].includes(format)) {
         return res.status(400).json({ error: "Invalid format" });
       }
 
-      // Handle simple text formats on the fly
+      // Handle simple text formats with visualization support
       if (format === 'txt' || format === 'csv') {
-        let fileContent = content;
+        let fileContent = content || '';
         let mimeType = 'text/plain';
         
-        if (format === 'csv') {
-          const lines = content.split('\n').filter((l: string) => l.trim());
+        // Add visualization data as text table if present
+        if (visualization && visualization.data && visualization.data.length > 0) {
+          if (fileContent) fileContent += '\n\n';
+          if (visualization.title) fileContent += visualization.title + '\n\n';
+          
+          // Get all unique keys from the data
+          const allKeys = Array.from(
+            new Set(visualization.data.flatMap((obj: any) => Object.keys(obj)))
+          );
+          
+          if (format === 'csv') {
+            // CSV format: proper comma-separated values
+            fileContent += allKeys.join(',') + '\n';
+            for (const row of visualization.data) {
+              fileContent += allKeys.map((key: string) => {
+                const value = row[key];
+                const strValue = typeof value === 'number' ? value.toString() : (value || '');
+                return `"${strValue.toString().replace(/"/g, '""')}"`;
+              }).join(',') + '\n';
+            }
+          } else {
+            // TXT format: readable table
+            fileContent += allKeys.join('\t') + '\n';
+            for (const row of visualization.data) {
+              fileContent += allKeys.map((key: string) => row[key] ?? '').join('\t') + '\n';
+            }
+          }
+        } else if (format === 'csv') {
+          const lines = fileContent.split('\n').filter((l: string) => l.trim());
           fileContent = lines.map((line: string) => `"${line.replace(/"/g, '""')}"`).join('\n');
-          mimeType = 'text/csv';
         }
+        
+        if (format === 'csv') mimeType = 'text/csv';
         
         const buffer = Buffer.from(fileContent, 'utf-8');
         res.setHeader('Content-Type', mimeType);
@@ -1047,7 +1075,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use DocumentExporter for complex formats
-      const buffer = await DocumentExporter.export(content, format as any, title || 'Luca Output');
+      const buffer = await DocumentExporter.export({
+        content: content || '',
+        visualization,
+        format: format as any,
+        title: title || 'Luca Output'
+      });
       
       const mimeTypes: Record<string, string> = {
         docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

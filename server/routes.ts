@@ -90,6 +90,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Establish session
       req.session.userId = user.id;
       
+      // CRITICAL: Explicitly save session before responding
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
       // Don't send password back
       const { password, ...userWithoutPassword } = user;
       res.json({ user: userWithoutPassword });
@@ -157,6 +165,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Establish session
       req.session.userId = user.id;
+      
+      // CRITICAL: Explicitly save session before responding
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
       
       const { password: _, mfaSecret, mfaBackupCodes, ...userWithoutSensitive } = user;
       res.json({ user: userWithoutSensitive });
@@ -334,6 +350,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Establish session
       req.session.userId = userId;
+      
+      // CRITICAL: Explicitly save session before responding
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
       
       const { password: _, mfaSecret, mfaBackupCodes, ...userWithoutSensitive } = user;
       res.json({ user: userWithoutSensitive });

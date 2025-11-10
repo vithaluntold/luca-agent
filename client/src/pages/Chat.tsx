@@ -38,6 +38,10 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import OutputPane from "@/components/OutputPane";
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import lucaLogoUrl from "@assets/Luca Transparent symbol (2)_1762627959193.png";
 import {
   Plus,
   Send,
@@ -799,8 +803,14 @@ export default function Chat() {
                   messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
+                      {message.role === 'assistant' && (
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          <AvatarImage src={lucaLogoUrl} alt="Luca" />
+                          <AvatarFallback>L</AvatarFallback>
+                        </Avatar>
+                      )}
                       <div
                         className={`max-w-[80%] rounded-lg px-4 py-3 ${
                           message.role === 'user'
@@ -810,13 +820,25 @@ export default function Chat() {
                       >
                         {message.role === 'assistant' ? (
                           <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkMath]}
+                              rehypePlugins={[rehypeKatex]}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
                           </div>
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                         )}
                         <span className="text-xs opacity-70 mt-2 block">{message.timestamp}</span>
                       </div>
+                      {message.role === 'user' && (
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          <AvatarFallback>
+                            {user?.email?.[0]?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
                     </div>
                   ))
                 )}

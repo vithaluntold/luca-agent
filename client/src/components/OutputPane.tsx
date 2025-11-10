@@ -17,6 +17,8 @@ import {
   Check
 } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -33,21 +35,19 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
   const [copied, setCopied] = useState(false);
   const itemsPerPage = 1000; // characters per page
 
-  const handleExport = (format: 'docx' | 'pdf' | 'pptx' | 'xlsx' | 'csv' | 'txt') => {
+  const handleExport = (format: 'txt' | 'csv') => {
     let mimeType = 'text/plain';
     let exportContent = content;
 
     // Format-specific handling
     if (format === 'csv') {
-      // Convert markdown tables or line-by-line to CSV
+      // Convert content to CSV format
       const lines = content.split('\n').filter(l => l.trim());
       exportContent = lines.map(line => `"${line.replace(/"/g, '""')}"`).join('\n');
       mimeType = 'text/csv';
-    } else if (format === 'docx' || format === 'pdf' || format === 'pptx') {
-      // For document formats, preserve markdown formatting
-      mimeType = 'application/octet-stream';
-    } else if (format === 'xlsx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    } else if (format === 'txt') {
+      // Plain text export - strip markdown formatting
+      mimeType = 'text/plain';
     }
 
     const blob = new Blob([exportContent], { type: mimeType });
@@ -153,16 +153,16 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
           <Button variant="outline" size="sm" onClick={() => handleExport('csv')} data-testid="button-export-csv">
             CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('docx')} data-testid="button-export-docx">
+          <Button variant="outline" size="sm" disabled data-testid="button-export-docx" title="Coming Soon">
             Word
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} data-testid="button-export-pdf">
+          <Button variant="outline" size="sm" disabled data-testid="button-export-pdf" title="Coming Soon">
             PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} data-testid="button-export-pptx">
+          <Button variant="outline" size="sm" disabled data-testid="button-export-pptx" title="Coming Soon">
             PPT
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} data-testid="button-export-xlsx">
+          <Button variant="outline" size="sm" disabled data-testid="button-export-xlsx" title="Coming Soon">
             Excel
           </Button>
         </div>
@@ -176,6 +176,8 @@ export default function OutputPane({ content, onCollapse, isCollapsed }: OutputP
           <div className="prose prose-sm dark:prose-invert max-w-none">
             {viewMode === 'formatted' ? (
               <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={{
                   code({ inline, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '');

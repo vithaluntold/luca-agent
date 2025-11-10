@@ -158,7 +158,8 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
   const { 
     conversationId, 
     query, 
-    profileId = null
+    profileId = null,
+    chatMode = 'standard'
   } = message;
 
   try {
@@ -219,7 +220,8 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
     const result = await aiOrchestrator.processQuery(
       query,
       conversationHistory,
-      userTier
+      userTier,
+      { chatMode }
     );
 
     // For now, send the complete response

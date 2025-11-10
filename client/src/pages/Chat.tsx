@@ -316,6 +316,7 @@ export default function Chat() {
     setMessages(prev => [...prev, userMessage]);
     sendMessageMutation.mutate(messageContent);
     setInputMessage("");
+    setSelectedFile(null); // Clear file attachment immediately after send
   };
 
   const handleNewChat = () => {

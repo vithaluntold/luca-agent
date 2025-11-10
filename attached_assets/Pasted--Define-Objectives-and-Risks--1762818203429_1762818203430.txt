@@ -1,0 +1,60 @@
++---------------------------------------------------+
+|           Define Objectives and Risks            |
++---------------------------------------------------+
+                      |
+                      v
++---------------------------------------------------+
+|  Preliminary Planning and Risk Assessment         |
+|---------------------------------------------------|
+| - Understand Business Model                       |
+| - Identify Regulatory Compliance                  |
+| - Perform Risk Assessment                         |
+| - Define Audit Objectives                         |
++---------------------------------------------------+
+                      |
+                      v
++---------------------------------------------------+
+|               Develop Audit Plan                  |
+|---------------------------------------------------|
+| - Define Scope                                    |
+| - Allocate Resources                              |
+| - Set Timelines and Milestones                   |
++---------------------------------------------------+
+                      |
+                      v
++---------------------------------------------------+
+|                 Execute Audit                     |
+|---------------------------------------------------|
+| - Financial Audit                                 |
+|    • Verify cryptocurrency accounting            |
+|    • Test impairment losses and revenue          |
+| - IT & Cybersecurity Audit                        |
+|    • Test wallet security controls               |
+|    • Evaluate network security                   |
+| - Operational Audit                               |
+|    • Review energy compliance                    |
+|    • Assess hardware efficiency                  |
+| - Compliance Audit                                |
+|    • Verify AML/KYC adherence                    |
+|    • Confirm reporting compliance                |
++---------------------------------------------------+
+                      |
+                      v
++---------------------------------------------------+
+|           Reporting and Follow-Up                |
+|---------------------------------------------------|
+| - Draft Audit Report                              |
+| - Present Findings to Audit Committee            |
+| - Implement Corrective Actions                   |
++---------------------------------------------------+
+                      |
+                      v
++---------------------------------------------------+
+|   Continuous Monitoring and Improvement          |
+|---------------------------------------------------|
+| - Establish Monitoring Mechanisms                |
+| - Update Audit Plan Annually                     |
++---------------------------------------------------+
+                      |
+                      v
+                 **End of Workflow**

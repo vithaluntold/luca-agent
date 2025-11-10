@@ -485,7 +485,25 @@ export class AIOrchestrator {
           break;
         case 'workflow':
           context += `INSTRUCTIONS FOR WORKFLOW VISUALIZATION MODE:\n`;
-          context += `- Describe the process as a clear, step-by-step workflow\n`;
+          context += `- Create an ASCII workflow diagram showing the process visually\n`;
+          context += `- Use boxes with borders (made with +, -, |) for each major step/phase\n`;
+          context += `- Connect steps with arrows (|, v, >) to show flow direction\n`;
+          context += `- Include substeps/details inside each box using bullet points\n`;
+          context += `- Make the diagram wide enough to be readable (50+ characters per box)\n`;
+          context += `- Ensure proper vertical alignment and consistent spacing\n`;
+          context += `- End with "**End of Workflow**" at the bottom\n`;
+          context += `\nEXAMPLE FORMAT:\n`;
+          context += `+---------------------------------------------------+\n`;
+          context += `|              Step 1: Define Phase                 |\n`;
+          context += `+---------------------------------------------------+\n`;
+          context += `                      |\n`;
+          context += `                      v\n`;
+          context += `+---------------------------------------------------+\n`;
+          context += `|              Step 2: Execute Tasks                |\n`;
+          context += `|---------------------------------------------------|\n`;
+          context += `| - Subtask A                                       |\n`;
+          context += `| - Subtask B                                       |\n`;
+          context += `+---------------------------------------------------+\n\n`;
           context += `- Identify decision points and branching paths\n`;
           context += `- Note dependencies between steps\n`;
           context += `- Include roles/responsibilities for each step\n`;

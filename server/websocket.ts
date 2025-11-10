@@ -159,7 +159,8 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
     conversationId, 
     query, 
     profileId = null,
-    chatMode: rawChatMode = 'standard'
+    chatMode: rawChatMode = 'standard',
+    documentAttachment
   } = message;
 
   // Validate chat mode - only allow supported modes, log warning for unknown ones
@@ -175,6 +176,52 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
     if (!query) {
       sendError(ws, 'Missing query');
       return;
+    }
+
+    // Process document attachment if present (same logic as API route)
+    let attachmentBuffer: Buffer | undefined;
+    let attachmentMetadata: { filename: string; mimeType: string; documentType?: string } | undefined;
+    
+    if (documentAttachment) {
+      try {
+        // Security validation: Check attachment size and type
+        const ALLOWED_MIME_TYPES = [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/tiff',
+          'image/tif'
+        ];
+        const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
+        
+        // Validate MIME type
+        if (!ALLOWED_MIME_TYPES.includes(documentAttachment.type)) {
+          sendError(ws, 'Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF');
+          return;
+        }
+        
+        // Convert base64 data to Buffer
+        attachmentBuffer = Buffer.from(documentAttachment.data, 'base64');
+        
+        // Validate size
+        if (attachmentBuffer.byteLength > MAX_SIZE_BYTES) {
+          sendError(ws, 'File too large. Maximum size is 10MB');
+          return;
+        }
+        
+        attachmentMetadata = {
+          filename: documentAttachment.filename,
+          mimeType: documentAttachment.type,
+          documentType: documentAttachment.type // Use MIME type as document type for now
+        };
+        
+        console.log(`[WebSocket] Document attachment validated: ${documentAttachment.filename} (${attachmentBuffer.byteLength} bytes)`);
+      } catch (error) {
+        console.error('[WebSocket] Error processing document attachment:', error);
+        sendError(ws, 'Invalid document attachment data');
+        return;
+      }
     }
 
     // SECURITY: Use session-derived userId and userTier only
@@ -223,13 +270,21 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       messageId: userMessage.id
     });
 
-    // Process query and stream response
+    // Process query and stream response with attachment if present
     let fullResponse = '';
     const result = await aiOrchestrator.processQuery(
       query,
       conversationHistory,
       userTier,
-      { chatMode }
+      { 
+        chatMode,
+        attachment: attachmentBuffer && attachmentMetadata ? {
+          buffer: attachmentBuffer,
+          filename: attachmentMetadata.filename,
+          mimeType: attachmentMetadata.mimeType,
+          documentType: attachmentMetadata.documentType
+        } : undefined
+      }
     );
 
     // For now, send the complete response

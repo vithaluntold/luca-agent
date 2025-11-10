@@ -408,6 +408,7 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   modelUsed: true,
   routingDecision: true,
   calculationResults: true,
+  metadata: true,
   tokensUsed: true,
 });
 

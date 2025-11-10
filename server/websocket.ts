@@ -302,6 +302,26 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
+    // DEBUG: Log visualization data before saving
+    console.log('[WebSocket] Result metadata:', {
+      showInOutputPane: result.metadata.showInOutputPane,
+      hasVisualization: !!result.metadata.visualization,
+      visualizationType: result.metadata.visualization?.type,
+      fullVisualization: result.metadata.visualization
+    });
+    
+    // Build metadata object - only include fields with actual data
+    const metadata: any = {};
+    
+    if (result.metadata.showInOutputPane) {
+      metadata.showInOutputPane = true;
+    }
+    
+    if (result.metadata.visualization) {
+      metadata.visualization = result.metadata.visualization;
+      console.log('[WebSocket] Adding visualization to metadata:', metadata.visualization);
+    }
+    
     // Save assistant message with metadata (including visualization)
     const assistantMessage = await storage.createMessage({
       conversationId: conversation.id,
@@ -311,11 +331,10 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       routingDecision: result.routingDecision,
       calculationResults: result.calculationResults,
       tokensUsed: result.tokensUsed,
-      metadata: {
-        showInOutputPane: result.metadata.showInOutputPane,
-        visualization: result.metadata.visualization
-      }
+      metadata: Object.keys(metadata).length > 0 ? metadata : null
     });
+    
+    console.log('[WebSocket] Saved message with metadata:', assistantMessage.metadata);
 
     // Send end signal with metadata (including visualization)
     send(ws, {

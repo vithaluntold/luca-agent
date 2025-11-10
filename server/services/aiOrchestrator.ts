@@ -62,13 +62,6 @@ export class AIOrchestrator {
   ): Promise<OrchestrationResult> {
     const startTime = Date.now();
     
-    // PHASE 0: Requirement Clarification Analysis
-    // Analyze if we need to ask clarifying questions before providing advice
-    const clarificationAnalysis = requirementClarificationService.analyzeQuery(
-      query,
-      conversationHistory
-    );
-    
     // Step 1: Classify the query (with document attachment hint)
     const context = options?.attachment ? {
       hasDocument: true,
@@ -79,36 +72,49 @@ export class AIOrchestrator {
     // Step 2: Route to appropriate model and solvers
     const routingDecision = queryTriageService.routeQuery(classification, userTier);
     
-    // If clarification is needed (critical context missing), ask questions instead of answering
-    if (clarificationAnalysis.recommendedApproach === 'clarify' && 
-        clarificationAnalysis.needsClarification) {
-      const questions = requirementClarificationService.generateClarifyingQuestions(
-        clarificationAnalysis
+    // PHASE 0: Requirement Clarification Analysis
+    // CRITICAL: Skip clarification if document is attached - the answer is IN the document!
+    // Only run clarification for general advice queries without attachments
+    let clarificationAnalysis: ClarificationAnalysis | undefined;
+    
+    if (!options?.attachment) {
+      // Only analyze for clarification when NO document is attached
+      clarificationAnalysis = requirementClarificationService.analyzeQuery(
+        query,
+        conversationHistory
       );
       
-      const clarificationResponse = this.buildClarificationResponse(
-        questions,
-        clarificationAnalysis
-      );
-      
-      const processingTimeMs = Date.now() - startTime;
-      
-      return {
-        response: clarificationResponse,
-        modelUsed: 'clarification',
-        routingDecision,
-        classification,
-        metadata: {
-          responseType: 'general',
-          showInOutputPane: false,
+      // If clarification is needed (critical context missing), ask questions instead of answering
+      if (clarificationAnalysis.recommendedApproach === 'clarify' && 
+          clarificationAnalysis.needsClarification) {
+        const questions = requirementClarificationService.generateClarifyingQuestions(
+          clarificationAnalysis
+        );
+        
+        const clarificationResponse = this.buildClarificationResponse(
+          questions,
+          clarificationAnalysis
+        );
+        
+        const processingTimeMs = Date.now() - startTime;
+        
+        return {
+          response: clarificationResponse,
+          modelUsed: 'clarification',
+          routingDecision,
           classification,
-          calculationResults: undefined
-        },
-        clarificationAnalysis,
-        needsClarification: true,
-        tokensUsed: 0,
-        processingTimeMs
-      };
+          metadata: {
+            responseType: 'general',
+            showInOutputPane: false,
+            classification,
+            calculationResults: undefined
+          },
+          clarificationAnalysis,
+          needsClarification: true,
+          tokensUsed: 0,
+          processingTimeMs
+        };
+      }
     }
     
     // Step 3: Execute any needed calculations/solvers
@@ -139,7 +145,8 @@ export class AIOrchestrator {
     // CRITICAL ENFORCEMENT: For partial_answer_then_clarify, ALWAYS append clarifying questions
     // This ensures the advisor behavior is guaranteed regardless of model compliance
     // Check for generated questions (handles both missing context AND ambiguities)
-    if (clarificationAnalysis.recommendedApproach === 'partial_answer_then_clarify') {
+    // Skip if document is attached - we don't ask questions when analyzing documents
+    if (clarificationAnalysis?.recommendedApproach === 'partial_answer_then_clarify') {
       const questions = requirementClarificationService.generateClarifyingQuestions(
         clarificationAnalysis
       );
@@ -180,7 +187,7 @@ export class AIOrchestrator {
       calculationResults,
       metadata,
       clarificationAnalysis,
-      needsClarification: clarificationAnalysis.recommendedApproach === 'partial_answer_then_clarify',
+      needsClarification: clarificationAnalysis?.recommendedApproach === 'partial_answer_then_clarify',
       tokensUsed: aiResponse.tokensUsed,
       processingTimeMs
     };

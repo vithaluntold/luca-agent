@@ -215,7 +215,7 @@ export default function Chat() {
   }, [messagesData]);
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, file }: { content: string; file: File | null }) => {
       // Determine which profile to use for new conversations
       let profileIdToUse: string | null | undefined = undefined;
       if (!activeConversation) {
@@ -232,11 +232,11 @@ export default function Chat() {
       
       // If there's a file attached, upload it first
       let fileData: any = null;
-      if (selectedFile) {
+      if (file) {
         setUploadingFile(true);
         try {
           const formData = new FormData();
-          formData.append('file', selectedFile);
+          formData.append('file', file);
           
           const uploadRes = await fetch('/api/chat/upload-file', {
             method: 'POST',
@@ -314,9 +314,11 @@ export default function Chat() {
     };
     
     setMessages(prev => [...prev, userMessage]);
-    // Start mutation first (it captures current selectedFile in its closure)
-    sendMessageMutation.mutate(messageContent);
-    // Then clear UI state (file disappears from UI, but mutation still has it)
+    // CRITICAL: Pass file to mutation as parameter, not from state
+    // State will be cleared immediately, but mutation needs the file
+    const fileToSend = selectedFile;
+    sendMessageMutation.mutate({ content: messageContent, file: fileToSend });
+    // Clear UI state immediately
     setInputMessage("");
     setSelectedFile(null);
   };

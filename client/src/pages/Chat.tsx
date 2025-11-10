@@ -314,9 +314,11 @@ export default function Chat() {
     };
     
     setMessages(prev => [...prev, userMessage]);
+    // Start mutation first (it captures current selectedFile in its closure)
     sendMessageMutation.mutate(messageContent);
+    // Then clear UI state (file disappears from UI, but mutation still has it)
     setInputMessage("");
-    setSelectedFile(null); // Clear file attachment immediately after send
+    setSelectedFile(null);
   };
 
   const handleNewChat = () => {

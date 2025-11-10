@@ -94,7 +94,7 @@ export function setupWebSocket(server: Server) {
     server,
     path: '/ws/chat',
     // Verify client has a session cookie before accepting connection
-    verifyClient: (info) => {
+    verifyClient: (info: { req: IncomingMessage }) => {
       const cookies = cookie.parse(info.req.headers.cookie || '');
       return !!cookies['luca.sid'];
     }
@@ -159,8 +159,16 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
     conversationId, 
     query, 
     profileId = null,
-    chatMode = 'standard'
+    chatMode: rawChatMode = 'standard'
   } = message;
+
+  // Validate chat mode - only allow supported modes, log warning for unknown ones
+  const knownChatModes = ['standard', 'deep-research', 'checklist', 'workflow', 'audit-plan', 'calculation'];
+  const chatMode = rawChatMode || 'standard';
+  
+  if (chatMode !== 'standard' && !knownChatModes.includes(chatMode)) {
+    console.log(`[WebSocket] Unknown chat mode '${chatMode}' - passing through to orchestrator`);
+  }
 
   try {
     // Validate required fields

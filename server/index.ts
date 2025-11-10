@@ -40,7 +40,7 @@ declare module 'http' {
   }
 }
 app.use(express.json({
-  limit: '10mb', // Increased from default 100kb to handle large payloads
+  limit: '10mb', // Increased from default 100kb to handle file metadata and long messages
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }

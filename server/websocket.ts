@@ -302,7 +302,7 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    // Save assistant message
+    // Save assistant message with metadata (including visualization)
     const assistantMessage = await storage.createMessage({
       conversationId: conversation.id,
       role: 'assistant',
@@ -310,17 +310,23 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       modelUsed: result.modelUsed,
       routingDecision: result.routingDecision,
       calculationResults: result.calculationResults,
-      tokensUsed: result.tokensUsed
+      tokensUsed: result.tokensUsed,
+      metadata: {
+        showInOutputPane: result.metadata.showInOutputPane,
+        visualization: result.metadata.visualization
+      }
     });
 
-    // Send end signal with metadata
+    // Send end signal with metadata (including visualization)
     send(ws, {
       type: 'end',
       messageId: assistantMessage.id,
       metadata: {
         tokensUsed: result.tokensUsed,
         modelUsed: result.modelUsed,
-        processingTimeMs: result.processingTimeMs
+        processingTimeMs: result.processingTimeMs,
+        showInOutputPane: result.metadata.showInOutputPane,
+        visualization: result.metadata.visualization
       }
     });
 

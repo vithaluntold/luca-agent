@@ -8,6 +8,8 @@ import { financialSolverService } from './financialSolvers';
 import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonitor } from './aiProviders';
 import { requirementClarificationService, type ClarificationAnalysis } from './requirementClarification';
 import { documentAnalyzerAgent } from './agents/documentAnalyzer';
+import { visualizationGenerator } from './visualizationGenerator';
+import type { VisualizationData } from '../../shared/types/visualization';
 
 export type ResponseType = 'research' | 'analysis' | 'document' | 'calculation' | 'visualization' | 'export' | 'general';
 
@@ -21,6 +23,7 @@ export interface ResponseMetadata {
   hasResearch?: boolean;
   classification: QueryClassification;
   calculationResults?: any;
+  visualization?: VisualizationData;
 }
 
 export interface OrchestrationResult {
@@ -209,13 +212,31 @@ export class AIOrchestrator {
     
     const processingTimeMs = Date.now() - startTime;
     
+    // PHASE 5: Generate visualization if response contains financial data
+    let visualization: VisualizationData | null = null;
+    try {
+      visualization = visualizationGenerator.generateVisualization({
+        query,
+        response: finalResponse,
+        classification
+      });
+      
+      if (visualization) {
+        console.log(`[Orchestrator] Generated ${visualization.type} chart with ${visualization.data.length} data points`);
+      }
+    } catch (error) {
+      console.error('[Orchestrator] Visualization generation failed:', error);
+      // Don't fail the request if visualization fails
+    }
+    
     // Build response metadata
     const metadata = this.buildResponseMetadata(
       query,
       classification,
       routingDecision,
       calculationResults,
-      options?.attachment
+      options?.attachment,
+      visualization
     );
     
     return {
@@ -240,12 +261,13 @@ export class AIOrchestrator {
     classification: QueryClassification,
     routing: RoutingDecision,
     calculations: any,
-    attachment?: ProcessQueryOptions['attachment']
+    attachment?: ProcessQueryOptions['attachment'],
+    visualization?: VisualizationData | null
   ): ResponseMetadata {
     const lowerQuery = query.toLowerCase();
     
-    // Detect visualization requests
-    const hasVisualization = this.detectVisualizationRequest(lowerQuery);
+    // Check if visualization was generated
+    const hasVisualization = !!visualization || this.detectVisualizationRequest(lowerQuery);
     
     // Detect export requests
     const hasExport = this.detectExportRequest(lowerQuery);
@@ -285,7 +307,8 @@ export class AIOrchestrator {
       hasCalculation: !!calculations && Object.keys(calculations).length > 0,
       hasResearch: classification.requiresResearch || classification.requiresRealTimeData,
       classification,
-      calculationResults: calculations
+      calculationResults: calculations,
+      visualization: visualization || undefined
     };
   }
 

@@ -4,6 +4,7 @@
  */
 
 import OpenAI from 'openai';
+import * as pdf from 'pdf-parse';
 import { AIProvider } from './base';
 import {
   AIProviderName,
@@ -50,10 +51,30 @@ export class OpenAIProvider extends AIProvider {
     const model = request.model || this.config.defaultModel || 'gpt-4o';
     
     try {
-      const messages = request.messages.map(msg => ({
+      let messages = request.messages.map(msg => ({
         role: msg.role,
         content: msg.content,
       }));
+
+      // Handle PDF attachments by extracting text
+      if (request.attachment && request.attachment.mimeType === 'application/pdf') {
+        try {
+          console.log(`[OpenAI] Extracting text from PDF: ${request.attachment.filename}`);
+          const pdfData = await pdf(request.attachment.buffer);
+          
+          // Add extracted text to the last message
+          const extractedText = pdfData.text.trim();
+          if (extractedText) {
+            const lastMessage = messages[messages.length - 1];
+            lastMessage.content = `${lastMessage.content}\n\n**Document Content Extracted from ${request.attachment.filename}:**\n\`\`\`\n${extractedText.substring(0, 8000)}\n\`\`\``;
+            
+            console.log(`[OpenAI] Successfully extracted ${extractedText.length} characters from PDF`);
+          }
+        } catch (pdfError) {
+          console.error('[OpenAI] Failed to extract PDF text:', pdfError);
+          // Continue without PDF text - let the LLM respond based on the message alone
+        }
+      }
 
       // We don't support streaming in this method
       const completion = await this.client.chat.completions.create({
@@ -90,6 +111,7 @@ export class OpenAIProvider extends AIProvider {
         finishReason: this.mapFinishReason(choice.finish_reason),
         metadata: {
           toolCalls: choice.message.tool_calls,
+          extractedFromPdf: request.attachment?.mimeType === 'application/pdf',
         },
       };
     } catch (error: any) {

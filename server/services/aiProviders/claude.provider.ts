@@ -4,6 +4,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import * as pdf from 'pdf-parse';
 import { AIProvider } from './base';
 import {
   AIProviderName,
@@ -48,7 +49,30 @@ export class ClaudeProvider extends AIProvider {
       const model = request.model || this.defaultModel;
       
       // Convert messages to Claude format
-      const { system, messages } = this.convertMessages(request.messages);
+      let requestMessages = request.messages;
+      
+      // Handle PDF attachments by extracting text
+      if (request.attachment && request.attachment.mimeType === 'application/pdf') {
+        try {
+          console.log(`[Claude] Extracting text from PDF: ${request.attachment.filename}`);
+          const pdfData = await pdf(request.attachment.buffer);
+          
+          // Add extracted text to the last message
+          const extractedText = pdfData.text.trim();
+          if (extractedText) {
+            requestMessages = [...request.messages];
+            const lastMessage = requestMessages[requestMessages.length - 1];
+            lastMessage.content = `${lastMessage.content}\n\n**Document Content Extracted from ${request.attachment.filename}:**\n\`\`\`\n${extractedText.substring(0, 8000)}\n\`\`\``;
+            
+            console.log(`[Claude] Successfully extracted ${extractedText.length} characters from PDF`);
+          }
+        } catch (pdfError) {
+          console.error('[Claude] Failed to extract PDF text:', pdfError);
+          // Continue without PDF text - let the LLM respond based on the message alone
+        }
+      }
+      
+      const { system, messages } = this.convertMessages(requestMessages);
       
       const response = await this.client.messages.create({
         model,
@@ -77,6 +101,7 @@ export class ClaudeProvider extends AIProvider {
         metadata: {
           id: response.id,
           stopSequence: response.stop_sequence || undefined,
+          extractedFromPdf: request.attachment?.mimeType === 'application/pdf',
         }
       };
     } catch (error: any) {

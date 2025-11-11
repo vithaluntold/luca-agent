@@ -310,6 +310,7 @@ class RequirementClarificationService {
   
   /**
    * Determine whether to clarify, answer, or do both
+   * BALANCED: Ask for critical info, but make questions intelligent
    */
   private determineApproach(
     missingContext: MissingContext[],
@@ -323,29 +324,29 @@ class RequirementClarificationService {
     const criticalMissing = missingContext.filter(m => m.importance === 'critical');
     const highMissing = missingContext.filter(m => m.importance === 'high');
     
-    // Critical context missing - must clarify first
-    if (criticalMissing.length > 0) {
-      return {
-        needsClarification: true,
-        confidence: 'low',
-        recommendedApproach: 'clarify'
-      };
-    }
-    
-    // High importance missing or significant ambiguities
-    if (highMissing.length >= 2 || ambiguities.length >= 2) {
-      return {
-        needsClarification: true,
-        confidence: 'low',
-        recommendedApproach: 'clarify'
-      };
-    }
-    
-    // Some high importance missing - provide general answer then ask
-    if (highMissing.length === 1 || ambiguities.length === 1) {
+    // Multiple critical items missing - provide thorough scenario-based answer, then ask
+    if (criticalMissing.length >= 2) {
       return {
         needsClarification: true,
         confidence: 'medium',
+        recommendedApproach: 'partial_answer_then_clarify'
+      };
+    }
+    
+    // 1 critical OR 2+ high missing - provide comprehensive answer then ask smart questions
+    if (criticalMissing.length === 1 || highMissing.length >= 2) {
+      return {
+        needsClarification: true,
+        confidence: 'medium',
+        recommendedApproach: 'partial_answer_then_clarify'
+      };
+    }
+    
+    // 1 high missing - answer with scenario coverage, light follow-up
+    if (highMissing.length === 1) {
+      return {
+        needsClarification: true,
+        confidence: 'high',
         recommendedApproach: 'partial_answer_then_clarify'
       };
     }
@@ -529,36 +530,69 @@ class RequirementClarificationService {
   
   /**
    * Generate clarifying questions based on analysis
-   * Handles both missing context AND ambiguities
+   * BALANCED: Smart questions for critical/high items, skip obvious ambiguities
    */
   generateClarifyingQuestions(analysis: ClarificationAnalysis): string[] {
     const questions: string[] = [];
     
-    // Add questions for critical and high importance missing context
+    // Add contextual questions for critical and high importance items
+    // But make them intelligent by referencing conversation context
     analysis.missingContext
       .filter(m => m.importance === 'critical' || m.importance === 'high')
-      .forEach(m => questions.push(m.suggestedQuestion));
-    
-    // Add questions for ambiguities (convert to clarifying questions)
-    if (analysis.ambiguities && analysis.ambiguities.length > 0) {
-      analysis.ambiguities.forEach(ambiguity => {
-        // Convert ambiguity descriptions to questions
-        if (ambiguity.includes('Timeframe is vague')) {
-          questions.push('What specific timeframe or date are you referring to? (This matters for tax purposes)');
-        } else if (ambiguity.includes('Amount/threshold matters')) {
-          questions.push('What is the specific dollar amount or value involved?');
-        } else if (ambiguity.includes('Business structure unclear')) {
-          questions.push('What is your business structure? (Sole Proprietorship, LLC, S-Corp, C-Corp, Partnership, etc.)');
-        } else if (ambiguity.includes('Personal vs business')) {
-          questions.push('Is this for personal or business purposes?');
-        } else if (ambiguity.includes('Type of income unclear')) {
-          questions.push('What type of income is this? (Wages, capital gains, dividends, rental income, etc.)');
+      .forEach(m => {
+        const contextualQuestion = this.makeQuestionContextual(
+          m.suggestedQuestion,
+          m.category,
+          analysis.conversationContext
+        );
+        // Only add non-obvious questions
+        if (!this.isObviousQuestion(contextualQuestion, analysis.conversationContext)) {
+          questions.push(contextualQuestion);
         }
       });
+    
+    // Skip generic ambiguity questions - AI handles these via scenario-based answers
+    
+    // Limit to 2 most important questions
+    return questions.slice(0, 2);
+  }
+  
+  /**
+   * Make questions more contextual and intelligent
+   */
+  private makeQuestionContextual(
+    question: string,
+    category: string,
+    context: ClarificationContext
+  ): string {
+    // Reference existing context to make questions smarter
+    if (context.businessType && category === 'entity_type') {
+      return `You mentioned a ${context.businessType} - is this a specific legal entity type like LLC, S-Corp, or C-Corp?`;
     }
     
-    // Limit to 3 questions to avoid overwhelming
-    return questions.slice(0, 3);
+    if (context.jurisdiction && category === 'jurisdiction') {
+      return `I see you're in ${context.jurisdiction} - which specific state/province applies here?`;
+    }
+    
+    // Otherwise return the original question
+    return question;
+  }
+  
+  /**
+   * Filter out obvious questions that waste user's time
+   */
+  private isObviousQuestion(question: string, context: ClarificationContext): boolean {
+    const lower = question.toLowerCase();
+    
+    // Skip if we're asking about something already mentioned
+    if (lower.includes('jurisdiction') && context.jurisdiction) return true;
+    if (lower.includes('tax year') && context.taxYear) return true;
+    if (lower.includes('entity type') && context.entityType) return true;
+    
+    // Skip overly generic questions like "tell me more"
+    if (lower.includes('tell me more') || lower.includes('any other')) return true;
+    
+    return false;
   }
 }
 

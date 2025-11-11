@@ -59,10 +59,7 @@ export default function AdminCoupons() {
 
   const createMutation = useMutation({
     mutationFn: async (data: CouponFormData) => {
-      return await apiRequest("/api/admin/coupons", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/admin/coupons", data);
     },
     onSuccess: () => {
       toast({
@@ -84,10 +81,7 @@ export default function AdminCoupons() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CouponFormData> }) => {
-      return await apiRequest(`/api/admin/coupons/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("PATCH", `/api/admin/coupons/${id}`, data);
     },
     onSuccess: () => {
       toast({
@@ -108,9 +102,7 @@ export default function AdminCoupons() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/admin/coupons/${id}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/admin/coupons/${id}`);
     },
     onSuccess: () => {
       toast({

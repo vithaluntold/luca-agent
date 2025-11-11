@@ -67,10 +67,7 @@ export default function AdminUsers() {
 
   const updateTierMutation = useMutation({
     mutationFn: async ({ userId, tier }: { userId: string; tier: string }) => {
-      return apiRequest(`/api/admin/users/${userId}/tier`, {
-        method: "PATCH",
-        body: JSON.stringify({ tier }),
-      });
+      return apiRequest("PATCH", `/api/admin/users/${userId}/tier`, { tier });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -92,9 +89,7 @@ export default function AdminUsers() {
 
   const toggleAdminMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiRequest(`/api/admin/users/${userId}/toggle-admin`, {
-        method: "PATCH",
-      });
+      return apiRequest("PATCH", `/api/admin/users/${userId}/toggle-admin`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });

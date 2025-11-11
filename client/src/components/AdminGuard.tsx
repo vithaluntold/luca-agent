@@ -10,7 +10,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
   const [, setLocation] = useLocation();
   
   const { data: userData, isLoading } = useQuery({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/auth/me"],
   });
 
   useEffect(() => {

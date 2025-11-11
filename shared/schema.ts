@@ -1062,3 +1062,82 @@ export type ForensicReconciliation = typeof forensicReconciliations.$inferSelect
 export type InsertForensicReconciliation = z.infer<typeof insertForensicReconciliationSchema>;
 export type ForensicEvidence = typeof forensicEvidence.$inferSelect;
 export type InsertForensicEvidence = z.infer<typeof insertForensicEvidenceSchema>;
+
+// Payment & Subscription Management
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  plan: text("plan").notNull(), // 'free', 'plus', 'professional', 'enterprise'
+  status: text("status").notNull().default("active"), // 'active', 'cancelled', 'expired', 'past_due'
+  billingCycle: text("billing_cycle"), // 'monthly', 'annual'
+  amount: integer("amount"), // Amount in smallest currency unit (paise for INR, cents for USD)
+  currency: text("currency").default("USD"), // 'USD', 'INR', 'AED', 'CAD', 'IDR', 'TRY'
+  razorpaySubscriptionId: text("razorpay_subscription_id"),
+  razorpayCustomerId: text("razorpay_customer_id"),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAt: timestamp("cancel_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
+  statusIdx: index("subscriptions_status_idx").on(table.status),
+  razorpaySubscriptionIdIdx: index("subscriptions_razorpay_subscription_id_idx").on(table.razorpaySubscriptionId),
+}));
+
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id, { onDelete: "set null" }),
+  amount: integer("amount").notNull(), // Amount in smallest currency unit
+  currency: text("currency").notNull().default("USD"),
+  status: text("status").notNull().default("pending"), // 'pending', 'successful', 'failed', 'refunded'
+  paymentMethod: text("payment_method"), // 'card', 'upi', 'netbanking', 'wallet'
+  razorpayOrderId: text("razorpay_order_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  razorpaySignature: text("razorpay_signature"),
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("payments_user_id_idx").on(table.userId),
+  subscriptionIdIdx: index("payments_subscription_id_idx").on(table.subscriptionId),
+  statusIdx: index("payments_status_idx").on(table.status),
+  razorpayOrderIdIdx: index("payments_razorpay_order_id_idx").on(table.razorpayOrderId),
+}));
+
+export const usageQuotas = pgTable("usage_quotas", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  plan: text("plan").notNull().default("free"),
+  queriesLimit: integer("queries_limit").notNull().default(500), // -1 for unlimited
+  queriesUsed: integer("queries_used").notNull().default(0),
+  documentsLimit: integer("documents_limit").notNull().default(10), // -1 for unlimited
+  documentsUsed: integer("documents_used").notNull().default(0),
+  profilesLimit: integer("profiles_limit").notNull().default(1),
+  scenariosLimit: integer("scenarios_limit").notNull().default(0), // 0 for none, -1 for unlimited
+  scenariosUsed: integer("scenarios_used").notNull().default(0),
+  deliverablesLimit: integer("deliverables_limit").notNull().default(0),
+  deliverablesUsed: integer("deliverables_used").notNull().default(0),
+  resetAt: timestamp("reset_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("usage_quotas_user_id_idx").on(table.userId),
+  planIdx: index("usage_quotas_plan_idx").on(table.plan),
+}));
+
+// Insert schemas for payment tables
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUsageQuotaSchema = createInsertSchema(usageQuotas).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Types for payment tables
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type UsageQuota = typeof usageQuotas.$inferSelect;
+export type InsertUsageQuota = z.infer<typeof insertUsageQuotaSchema>;

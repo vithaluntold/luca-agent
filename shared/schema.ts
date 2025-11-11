@@ -1095,7 +1095,7 @@ export const payments = pgTable("payments", {
   status: text("status").notNull().default("pending"), // 'pending', 'successful', 'failed', 'refunded'
   paymentMethod: text("payment_method"), // 'card', 'upi', 'netbanking', 'wallet'
   razorpayOrderId: text("razorpay_order_id"),
-  razorpayPaymentId: text("razorpay_payment_id"),
+  razorpayPaymentId: text("razorpay_payment_id").unique(), // Unique to ensure idempotency
   razorpaySignature: text("razorpay_signature"),
   failureReason: text("failure_reason"),
   metadata: jsonb("metadata"),
@@ -1106,6 +1106,7 @@ export const payments = pgTable("payments", {
   subscriptionIdIdx: index("payments_subscription_id_idx").on(table.subscriptionId),
   statusIdx: index("payments_status_idx").on(table.status),
   razorpayOrderIdIdx: index("payments_razorpay_order_id_idx").on(table.razorpayOrderId),
+  razorpayPaymentIdIdx: uniqueIndex("payments_razorpay_payment_id_idx").on(table.razorpayPaymentId),
 }));
 
 export const usageQuotas = pgTable("usage_quotas", {

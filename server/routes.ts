@@ -2598,6 +2598,225 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PAYMENT & SUBSCRIPTION ROUTES ====================
+
+  // Get pricing for user's region
+  app.get("/api/pricing", async (req, res) => {
+    try {
+      const { subscriptionService } = await import("./services/subscriptionService");
+      const currency = (req.query.currency as string) || 'USD';
+      const validCurrencies = ['USD', 'INR', 'AED', 'CAD', 'IDR', 'TRY'];
+      
+      if (!validCurrencies.includes(currency)) {
+        return res.status(400).json({ error: "Invalid currency" });
+      }
+      
+      const pricing = subscriptionService.getPricing(currency as any);
+      res.json(pricing);
+    } catch (error) {
+      console.error('Get pricing error:', error);
+      res.status(500).json({ error: "Failed to fetch pricing" });
+    }
+  });
+
+  // Get current user's subscription and usage
+  app.get("/api/subscription", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { subscriptionService } = await import("./services/subscriptionService");
+      
+      const subscription = await subscriptionService.getUserSubscription(userId);
+      const quota = await subscriptionService.getOrCreateUsageQuota(userId);
+      
+      res.json({
+        subscription,
+        quota
+      });
+    } catch (error) {
+      console.error('Get subscription error:', error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // Create payment order
+  app.post("/api/payments/create-order", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { subscriptionService } = await import("./services/subscriptionService");
+      const { z } = await import("zod");
+      
+      const orderSchema = z.object({
+        plan: z.enum(['plus', 'professional', 'enterprise']),
+        billingCycle: z.enum(['monthly', 'annual']),
+        currency: z.enum(['USD', 'INR', 'AED', 'CAD', 'IDR', 'TRY'])
+      });
+      
+      const data = orderSchema.parse(req.body);
+      const order = await subscriptionService.createPaymentOrder(
+        userId,
+        data.plan,
+        data.billingCycle,
+        data.currency
+      );
+      
+      res.json({
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID
+      });
+    } catch (error: any) {
+      console.error('Create payment order error:', error);
+      if (error.message?.includes('not configured')) {
+        res.status(503).json({ error: "Payment system is being set up. Please try again later." });
+      } else {
+        res.status(500).json({ error: "Failed to create payment order" });
+      }
+    }
+  });
+
+  // Verify payment and activate subscription
+  app.post("/api/payments/verify", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { subscriptionService } = await import("./services/subscriptionService");
+      const { db } = await import("./db");
+      const { payments } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { z } = await import("zod");
+      
+      const verifySchema = z.object({
+        razorpay_order_id: z.string(),
+        razorpay_payment_id: z.string(),
+        razorpay_signature: z.string()
+      });
+      
+      const data = verifySchema.parse(req.body);
+      
+      // Verify signature
+      const isValid = subscriptionService.verifyPaymentSignature(
+        data.razorpay_order_id,
+        data.razorpay_payment_id,
+        data.razorpay_signature
+      );
+      
+      if (!isValid) {
+        return res.status(400).json({ error: "Invalid payment signature" });
+      }
+      
+      // Update payment record
+      await db.update(payments)
+        .set({
+          razorpayPaymentId: data.razorpay_payment_id,
+          razorpaySignature: data.razorpay_signature,
+          status: 'successful'
+        })
+        .where(and(
+          eq(payments.razorpayOrderId, data.razorpay_order_id),
+          eq(payments.userId, userId)
+        ));
+      
+      // Activate subscription
+      await subscriptionService.activateSubscription(data.razorpay_payment_id);
+      
+      res.json({ success: true, message: "Payment verified and subscription activated" });
+    } catch (error) {
+      console.error('Verify payment error:', error);
+      res.status(500).json({ error: "Failed to verify payment" });
+    }
+  });
+
+  // Cancel subscription
+  app.post("/api/subscription/cancel", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { subscriptionService } = await import("./services/subscriptionService");
+      
+      const subscription = await subscriptionService.cancelSubscription(userId);
+      
+      res.json({
+        success: true,
+        message: "Subscription cancelled. You'll have access until the end of your billing period.",
+        subscription
+      });
+    } catch (error: any) {
+      console.error('Cancel subscription error:', error);
+      res.status(500).json({ error: error.message || "Failed to cancel subscription" });
+    }
+  });
+
+  // Razorpay webhook handler
+  app.post("/api/webhooks/razorpay", async (req, res) => {
+    try {
+      const { subscriptionService } = await import("./services/subscriptionService");
+      const signature = req.headers['x-razorpay-signature'] as string;
+      const body = JSON.stringify(req.body);
+      
+      // Verify webhook signature
+      const isValid = subscriptionService.verifyWebhookSignature(body, signature);
+      
+      if (!isValid) {
+        console.error('[Razorpay Webhook] Invalid signature');
+        return res.status(400).json({ error: "Invalid signature" });
+      }
+      
+      const event = req.body;
+      console.log('[Razorpay Webhook] Event received:', event.event);
+      
+      // Handle different webhook events
+      switch (event.event) {
+        case 'payment.authorized':
+        case 'payment.captured':
+          // Payment successful - activate subscription
+          await subscriptionService.activateSubscription(event.payload.payment.entity.id);
+          break;
+          
+        case 'payment.failed':
+          // Handle failed payment
+          const { db } = await import("./db");
+          const { payments } = await import("@shared/schema");
+          const { eq } = await import("drizzle-orm");
+          
+          await db.update(payments)
+            .set({
+              status: 'failed',
+              failureReason: event.payload.payment.entity.error_description
+            })
+            .where(eq(payments.razorpayPaymentId, event.payload.payment.entity.id));
+          break;
+          
+        default:
+          console.log('[Razorpay Webhook] Unhandled event:', event.event);
+      }
+      
+      res.json({ status: 'ok' });
+    } catch (error) {
+      console.error('[Razorpay Webhook] Error:', error);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // Get payment history
+  app.get("/api/payments/history", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { db } = await import("./db");
+      const { payments } = await import("@shared/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      
+      const paymentHistory = await db
+        .select()
+        .from(payments)
+        .where(eq(payments.userId, userId))
+        .orderBy(desc(payments.createdAt));
+      
+      res.json(paymentHistory);
+    } catch (error) {
+      console.error('Get payment history error:', error);
+      res.status(500).json({ error: "Failed to fetch payment history" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Setup WebSocket server for real-time chat streaming

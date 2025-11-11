@@ -153,17 +153,48 @@
 
 ---
 
-### Tier 3: PROFESSIONAL (Monthly Subscription)
+### Tier 3: PLUS (Monthly Subscription)
 **Pricing by Region:**
 
-| Region | Monthly Price | Annual Price (save 20%) | Equivalent USD/mo |
+| Region | Monthly Price | Annual Price (save 25%) | Equivalent USD/mo |
 |--------|--------------|------------------------|-------------------|
-| **USA** | $99/mo | $949/year | $99 |
-| **Canada** | CAD $119/mo | CAD $1,139/year | $88 |
-| **UAE** | AED 349/mo | AED 3,349/year | $95 |
-| **India** | ₹2,499/mo | ₹23,999/year | $30 |
-| **Indonesia** | Rp 450,000/mo | Rp 4,300,000/year | $29 |
-| **Turkey** | ₺2,800/mo | ₺26,880/year | $82 |
+| **USA** | $29/mo | $261/year | $29 |
+| **Canada** | CAD $35/mo | CAD $315/year | $26 |
+| **UAE** | AED 99/mo | AED 891/year | $27 |
+| **India** | ₹799/mo | ₹7,199/year | $10 |
+| **Indonesia** | Rp 149,000/mo | Rp 1,341,000/year | $10 |
+| **Turkey** | ₺899/mo | ₺8,091/year | $26 |
+
+**What's Included:**
+- ✅ 3,000 queries per month (10x free tier)
+- ✅ Unlimited document analysis
+- ✅ 5 profiles (Business, Personal, Family, etc.)
+- ✅ Export to all 6 formats (TXT, CSV, DOCX, PDF, PPTX, XLSX)
+- ✅ Regulatory Scenario Simulator (10 scenarios/month)
+- ✅ Client Deliverable Composer (10 deliverables/month)
+- ✅ Priority email support
+- ✅ Chat history search
+
+**Target:** Active professionals, small business owners, freelancers
+
+**Value Proposition:**
+- Just $1/day for 100 expert answers per day
+- Cheaper than 1 hour of CPA time per year
+- Professional deliverables included
+
+---
+
+### Tier 4: PROFESSIONAL (Monthly Subscription)
+**Pricing by Region:**
+
+| Region | Monthly Price | Annual Price (save 25%) | Equivalent USD/mo |
+|--------|--------------|------------------------|-------------------|
+| **USA** | $49/mo | $441/year | $49 |
+| **Canada** | CAD $59/mo | CAD $531/year | $44 |
+| **UAE** | AED 179/mo | AED 1,611/year | $49 |
+| **India** | ₹1,499/mo | ₹13,499/year | $18 |
+| **Indonesia** | Rp 249,000/mo | Rp 2,241,000/year | $16 |
+| **Turkey** | ₺1,499/mo | ₺13,491/year | $44 |
 
 **What's Included:**
 - ✅ Unlimited queries
@@ -180,14 +211,14 @@
 **Target:** CPAs, tax advisors, CFOs, accounting firms (1-5 users)
 
 **Value Proposition:**
-- Replaces $200-500/hour CPA consultations
-- Pays for itself with 1-2 complex questions per month
+- Less than 15 minutes of CPA consultation time per month
+- Pays for itself with 1 complex question
 - Professional deliverables worth $500+ each
 
 ---
 
-### Tier 4: ENTERPRISE (Custom Pricing)
-**Pricing:** Starting at $999/month (USA), scaled by region
+### Tier 5: ENTERPRISE (Custom Pricing)
+**Pricing:** Starting at $499/month (USA), scaled by region
 
 **What's Included:**
 - ✅ Everything in Professional
@@ -214,7 +245,7 @@
 **Target:** 10,000 early adopters
 
 **Offer: "Founding Member" Program**
-- ✅ Lifetime 50% discount on Professional tier ($49/mo instead of $99 in USA)
+- ✅ Lifetime 50% discount on Professional tier ($24.50/mo instead of $49 in USA)
 - ✅ Lifetime free Professional tier for first 100 sign-ups
 - ✅ Exclusive Slack community access
 - ✅ Name listed on "Founding Members" page
@@ -292,11 +323,12 @@
 
 **Breakdown by Tier (Month 12):**
 - Free: 950,000 users (95%)
-- Pay-as-you-go: 30,000 users (3%) - $600K MRR
-- Professional: 19,000 users (1.9%) - $1.2M MRR
-- Enterprise: 50 companies (0.01%) - $200K MRR
+- Pay-as-you-go: 20,000 users (2%) - $400K MRR
+- Plus: 20,000 users (2%) - $580K MRR  
+- Professional: 9,000 users (0.9%) - $441K MRR
+- Enterprise: 50 companies (0.01%) - $100K MRR
 
-**Total ARR Year 1:** $24M
+**Total ARR Year 1:** $18.5M
 
 ---
 
@@ -307,9 +339,16 @@
 | 1 | 15,000 | 1,500 | $50,000 | $600,000 |
 | 3 | 150,000 | 15,000 | $500,000 | $6M |
 | 6 | 500,000 | 50,000 | $2,000,000 | $24M |
-| 12 | 2,000,000 | 200,000 | $8,000,000 | $96M |
+| 12 | 2,000,000 | 200,000 | $6,200,000 | $74M |
 
-**Total ARR Year 1:** $96M
+**Breakdown by Tier (Month 12):**
+- Free: 1,800,000 users (90%)
+- Pay-as-you-go: 80,000 users (4%) - $1.6M MRR
+- Plus: 80,000 users (4%) - $2.3M MRR
+- Professional: 38,000 users (1.9%) - $1.9M MRR
+- Enterprise: 200 companies (0.01%) - $400K MRR
+
+**Total ARR Year 1:** $74M
 
 ---
 
@@ -322,11 +361,12 @@
 | **QuickBooks Online Plus** | $90 | $1,080 | FREE (just advisory) |
 | **Xero Premium** | $70 | $840 | FREE (just advisory) |
 | **TurboTax Premier** | Pay-per-return | $120/return | $20/100 queries |
-| **CPA Consultation** | $300/hour | $3,600+ | $99/month unlimited |
+| **CPA Consultation** | $300/hour | $3,600+ | $49/month unlimited |
 | **ChatGPT Plus** | $20 | $240 | Not accounting-specific |
-| **Luca Professional** | **$99** | **$949** | **Full AI CPA** |
+| **Luca Plus** | **$29** | **$261** | **10x queries + deliverables** |
+| **Luca Professional** | **$49** | **$441** | **Full unlimited AI CPA** |
 
-**Value Proposition:** For less than 1 hour of CPA time, get unlimited AI expert advice all month.
+**Value Proposition:** For less than 20 minutes of CPA time, get unlimited AI expert advice all month.
 
 ---
 
@@ -341,7 +381,8 @@
 **Luca Strategy:**
 - Free tier: 500 queries (enough for most)
 - PAYG: ₹500/100 queries ($6) vs ₹1,000 CPA hour
-- Professional: ₹2,499/month ($30) vs ₹10,000+ monthly retainer
+- Plus: ₹799/month ($10) vs ₹5,000+ monthly retainer
+- Professional: ₹1,499/month ($18) vs ₹10,000+ monthly retainer
 - **Goal:** Become default tool for 100,000 CAs in Year 1
 
 **Viral Mechanism:**
@@ -358,10 +399,10 @@
 - English as business language (advantage)
 
 **Luca Strategy:**
-- Position as luxury/premium tool
+- Position as high-value tool (not luxury pricing)
 - Focus on time savings for high-net-worth individuals
 - Target free zone businesses (100,000+ companies)
-- **Goal:** 10,000 paying users at AED 349/mo = AED 3.5M MRR ($1M USD)
+- **Goal:** 10,000 paying users at AED 179/mo = AED 1.79M MRR ($487K USD)
 
 **Sales Tactics:**
 - Sponsor DMCC events, Dubai Finance conferences
@@ -414,7 +455,7 @@
 ## Pricing Psychology & Tactics
 
 ### 1. Anchoring Strategy
-**Headline:** "Replace $300/hour CPA consultations with $99/month unlimited AI expert"
+**Headline:** "Replace $300/hour CPA consultations with $49/month unlimited AI expert"
 
 **Comparison Table:**
 ```
@@ -424,32 +465,33 @@ Traditional CPA:
 - Single jurisdiction expertise
 
 Luca Professional:
-- $99/month
+- $49/month (just $1.60/day)
 - 24/7 availability  
 - Global jurisdiction coverage
 - Unlimited questions
 ```
 
-**Perceived Value:** $300 hour × 8 questions/month = $2,400 value for $99
+**Perceived Value:** $300 hour × 8 questions/month = $2,400 value for $49
 
 ---
 
 ### 2. Decoy Pricing
 **Display Tiers Side-by-Side:**
 
-| FREE | PAY-AS-YOU-GO | PROFESSIONAL ⭐ | ENTERPRISE |
-|------|---------------|----------------|------------|
-| 500 queries/mo | $20/100 queries | $99/month | Custom |
-| Good for: Individuals | Good for: Occasional use | **BEST VALUE** | Good for: Firms |
+| FREE | PAY-AS-YOU-GO | PLUS | PROFESSIONAL ⭐ | ENTERPRISE |
+|------|---------------|------|----------------|------------|
+| 500 queries/mo | $20/100 queries | $29/month | $49/month | Custom |
+| Good for: Casual users | Good for: Occasional use | Good for: Active users | **BEST VALUE** | Good for: Firms |
 
-**Psychology:** Professional tier appears as best value (middle option bias)
+**Psychology:** Professional tier appears as best value (anchoring effect)
 
 ---
 
 ### 3. Loss Aversion
 **Free Trial Message:**
 - "Try Professional free for 30 days - no credit card required"
-- After 30 days: "You've saved an estimated $1,200 in CPA fees this month. Continue for just $99/month?"
+- After 30 days: "You've saved an estimated $1,200 in CPA fees this month. Continue for just $49/month?"
+- "Or try Plus for just $29/month if you don't need unlimited queries"
 
 **Sunk Cost:** Users get attached to unlimited queries, don't want to go back to 500/month
 
@@ -568,7 +610,7 @@ Luca Professional:
 - Offer: "Try Professional free for 7 days to access this feature"
 
 **Trigger 3: Value Demonstration**
-- Monthly email: "You asked 387 questions this month. That would cost $1,935 with a traditional CPA. Upgrade to Professional for unlimited at $99/month."
+- Monthly email: "You asked 387 questions this month. That would cost $1,935 with a traditional CPA. Upgrade to Professional for unlimited at just $49/month."
 
 **Trigger 4: Export Limits**
 - Free users can export to TXT/CSV

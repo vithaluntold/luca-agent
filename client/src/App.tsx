@@ -14,6 +14,15 @@ import ScenarioSimulator from "@/pages/ScenarioSimulator";
 import DeliverableComposer from "@/pages/DeliverableComposer";
 import ForensicIntelligence from "@/pages/ForensicIntelligence";
 import Pricing from "@/pages/Pricing";
+import Features from "@/pages/Features";
+import About from "@/pages/About";
+import Support from "@/pages/Support";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
+import API from "@/pages/API";
+import Docs from "@/pages/Docs";
+import Blog from "@/pages/Blog";
+import Careers from "@/pages/Careers";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +37,15 @@ function Router() {
       <Route path="/deliverables" component={DeliverableComposer} />
       <Route path="/forensics" component={ForensicIntelligence} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/features" component={Features} />
+      <Route path="/about" component={About} />
+      <Route path="/support" component={Support} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/api" component={API} />
+      <Route path="/docs" component={Docs} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/careers" component={Careers} />
       <Route component={NotFound} />
     </Switch>
   );

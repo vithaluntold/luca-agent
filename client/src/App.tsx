@@ -13,6 +13,7 @@ import Integrations from "@/pages/Integrations";
 import ScenarioSimulator from "@/pages/ScenarioSimulator";
 import DeliverableComposer from "@/pages/DeliverableComposer";
 import ForensicIntelligence from "@/pages/ForensicIntelligence";
+import Pricing from "@/pages/Pricing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/scenarios" component={ScenarioSimulator} />
       <Route path="/deliverables" component={DeliverableComposer} />
       <Route path="/forensics" component={ForensicIntelligence} />
+      <Route path="/pricing" component={Pricing} />
       <Route component={NotFound} />
     </Switch>
   );

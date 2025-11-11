@@ -1086,6 +1086,45 @@ export const subscriptions = pgTable("subscriptions", {
   razorpaySubscriptionIdIdx: index("subscriptions_razorpay_subscription_id_idx").on(table.razorpaySubscriptionId),
 }));
 
+export const coupons = pgTable("coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  discountType: text("discount_type").notNull(), // 'percentage', 'fixed'
+  discountValue: integer("discount_value").notNull(), // Percentage (e.g., 25 for 25%) or fixed amount in cents
+  currency: text("currency"), // Required for 'fixed' type discounts
+  minPurchaseAmount: integer("min_purchase_amount"), // Minimum purchase amount in cents
+  maxDiscountAmount: integer("max_discount_amount"), // Max discount cap in cents (for percentage)
+  applicablePlans: text("applicable_plans").array(), // ['plus', 'professional', 'enterprise'] or null for all
+  applicableCurrencies: text("applicable_currencies").array(), // ['USD', 'INR'] or null for all
+  maxUses: integer("max_uses"), // null for unlimited
+  maxUsesPerUser: integer("max_uses_per_user").default(1),
+  usageCount: integer("usage_count").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  validFrom: timestamp("valid_from").notNull().defaultNow(),
+  validUntil: timestamp("valid_until"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  codeIdx: index("coupons_code_idx").on(table.code),
+  isActiveIdx: index("coupons_is_active_idx").on(table.isActive),
+  validUntilIdx: index("coupons_valid_until_idx").on(table.validUntil),
+}));
+
+export const couponUsage = pgTable("coupon_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  couponId: varchar("coupon_id").notNull().references(() => coupons.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id, { onDelete: "set null" }),
+  discountAmount: integer("discount_amount").notNull(), // Actual discount applied in cents
+  usedAt: timestamp("used_at").notNull().defaultNow(),
+}, (table) => ({
+  couponIdIdx: index("coupon_usage_coupon_id_idx").on(table.couponId),
+  userIdIdx: index("coupon_usage_user_id_idx").on(table.userId),
+  uniqueUserCoupon: uniqueIndex("coupon_usage_unique_user_coupon_idx").on(table.couponId, table.userId),
+}));
+
 export const payments = pgTable("payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -1134,6 +1173,8 @@ export const usageQuotas = pgTable("usage_quotas", {
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUsageQuotaSchema = createInsertSchema(usageQuotas).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, createdAt: true, updatedAt: true, usageCount: true });
+export const insertCouponUsageSchema = createInsertSchema(couponUsage).omit({ id: true, usedAt: true });
 
 // Types for payment tables
 export type Subscription = typeof subscriptions.$inferSelect;
@@ -1142,3 +1183,7 @@ export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type UsageQuota = typeof usageQuotas.$inferSelect;
 export type InsertUsageQuota = z.infer<typeof insertUsageQuotaSchema>;
+export type Coupon = typeof coupons.$inferSelect;
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type CouponUsage = typeof couponUsage.$inferSelect;
+export type InsertCouponUsage = z.infer<typeof insertCouponUsageSchema>;

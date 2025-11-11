@@ -16,6 +16,8 @@ import {
   accountingIntegrations,
   gdprConsents,
   taxFileUploads,
+  coupons,
+  couponUsage,
   type User,
   type Profile,
   type InsertProfile,
@@ -37,7 +39,11 @@ import {
   type InsertAccountingIntegration,
   type GdprConsent,
   type TaxFileUpload,
-  type InsertTaxFileUpload
+  type InsertTaxFileUpload,
+  type Coupon,
+  type InsertCoupon,
+  type CouponUsage,
+  type InsertCouponUsage
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -732,6 +738,85 @@ export class PostgresStorage implements IStorage {
       .where(eq(taxFileUploads.id, id))
       .returning();
     return result[0] || undefined;
+  }
+
+  async createCoupon(data: InsertCoupon): Promise<Coupon> {
+    const result = await db.insert(coupons).values(data).returning();
+    return result[0];
+  }
+
+  async getCoupon(id: string): Promise<Coupon | undefined> {
+    const result = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getCouponByCode(code: string): Promise<Coupon | undefined> {
+    const result = await db.select().from(coupons).where(eq(coupons.code, code)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getAllCoupons(): Promise<Coupon[]> {
+    return db.select().from(coupons).orderBy(desc(coupons.createdAt));
+  }
+
+  async updateCoupon(id: string, updates: Partial<Coupon>): Promise<Coupon | undefined> {
+    const result = await db
+      .update(coupons)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(coupons.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteCoupon(id: string): Promise<boolean> {
+    const result = await db.delete(coupons).where(eq(coupons.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async incrementCouponUsage(couponId: string): Promise<void> {
+    await db
+      .update(coupons)
+      .set({ 
+        usageCount: drizzleSql`${coupons.usageCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(coupons.id, couponId));
+  }
+
+  async getCouponUsageCount(couponId: string, userId?: string): Promise<number> {
+    if (userId) {
+      const result = await db
+        .select({ count: count() })
+        .from(couponUsage)
+        .where(and(
+          eq(couponUsage.couponId, couponId),
+          eq(couponUsage.userId, userId)
+        ));
+      return result[0]?.count || 0;
+    } else {
+      const coupon = await this.getCoupon(couponId);
+      return coupon?.usageCount || 0;
+    }
+  }
+
+  async recordCouponUsage(data: InsertCouponUsage): Promise<CouponUsage> {
+    const result = await db.insert(couponUsage).values(data).returning();
+    return result[0];
+  }
+
+  async getCouponUsageHistory(couponId?: string, userId?: string): Promise<CouponUsage[]> {
+    if (couponId && userId) {
+      return db.select().from(couponUsage).where(and(
+        eq(couponUsage.couponId, couponId),
+        eq(couponUsage.userId, userId)
+      )).orderBy(desc(couponUsage.usedAt));
+    } else if (couponId) {
+      return db.select().from(couponUsage).where(eq(couponUsage.couponId, couponId)).orderBy(desc(couponUsage.usedAt));
+    } else if (userId) {
+      return db.select().from(couponUsage).where(eq(couponUsage.userId, userId)).orderBy(desc(couponUsage.usedAt));
+    } else {
+      return db.select().from(couponUsage).orderBy(desc(couponUsage.usedAt));
+    }
   }
 }
 

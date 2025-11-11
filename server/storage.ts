@@ -6,7 +6,11 @@ import {
   type Message,
   type InsertMessage,
   type ModelRoutingLog,
-  type UsageTracking
+  type UsageTracking,
+  type Coupon,
+  type InsertCoupon,
+  type CouponUsage,
+  type InsertCouponUsage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -34,6 +38,18 @@ export interface IStorage {
   // Usage tracking
   getUsageForMonth(userId: string, month: string): Promise<UsageTracking | undefined>;
   incrementUsage(userId: string, month: string, queries?: number, documents?: number, tokens?: number): Promise<UsageTracking>;
+  
+  // Coupon management
+  createCoupon(coupon: InsertCoupon): Promise<Coupon>;
+  getCoupon(id: string): Promise<Coupon | undefined>;
+  getCouponByCode(code: string): Promise<Coupon | undefined>;
+  getAllCoupons(): Promise<Coupon[]>;
+  updateCoupon(id: string, updates: Partial<Coupon>): Promise<Coupon | undefined>;
+  deleteCoupon(id: string): Promise<boolean>;
+  incrementCouponUsage(couponId: string): Promise<void>;
+  getCouponUsageCount(couponId: string, userId?: string): Promise<number>;
+  recordCouponUsage(usage: InsertCouponUsage): Promise<CouponUsage>;
+  getCouponUsageHistory(couponId?: string, userId?: string): Promise<CouponUsage[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -209,6 +225,46 @@ export class MemStorage implements IStorage {
     
     this.usage.set(key, usage);
     return usage;
+  }
+
+  async createCoupon(_coupon: InsertCoupon): Promise<Coupon> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async getCoupon(_id: string): Promise<Coupon | undefined> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async getCouponByCode(_code: string): Promise<Coupon | undefined> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async getAllCoupons(): Promise<Coupon[]> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async updateCoupon(_id: string, _updates: Partial<Coupon>): Promise<Coupon | undefined> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async deleteCoupon(_id: string): Promise<boolean> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async incrementCouponUsage(_couponId: string): Promise<void> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async getCouponUsageCount(_couponId: string, _userId?: string): Promise<number> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async recordCouponUsage(_usage: InsertCouponUsage): Promise<CouponUsage> {
+    throw new Error("MemStorage: Coupon management not implemented");
+  }
+
+  async getCouponUsageHistory(_couponId?: string, _userId?: string): Promise<CouponUsage[]> {
+    throw new Error("MemStorage: Coupon management not implemented");
   }
 }
 

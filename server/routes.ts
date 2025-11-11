@@ -2750,10 +2750,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { subscriptionService } = await import("./services/subscriptionService");
       const signature = req.headers['x-razorpay-signature'] as string;
-      const body = JSON.stringify(req.body);
+      
+      // Use raw body for signature verification (critical for webhook security)
+      const rawBody = (req as any).rawBody?.toString('utf8');
+      
+      if (!rawBody) {
+        console.error('[Razorpay Webhook] No raw body available');
+        return res.status(400).json({ error: "Invalid request" });
+      }
       
       // Verify webhook signature
-      const isValid = subscriptionService.verifyWebhookSignature(body, signature);
+      const isValid = subscriptionService.verifyWebhookSignature(rawBody, signature);
       
       if (!isValid) {
         console.error('[Razorpay Webhook] Invalid signature');

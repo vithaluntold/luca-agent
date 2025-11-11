@@ -84,18 +84,17 @@ export default function Pricing() {
     script.onload = () => setIsRazorpayLoaded(true);
     script.onerror = () => {
       console.error('Failed to load Razorpay SDK');
-      toast({
-        title: "Payment system unavailable",
-        description: "Please refresh the page and try again",
-        variant: "destructive"
-      });
+      setIsRazorpayLoaded(false);
     };
     document.body.appendChild(script);
 
     return () => {
-      document.body.removeChild(script);
+      // Only remove if script exists
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
-  }, [toast]);
+  }, []);
 
   const { data: pricingData, isLoading } = useQuery<PricingData>({
     queryKey: ['/api/pricing', currency],
@@ -119,8 +118,8 @@ export default function Pricing() {
 
     if (!isRazorpayLoaded) {
       toast({
-        title: "Payment system loading",
-        description: "Please wait a moment and try again",
+        title: "Payment system unavailable",
+        description: "Razorpay payment gateway is not configured. Please contact support.",
         variant: "destructive"
       });
       return;
@@ -223,6 +222,25 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-12">
+        {/* Payment System Notice */}
+        {!isRazorpayLoaded && (
+          <Card className="mb-8 border-amber-500/50 bg-amber-500/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-amber-500 text-xs">!</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-500 mb-1">Demo Mode</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Payment processing is not yet configured. You can view pricing information, but payment processing will be enabled once Razorpay API keys are added by the administrator.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
@@ -348,11 +366,11 @@ export default function Pricing() {
               <Button 
                 className="w-full" 
                 onClick={() => handleUpgrade('plus')}
-                disabled={currentPlan === 'plus' || processingPlan === 'plus'}
+                disabled={!isRazorpayLoaded || currentPlan === 'plus' || processingPlan === 'plus'}
                 data-testid="button-select-plus"
               >
                 {processingPlan === 'plus' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {currentPlan === 'plus' ? 'Current Plan' : processingPlan === 'plus' ? 'Processing...' : 'Upgrade to Plus'}
+                {!isRazorpayLoaded ? 'Payment Unavailable' : currentPlan === 'plus' ? 'Current Plan' : processingPlan === 'plus' ? 'Processing...' : 'Upgrade to Plus'}
               </Button>
             </CardFooter>
           </Card>
@@ -404,11 +422,11 @@ export default function Pricing() {
               <Button 
                 className="w-full bg-gradient-to-r from-pink-500 to-purple-600" 
                 onClick={() => handleUpgrade('professional')}
-                disabled={currentPlan === 'professional' || processingPlan === 'professional'}
+                disabled={!isRazorpayLoaded || currentPlan === 'professional' || processingPlan === 'professional'}
                 data-testid="button-select-professional"
               >
                 {processingPlan === 'professional' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {currentPlan === 'professional' ? 'Current Plan' : processingPlan === 'professional' ? 'Processing...' : 'Upgrade to Professional'}
+                {!isRazorpayLoaded ? 'Payment Unavailable' : currentPlan === 'professional' ? 'Current Plan' : processingPlan === 'professional' ? 'Processing...' : 'Upgrade to Professional'}
               </Button>
             </CardFooter>
           </Card>
@@ -457,11 +475,11 @@ export default function Pricing() {
               <Button 
                 className="w-full" 
                 onClick={() => handleUpgrade('enterprise')}
-                disabled={currentPlan === 'enterprise' || processingPlan === 'enterprise'}
+                disabled={!isRazorpayLoaded || currentPlan === 'enterprise' || processingPlan === 'enterprise'}
                 data-testid="button-select-enterprise"
               >
                 {processingPlan === 'enterprise' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {currentPlan === 'enterprise' ? 'Current Plan' : processingPlan === 'enterprise' ? 'Processing...' : 'Upgrade to Enterprise'}
+                {!isRazorpayLoaded ? 'Payment Unavailable' : currentPlan === 'enterprise' ? 'Current Plan' : processingPlan === 'enterprise' ? 'Processing...' : 'Upgrade to Enterprise'}
               </Button>
             </CardFooter>
           </Card>

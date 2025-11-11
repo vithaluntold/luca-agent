@@ -64,6 +64,15 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set(updates as any)
+      .where(eq(users.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
   async updateUserSubscription(id: string, tier: string): Promise<User | undefined> {
     const result = await db
       .update(users)
@@ -71,6 +80,30 @@ export class PostgresStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return result[0] || undefined;
+  }
+
+  async getAllSubscriptions(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: subscriptions.id,
+        userId: subscriptions.userId,
+        plan: subscriptions.plan,
+        currency: subscriptions.currency,
+        status: subscriptions.status,
+        billingCycle: subscriptions.billingCycle,
+        amount: subscriptions.amount,
+        validUntil: subscriptions.validUntil,
+        createdAt: subscriptions.createdAt,
+        user: {
+          name: users.name,
+          email: users.email,
+        },
+      })
+      .from(subscriptions)
+      .leftJoin(users, eq(subscriptions.userId, users.id))
+      .orderBy(desc(subscriptions.createdAt));
+    
+    return result;
   }
 
   async incrementFailedLoginAttempts(id: string): Promise<User | undefined> {

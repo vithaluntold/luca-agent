@@ -25,7 +25,10 @@ import Blog from "@/pages/Blog";
 import Careers from "@/pages/Careers";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminCoupons from "@/pages/admin/Coupons";
+import AdminUsers from "@/pages/admin/Users";
+import AdminSubscriptions from "@/pages/admin/Subscriptions";
 import AdminLayout from "@/components/AdminLayout";
+import AdminGuard from "@/components/AdminGuard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -50,14 +53,32 @@ function Router() {
       <Route path="/blog" component={Blog} />
       <Route path="/careers" component={Careers} />
       <Route path="/admin">
-        <AdminLayout>
-          <AdminDashboard />
-        </AdminLayout>
+        <AdminGuard>
+          <AdminLayout>
+            <AdminDashboard />
+          </AdminLayout>
+        </AdminGuard>
       </Route>
       <Route path="/admin/coupons">
-        <AdminLayout>
-          <AdminCoupons />
-        </AdminLayout>
+        <AdminGuard>
+          <AdminLayout>
+            <AdminCoupons />
+          </AdminLayout>
+        </AdminGuard>
+      </Route>
+      <Route path="/admin/users">
+        <AdminGuard>
+          <AdminLayout>
+            <AdminUsers />
+          </AdminLayout>
+        </AdminGuard>
+      </Route>
+      <Route path="/admin/subscriptions">
+        <AdminGuard>
+          <AdminLayout>
+            <AdminSubscriptions />
+          </AdminLayout>
+        </AdminGuard>
       </Route>
       <Route component={NotFound} />
     </Switch>

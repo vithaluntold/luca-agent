@@ -2273,6 +2273,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin user management - tier update
+  app.patch("/api/admin/users/:id/tier", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        tier: z.enum(['free', 'payg', 'plus', 'professional', 'enterprise'])
+      });
+      
+      const { tier } = schema.parse(req.body);
+      const adminUserId = getCurrentUserId(req);
+      
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      await storage.updateUserSubscription(req.params.id, tier);
+      
+      await storage.createAuditLog({
+        userId: adminUserId || undefined,
+        action: 'UPDATE_USER_TIER',
+        resourceType: 'user',
+        resourceId: req.params.id,
+        details: { tier },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update user tier" });
+    }
+  });
+
+  // Admin user management - toggle admin status
+  app.patch("/api/admin/users/:id/toggle-admin", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const adminUserId = getCurrentUserId(req);
+      
+      // Prevent toggling own admin status
+      if (req.params.id === adminUserId) {
+        return res.status(400).json({ error: "Cannot toggle your own admin status" });
+      }
+      
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const newAdminStatus = !user.isAdmin;
+      await storage.updateUser(req.params.id, { isAdmin: newAdminStatus });
+      
+      await storage.createAuditLog({
+        userId: adminUserId || undefined,
+        action: newAdminStatus ? 'GRANT_ADMIN' : 'REVOKE_ADMIN',
+        resourceType: 'user',
+        resourceId: req.params.id,
+        details: { isAdmin: newAdminStatus },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      
+      res.json({ success: true, isAdmin: newAdminStatus });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle admin status" });
+    }
+  });
+
+  // Admin subscriptions list with user info
+  app.get("/api/admin/subscriptions", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const subscriptions = await storage.getAllSubscriptions();
+      res.json(subscriptions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch subscriptions" });
+    }
+  });
+
   // Coupon Management Endpoints (Admin only)
   
   app.get("/api/admin/coupons", requireAuth, requireAdmin, async (req, res) => {

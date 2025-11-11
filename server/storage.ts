@@ -19,7 +19,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: string, updates: Partial<User>): Promise<User | undefined>;
   updateUserSubscription(userId: string, tier: string): Promise<User | undefined>;
+  getAllSubscriptions(): Promise<any[]>;
   
   // Conversation management
   getConversation(id: string): Promise<Conversation | undefined>;

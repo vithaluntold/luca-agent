@@ -2255,6 +2255,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Coupon Management Endpoints (Admin only)
+  
+  app.get("/api/admin/coupons", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const coupons = await storage.getAllCoupons();
+      res.json({ coupons });
+    } catch (error) {
+      console.error('Fetch coupons error:', error);
+      res.status(500).json({ error: "Failed to fetch coupons" });
+    }
+  });
+
+  app.get("/api/admin/coupons/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const coupon = await storage.getCoupon(req.params.id);
+      if (!coupon) {
+        return res.status(404).json({ error: "Coupon not found" });
+      }
+      res.json({ coupon });
+    } catch (error) {
+      console.error('Fetch coupon error:', error);
+      res.status(500).json({ error: "Failed to fetch coupon" });
+    }
+  });
+
+  app.post("/api/admin/coupons", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { insertCouponSchema } = await import("@shared/schema");
+      const userId = getCurrentUserId(req);
+      
+      const validatedData = insertCouponSchema.parse({
+        ...req.body,
+        createdBy: userId
+      });
+      
+      const coupon = await storage.createCoupon(validatedData);
+      res.json({ coupon });
+    } catch (error: any) {
+      console.error('Create coupon error:', error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "Coupon code already exists" });
+      }
+      res.status(500).json({ error: "Failed to create coupon" });
+    }
+  });
+
+  app.patch("/api/admin/coupons/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { insertCouponSchema } = await import("@shared/schema");
+      const updateSchema = insertCouponSchema.partial();
+      const validatedData = updateSchema.parse(req.body);
+      
+      const coupon = await storage.updateCoupon(req.params.id, validatedData);
+      if (!coupon) {
+        return res.status(404).json({ error: "Coupon not found" });
+      }
+      res.json({ coupon });
+    } catch (error) {
+      console.error('Update coupon error:', error);
+      res.status(500).json({ error: "Failed to update coupon" });
+    }
+  });
+
+  app.delete("/api/admin/coupons/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteCoupon(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Coupon not found" });
+      }
+      res.json({ message: "Coupon deleted successfully" });
+    } catch (error) {
+      console.error('Delete coupon error:', error);
+      res.status(500).json({ error: "Failed to delete coupon" });
+    }
+  });
+
+  app.get("/api/admin/coupons/:id/usage", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const usage = await storage.getCouponUsageHistory(req.params.id);
+      res.json({ usage });
+    } catch (error) {
+      console.error('Fetch coupon usage error:', error);
+      res.status(500).json({ error: "Failed to fetch coupon usage" });
+    }
+  });
+
+  // Coupon Validation Endpoint (For users during checkout)
+  app.post("/api/coupons/validate", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { code, plan, currency, amount } = req.body;
+      
+      if (!code || !plan || !currency || !amount) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const coupon = await storage.getCouponByCode(code.toUpperCase());
+      
+      if (!coupon) {
+        return res.status(404).json({ error: "Invalid coupon code" });
+      }
+      
+      if (!coupon.isActive) {
+        return res.status(400).json({ error: "Coupon is inactive" });
+      }
+      
+      const now = new Date();
+      if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+        return res.status(400).json({ error: "Coupon not yet valid" });
+      }
+      
+      if (coupon.validUntil && new Date(coupon.validUntil) < now) {
+        return res.status(400).json({ error: "Coupon has expired" });
+      }
+      
+      if (coupon.applicablePlans && !coupon.applicablePlans.includes(plan)) {
+        return res.status(400).json({ error: "Coupon not applicable to this plan" });
+      }
+      
+      if (coupon.applicableCurrencies && !coupon.applicableCurrencies.includes(currency)) {
+        return res.status(400).json({ error: "Coupon not applicable to this currency" });
+      }
+      
+      if (coupon.maxUses && coupon.usageCount >= coupon.maxUses) {
+        return res.status(400).json({ error: "Coupon usage limit reached" });
+      }
+      
+      const userUsageCount = await storage.getCouponUsageCount(coupon.id, userId);
+      if (coupon.maxUsesPerUser && userUsageCount >= coupon.maxUsesPerUser) {
+        return res.status(400).json({ error: "You have already used this coupon" });
+      }
+      
+      if (coupon.minPurchaseAmount && amount < coupon.minPurchaseAmount) {
+        return res.status(400).json({ 
+          error: `Minimum purchase amount is ${coupon.minPurchaseAmount / 100} ${currency}` 
+        });
+      }
+      
+      let discountAmount = 0;
+      if (coupon.discountType === 'percentage') {
+        discountAmount = Math.floor(amount * coupon.discountValue / 100);
+        if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
+          discountAmount = coupon.maxDiscountAmount;
+        }
+      } else if (coupon.discountType === 'fixed' && coupon.currency === currency) {
+        discountAmount = coupon.discountValue;
+      } else {
+        return res.status(400).json({ error: "Coupon currency mismatch" });
+      }
+      
+      const finalAmount = Math.max(0, amount - discountAmount);
+      
+      res.json({ 
+        valid: true, 
+        coupon: {
+          id: coupon.id,
+          code: coupon.code,
+          description: coupon.description,
+          discountType: coupon.discountType,
+          discountValue: coupon.discountValue
+        },
+        discountAmount,
+        finalAmount
+      });
+    } catch (error) {
+      console.error('Validate coupon error:', error);
+      res.status(500).json({ error: "Failed to validate coupon" });
+    }
+  });
+
   // ===============================================
   // MVP FEATURE ROUTES
   // ===============================================

@@ -23,6 +23,9 @@ import API from "@/pages/API";
 import Docs from "@/pages/Docs";
 import Blog from "@/pages/Blog";
 import Careers from "@/pages/Careers";
+import AdminDashboard from "@/pages/admin/Dashboard";
+import AdminCoupons from "@/pages/admin/Coupons";
+import AdminLayout from "@/components/AdminLayout";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -46,6 +49,16 @@ function Router() {
       <Route path="/docs" component={Docs} />
       <Route path="/blog" component={Blog} />
       <Route path="/careers" component={Careers} />
+      <Route path="/admin">
+        <AdminLayout>
+          <AdminDashboard />
+        </AdminLayout>
+      </Route>
+      <Route path="/admin/coupons">
+        <AdminLayout>
+          <AdminCoupons />
+        </AdminLayout>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

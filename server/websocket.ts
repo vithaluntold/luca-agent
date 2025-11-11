@@ -186,18 +186,24 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       try {
         // Security validation: Check attachment size and type
         const ALLOWED_MIME_TYPES = [
+          // Azure Document Intelligence supported formats
           'application/pdf',
           'image/png',
           'image/jpeg',
           'image/jpg',
           'image/tiff',
-          'image/tif'
+          'image/tif',
+          // Spreadsheet formats for financial data
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'application/vnd.ms-excel', // .xls
+          'text/csv', // .csv
+          'text/plain' // .txt
         ];
         const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
         
         // Validate MIME type
         if (!ALLOWED_MIME_TYPES.includes(documentAttachment.type)) {
-          sendError(ws, 'Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF');
+          sendError(ws, 'Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF, Excel (XLSX, XLS), CSV, TXT');
           return;
         }
         

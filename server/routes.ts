@@ -46,20 +46,26 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Allow only specific MIME types
-    // Only allow formats supported by Azure Document Intelligence
+    // Supports: Azure Document Intelligence formats + Excel/CSV for data analysis
     const allowedMimes = [
+      // Azure Document Intelligence supported formats
       'application/pdf',
       'image/jpeg',
       'image/jpg',
       'image/png',
       'image/tiff',
-      'image/tif'
+      'image/tif',
+      // Spreadsheet formats for financial data
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv', // .csv
+      'text/plain' // .txt
     ];
     
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Supported formats: PDF, PNG, JPEG, TIFF'));
+      cb(new Error('Invalid file type. Supported formats: PDF, PNG, JPEG, TIFF, Excel (XLSX, XLS), CSV, TXT'));
     }
   }
 });
@@ -717,19 +723,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Security validation: Check attachment size and type
           const ALLOWED_MIME_TYPES = [
+            // Azure Document Intelligence supported formats
             'application/pdf',
             'image/png',
             'image/jpeg',
             'image/jpg',
             'image/tiff',
-            'image/tif'
+            'image/tif',
+            // Spreadsheet formats for financial data
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+            'application/vnd.ms-excel', // .xls
+            'text/csv', // .csv
+            'text/plain' // .txt
           ];
           const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
           
           // Validate MIME type
           if (!ALLOWED_MIME_TYPES.includes(documentAttachment.type)) {
             return res.status(400).json({ 
-              error: "Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF" 
+              error: "Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF, Excel (XLSX, XLS), CSV, TXT" 
             });
           }
           
@@ -963,19 +975,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No file uploaded" });
       }
       
-      // Validate MIME type - Azure Document Intelligence only supports these formats
+      // Validate MIME type - Support Azure Document Intelligence formats + spreadsheets
       const ALLOWED_MIME_TYPES = [
+        // Azure Document Intelligence supported formats
         'application/pdf',
         'image/png',
         'image/jpeg',
         'image/jpg',
         'image/tiff',
-        'image/tif'
+        'image/tif',
+        // Spreadsheet formats for financial data
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+        'text/csv', // .csv
+        'text/plain' // .txt
       ];
       
       if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
         return res.status(400).json({ 
-          error: "Invalid file type. Supported formats: PDF, PNG, JPEG, TIFF" 
+          error: "Invalid file type. Supported formats: PDF, PNG, JPEG, TIFF, Excel (XLSX, XLS), CSV, TXT" 
         });
       }
       

@@ -2439,6 +2439,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Coupon Pre-Validation Endpoint (Lightweight check before plan selection)
+  app.get("/api/coupons/pre-validate", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { code, currency } = req.query;
+      
+      if (!code || !currency) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+      
+      const coupon = await storage.getCouponByCode((code as string).toUpperCase());
+      
+      if (!coupon) {
+        return res.status(404).json({ valid: false, error: "Invalid coupon code" });
+      }
+      
+      if (!coupon.isActive) {
+        return res.status(400).json({ valid: false, error: "Coupon is inactive" });
+      }
+      
+      const now = new Date();
+      if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+        return res.status(400).json({ valid: false, error: "Coupon not yet valid" });
+      }
+      
+      if (coupon.validUntil && new Date(coupon.validUntil) < now) {
+        return res.status(400).json({ valid: false, error: "Coupon has expired" });
+      }
+      
+      if (coupon.applicableCurrencies && !coupon.applicableCurrencies.includes(currency as string)) {
+        return res.status(400).json({ valid: false, error: "Coupon not applicable to this currency" });
+      }
+      
+      if (coupon.maxUses && coupon.usageCount >= coupon.maxUses) {
+        return res.status(400).json({ valid: false, error: "Coupon usage limit reached" });
+      }
+      
+      const userUsageCount = await storage.getCouponUsageCount(coupon.id, userId);
+      if (coupon.maxUsesPerUser && userUsageCount >= coupon.maxUsesPerUser) {
+        return res.status(400).json({ valid: false, error: "You have already used this coupon" });
+      }
+      
+      // Pre-validation passed - return basic coupon info
+      res.json({
+        valid: true,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        description: coupon.description
+      });
+    } catch (error) {
+      console.error('Pre-validate coupon error:', error);
+      res.status(500).json({ valid: false, error: "Failed to validate coupon" });
+    }
+  });
+
   // Coupon Validation Endpoint (For users during checkout)
   app.post("/api/coupons/validate", requireAuth, async (req, res) => {
     try {

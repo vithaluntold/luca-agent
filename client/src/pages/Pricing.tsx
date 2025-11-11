@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Sparkles, Zap, Building2, Infinity, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Check, Sparkles, Zap, Building2, Infinity, Loader2, Tag, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { queryClient } from "@/lib/queryClient";
@@ -68,11 +69,21 @@ function formatPrice(amount: number, currency: Currency): string {
   return `${symbol}${formatted}`;
 }
 
+interface CouponValidation {
+  valid: boolean;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  description?: string;
+}
+
 export default function Pricing() {
   const [currency, setCurrency] = useState<Currency>('USD');
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [isRazorpayLoaded, setIsRazorpayLoaded] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidation, setCouponValidation] = useState<CouponValidation | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -106,6 +117,54 @@ export default function Pricing() {
     enabled: !!user
   });
 
+  const validateCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponValidation(null);
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      const response = await fetch(`/api/coupons/pre-validate?code=${encodeURIComponent(couponCode)}&currency=${currency}`, {
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.valid) {
+        throw new Error(data.error || 'Invalid coupon code');
+      }
+
+      setCouponValidation({
+        valid: data.valid,
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        description: data.description
+      });
+
+      if (data.valid) {
+        toast({
+          title: "Coupon applied!",
+          description: data.description || "Your discount will be applied at checkout"
+        });
+      }
+    } catch (error: any) {
+      setCouponValidation({ valid: false });
+      toast({
+        title: "Invalid coupon",
+        description: error.message || "This coupon code is not valid",
+        variant: "destructive"
+      });
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCouponCode('');
+    setCouponValidation(null);
+  };
+
   const handleUpgrade = async (plan: 'plus' | 'professional' | 'enterprise') => {
     if (!user) {
       toast({
@@ -132,11 +191,23 @@ export default function Pricing() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ plan, billingCycle, currency })
+        body: JSON.stringify({ 
+          plan, 
+          billingCycle, 
+          currency, 
+          couponCode: couponValidation?.valid ? couponCode : undefined 
+        })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create payment order');
+        let errorMessage = 'Failed to create payment order';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If response is not JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
 
       const orderData = await response.json();
@@ -276,6 +347,65 @@ export default function Pricing() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* Coupon Code Input */}
+          <div className="mt-6 flex justify-center">
+            <div className="w-full max-w-md">
+              {!couponValidation?.valid ? (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Enter coupon code"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && validateCoupon()}
+                      className="pl-9"
+                      data-testid="input-coupon-code"
+                    />
+                  </div>
+                  <Button
+                    onClick={validateCoupon}
+                    disabled={!couponCode.trim() || isValidatingCoupon}
+                    data-testid="button-apply-coupon"
+                  >
+                    {isValidatingCoupon ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Validating...
+                      </>
+                    ) : (
+                      'Apply'
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-green-500" />
+                    <div>
+                      <p className="text-sm font-medium text-green-500">
+                        Coupon Applied: {couponCode}
+                      </p>
+                      {couponValidation.description && (
+                        <p className="text-xs text-muted-foreground">
+                          {couponValidation.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={removeCoupon}
+                    data-testid="button-remove-coupon"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Pricing Cards */}

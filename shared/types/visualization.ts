@@ -1,5 +1,20 @@
+export interface WorkflowNode {
+  id: string;
+  type: 'step' | 'decision' | 'start' | 'end';
+  label: string;
+  description?: string;
+  substeps?: string[];
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
+
 export interface VisualizationData {
-  type: 'line' | 'bar' | 'pie' | 'area';
+  type: 'line' | 'bar' | 'pie' | 'area' | 'workflow';
   title?: string;
   data: any[];
   config?: {
@@ -12,6 +27,9 @@ export interface VisualizationData {
     stacked?: boolean;
     layout?: 'horizontal' | 'vertical';
     showPercentage?: boolean;
+    // Workflow-specific config
+    nodes?: WorkflowNode[];
+    edges?: WorkflowEdge[];
   };
 }
 

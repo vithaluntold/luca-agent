@@ -212,17 +212,23 @@ export class AIOrchestrator {
     
     const processingTimeMs = Date.now() - startTime;
     
-    // PHASE 5: Generate visualization if response contains financial data
+    // PHASE 5: Generate visualization if response contains financial data OR workflow
     let visualization: VisualizationData | null = null;
     try {
-      visualization = visualizationGenerator.generateVisualization({
-        query,
-        response: finalResponse,
-        classification
-      });
+      // For workflow mode, generate workflow diagram; for others, generate charts
+      if (options?.chatMode === 'workflow') {
+        const { WorkflowGenerator } = await import('./workflowGenerator');
+        visualization = await WorkflowGenerator.generateWorkflowVisualization(finalResponse, options.chatMode);
+      } else {
+        visualization = visualizationGenerator.generateVisualization({
+          query,
+          response: finalResponse,
+          classification
+        });
+      }
       
       if (visualization) {
-        console.log(`[Orchestrator] Generated ${visualization.type} chart with ${visualization.data.length} data points`);
+        console.log(`[Orchestrator] Generated ${visualization.type} visualization`);
       }
     } catch (error) {
       console.error('[Orchestrator] Visualization generation failed:', error);
@@ -485,30 +491,24 @@ export class AIOrchestrator {
           break;
         case 'workflow':
           context += `INSTRUCTIONS FOR WORKFLOW VISUALIZATION MODE:\n`;
-          context += `- Create an ASCII workflow diagram showing the process visually\n`;
-          context += `- Use boxes with borders (made with +, -, |) for each major step/phase\n`;
-          context += `- Connect steps with arrows (|, v, >) to show flow direction\n`;
-          context += `- Include substeps/details inside each box using bullet points\n`;
-          context += `- Make the diagram wide enough to be readable (50+ characters per box)\n`;
-          context += `- Ensure proper vertical alignment and consistent spacing\n`;
-          context += `- End with "**End of Workflow**" at the bottom\n`;
-          context += `\nEXAMPLE FORMAT:\n`;
-          context += `+---------------------------------------------------+\n`;
-          context += `|              Step 1: Define Phase                 |\n`;
-          context += `+---------------------------------------------------+\n`;
-          context += `                      |\n`;
-          context += `                      v\n`;
-          context += `+---------------------------------------------------+\n`;
-          context += `|              Step 2: Execute Tasks                |\n`;
-          context += `|---------------------------------------------------|\n`;
-          context += `| - Subtask A                                       |\n`;
-          context += `| - Subtask B                                       |\n`;
-          context += `+---------------------------------------------------+\n\n`;
+          context += `- Describe the process as clear, sequential steps\n`;
+          context += `- Use consistent formatting: "Step 1: [Title]" or "Phase 1: [Title]"\n`;
+          context += `- Under each step, list key substeps with bullet points (-)\n`;
           context += `- Identify decision points and branching paths\n`;
           context += `- Note dependencies between steps\n`;
-          context += `- Include roles/responsibilities for each step\n`;
+          context += `- Include roles/responsibilities where relevant\n`;
           context += `- Highlight critical milestones and approval gates\n`;
-          context += `- Use clear visual formatting (numbered steps, indentation for sub-processes)\n\n`;
+          context += `- Keep step titles concise (max 60 characters)\n`;
+          context += `- Limit substeps to 5 per step for clarity\n\n`;
+          context += `EXAMPLE FORMAT:\n`;
+          context += `Step 1: Initial Planning\n`;
+          context += `- Define objectives and scope\n`;
+          context += `- Identify key stakeholders\n`;
+          context += `- Assess preliminary risks\n\n`;
+          context += `Step 2: Execution Phase\n`;
+          context += `- Deploy resources\n`;
+          context += `- Monitor progress\n`;
+          context += `- Document findings\n\n`;
           break;
         case 'audit-plan':
           context += `INSTRUCTIONS FOR AUDIT PLAN MODE:\n`;

@@ -5,8 +5,9 @@ Luca is a pan-global accounting superintelligence platform designed to surpass t
 
 ## Recent Fixes (Nov 11, 2025)
 - **Fixed Output Pane Display**: Professional modes (deep-research, checklist, workflow, audit-plan, calculation) now correctly display in the Output Pane. Fixed bug where `result.metadata` was being saved to `calculationResults` column instead of `metadata` column in server/routes.ts line 856.
-- **Added Workflow Visualization**: Workflow mode now generates ASCII workflow diagrams (boxes with borders, arrows, substeps) instead of plain text descriptions.
+- **Added Interactive Workflow Visualization**: Workflow mode now generates interactive flowchart diagrams using ReactFlow (@xyflow/react) and dagre for automatic layout. Workflows are visualized with proper nodes (steps, decisions, start/end) and edges, replacing the previous ASCII text approach.
 - **Added Thinking Indicator**: Animated "Luca is thinking..." indicator with bouncing dots appears while processing queries.
+- **Enhanced Visualization System**: Extended visualization types to include 'workflow' alongside existing chart types (line, bar, pie, area). WorkflowGenerator extracts step structure from AI responses and creates interactive node-edge diagrams.
 
 ## User Preferences
 I prefer that you communicate in a clear and concise manner. When providing explanations, please prioritize simplicity and avoid overly technical jargon where possible. I value an iterative development approach, so please propose changes and discuss them with me before implementing major modifications to the codebase. Ensure that any changes you make are well-documented and align with the existing code style. Please do not make changes to files in the `server/services` directory.

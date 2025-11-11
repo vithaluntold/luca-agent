@@ -2,9 +2,10 @@ import FinancialLineChart from './FinancialLineChart';
 import FinancialBarChart from './FinancialBarChart';
 import FinancialPieChart from './FinancialPieChart';
 import FinancialAreaChart from './FinancialAreaChart';
+import WorkflowRenderer from './WorkflowRenderer';
 
 export interface ChartData {
-  type: 'line' | 'bar' | 'pie' | 'area';
+  type: 'line' | 'bar' | 'pie' | 'area' | 'workflow';
   title?: string;
   data: any[];
   config?: {
@@ -17,6 +18,20 @@ export interface ChartData {
     stacked?: boolean;
     layout?: 'horizontal' | 'vertical';
     showPercentage?: boolean;
+    // Workflow-specific
+    nodes?: Array<{
+      id: string;
+      type: 'step' | 'decision' | 'start' | 'end';
+      label: string;
+      description?: string;
+      substeps?: string[];
+    }>;
+    edges?: Array<{
+      id: string;
+      source: string;
+      target: string;
+      label?: string;
+    }>;
   };
 }
 
@@ -73,6 +88,22 @@ export default function VisualizationRenderer({ chartData }: VisualizationRender
           yAxisLabel={config.yAxisLabel}
           formatValue={config.formatValue}
           stacked={config.stacked}
+        />
+      );
+
+    case 'workflow':
+      if (!config.nodes || !config.edges) {
+        return (
+          <div className="text-destructive p-4 border border-destructive rounded-md">
+            Workflow visualization requires nodes and edges
+          </div>
+        );
+      }
+      return (
+        <WorkflowRenderer
+          nodes={config.nodes}
+          edges={config.edges}
+          title={title}
         />
       );
 

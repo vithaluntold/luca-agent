@@ -6,18 +6,36 @@ interface AdminGuardProps {
   children: React.ReactNode;
 }
 
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  isAdmin: boolean;
+  subscriptionTier: string;
+}
+
+interface UserResponse {
+  user: User;
+}
+
 export default function AdminGuard({ children }: AdminGuardProps) {
   const [, setLocation] = useLocation();
   
-  const { data: userData, isLoading } = useQuery({
+  const { data: userData, isLoading, error } = useQuery<UserResponse>({
     queryKey: ["/api/auth/me"],
   });
 
   useEffect(() => {
-    if (!isLoading && (!userData?.user || !userData.user.isAdmin)) {
-      setLocation("/");
+    // Only redirect if loading is complete and user is not admin
+    if (!isLoading) {
+      if (!userData?.user || !userData.user.isAdmin) {
+        console.log("AdminGuard: Redirecting to home - not admin", { userData, error });
+        setLocation("/");
+      } else {
+        console.log("AdminGuard: Access granted", { isAdmin: userData.user.isAdmin });
+      }
     }
-  }, [userData, isLoading, setLocation]);
+  }, [userData, isLoading, error, setLocation]);
 
   if (isLoading) {
     return (

@@ -49,30 +49,30 @@ export default function Footer() {
           <div>
             <h4 className="font-bold mb-5 text-foreground">Product</h4>
             <ul className="space-y-3 text-sm text-foreground/70">
-              <li><Link href="/features"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-features">Features</a></Link></li>
-              <li><Link href="/pricing"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-pricing">Pricing</a></Link></li>
-              <li><Link href="/api"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-api">API</a></Link></li>
-              <li><Link href="/integrations"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-integrations">Integrations</a></Link></li>
+              <li><Link href="/features" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-features">Features</Link></li>
+              <li><Link href="/pricing" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-pricing">Pricing</Link></li>
+              <li><Link href="/api" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-api">API</Link></li>
+              <li><Link href="/integrations" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-integrations">Integrations</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-bold mb-5 text-foreground">Resources</h4>
             <ul className="space-y-3 text-sm text-foreground/70">
-              <li><Link href="/docs"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-docs">Documentation</a></Link></li>
-              <li><Link href="/docs"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-guides">Guides</a></Link></li>
-              <li><Link href="/blog"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-blog">Blog</a></Link></li>
-              <li><Link href="/support"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-support">Support</a></Link></li>
+              <li><Link href="/docs" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-docs">Documentation</Link></li>
+              <li><Link href="/docs" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-guides">Guides</Link></li>
+              <li><Link href="/blog" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-blog">Blog</Link></li>
+              <li><Link href="/support" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-support">Support</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-bold mb-5 text-foreground">Company</h4>
             <ul className="space-y-3 text-sm text-foreground/70">
-              <li><Link href="/about"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-about">About</a></Link></li>
-              <li><Link href="/careers"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-careers">Careers</a></Link></li>
-              <li><Link href="/privacy"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-privacy">Privacy</a></Link></li>
-              <li><Link href="/terms"><a className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-terms">Terms</a></Link></li>
+              <li><Link href="/about" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-about">About</Link></li>
+              <li><Link href="/careers" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-careers">Careers</Link></li>
+              <li><Link href="/privacy" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-privacy">Privacy</Link></li>
+              <li><Link href="/terms" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-terms">Terms</Link></li>
             </ul>
           </div>
         </div>

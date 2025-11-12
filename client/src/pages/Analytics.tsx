@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   LineChart,
   Line,
@@ -14,7 +18,7 @@ import {
   ResponsiveContainer,
   Legend
 } from "recharts";
-import { TrendingUp, MessageSquare, Target, BarChart3, Brain, AlertTriangle } from "lucide-react";
+import { TrendingUp, MessageSquare, Target, BarChart3, Brain, AlertTriangle, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 
 interface AnalyticsData {
@@ -63,11 +67,37 @@ interface AnalyticsData {
 }
 
 export default function Analytics() {
-  const { data, isLoading } = useQuery<AnalyticsData>({
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  
+  const { data, isLoading: isDataLoading } = useQuery<AnalyticsData>({
     queryKey: ["/api/analytics"],
+    enabled: !!user,
   });
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      setLocation("/auth");
+    }
+  }, [user, isAuthLoading, setLocation]);
+
+  // Show loading state while auth is being determined
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  if (isDataLoading) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -145,14 +175,33 @@ export default function Analytics() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">
-            Insights about your conversations, sentiment trends, and usage patterns
-          </p>
+    <div className="min-h-screen bg-background">
+      {/* Header with Navigation */}
+      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/chat")}
+              data-testid="button-back-to-chat"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Chat
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+              <p className="text-sm text-muted-foreground">
+                Insights about your conversations and usage patterns
+              </p>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -369,6 +418,7 @@ export default function Analytics() {
               )}
             </CardContent>
           </Card>
+        </div>
         </div>
       </div>
     </div>

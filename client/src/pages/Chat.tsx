@@ -37,6 +37,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import OutputPane from "@/components/OutputPane";
+import ModeDockRibbon from "@/components/ModeDockRibbon";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -572,6 +573,9 @@ export default function Chat() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Professional Modes Ribbon */}
+      <ModeDockRibbon chatMode={chatMode} onModeChange={setChatMode} />
 
       {/* 3-Pane Resizable Layout */}
       <ResizablePanelGroup direction="horizontal" className="flex-1">

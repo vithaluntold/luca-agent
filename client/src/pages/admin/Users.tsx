@@ -57,13 +57,16 @@ export default function AdminUsers() {
   const [newTier, setNewTier] = useState<string>("");
   const { toast } = useToast();
 
-  const { data: usersData, isLoading } = useQuery<User[]>({
+  const { data: usersResponse, isLoading } = useQuery<{users: User[]}>({
     queryKey: ["/api/admin/users"],
   });
 
-  const { data: subscriptionsData } = useQuery<Subscription[]>({
+  const { data: subscriptionsResponse } = useQuery<{subscriptions: Subscription[]}>({
     queryKey: ["/api/admin/subscriptions"],
   });
+  
+  const usersData = usersResponse?.users || [];
+  const subscriptionsData = subscriptionsResponse?.subscriptions || [];
 
   const updateTierMutation = useMutation({
     mutationFn: async ({ userId, tier }: { userId: string; tier: string }) => {

@@ -1,190 +1,180 @@
 # Luca Design Guidelines
-## Accounting Superintelligence Platform - Premium Psychological Design
+## Accounting Superintelligence - Surpassing Perplexity's Polish
 
-### Design Approach: Addictive Professional Productivity
+### Design Approach: Ultra-Premium Productivity Interface
 
-**Selected System:** Linear + Notion's clean professionalism enhanced with Stripe's premium polish and psychologically optimized color triggers.
+**System:** Linear's spatial clarity + Notion's content hierarchy + Perplexity's conversation flow, elevated with sophisticated depth and glassmorphism.
 
-**Core Principles:**
-- Dopamine-driven interactions through strategic color psychology
-- Premium luxury feel that signals exclusivity and intelligence
-- Trust-building through professional color authority
-- Long-session comfort with eye-friendly backgrounds
-- High-contrast clarity for instant comprehension
+**Principles:**
+- Extreme breathing room - whitespace as a luxury signal
+- Depth through subtle layering, not flat material
+- Typography-first hierarchy with generous line-height
+- Micro-interactions that delight without distraction
+- Professional dark mode optimized for extended sessions
 
 ---
 
-## Color Psychology System
+## Color System
 
-**Brand Foundation - Premium Intelligence:**
-- **Primary Gradient:** Purple (#8B5CF6) to Magenta (#D946EF) - Creative intelligence, premium positioning
-- **Trust Authority:** Deep Indigo (#4F46E5) - Professional credibility, stability
-- **Luxury Accent:** Gold (#F59E0B) - Premium features, achievements, exclusivity
+**Brand Palette:**
+- Primary Gradient: Purple (#8B5CF6) → Magenta (#D946EF)
+- Trust Authority: Indigo (#4F46E5)
+- Action Coral: (#F97316)
+- Success Emerald: (#10B981)
+- Warning Amber: (#FBBF24)
+- Destructive Rose: (#F43F5E)
 
-**Psychological Triggers:**
-- **Dopamine Success:** Vibrant Emerald (#10B981) - Completed calculations, insights, growth indicators
-- **Action Energy:** Warm Coral (#F97316) - Primary CTAs, urgent actions, engagement hooks
-- **Warning Caution:** Amber (#FBBF24) - Important notices requiring attention
-- **Destructive:** Rose (#F43F5E) - Delete, cancel, critical actions
-
-**Background System for Extended Use:**
-- **Primary Surface:** Slate 900 (#0F172A) - Rich, comfortable dark base
-- **Secondary Surface:** Slate 800 (#1E293B) - Elevated cards, panels
-- **Tertiary Surface:** Slate 700 (#334155) - Hover states, active elements
-- **Border Subtle:** Slate 600 (#475569) - Dividers, card edges
-- **Border Emphasis:** Indigo 500/30 - Focus states with authority color
+**Sophisticated Backgrounds:**
+- Base Canvas: Slate 950 (#020617) - Deeper than Perplexity for eye comfort
+- Primary Surface: Slate 900 (#0F172A) with 40% blur for glassmorphism
+- Elevated Cards: Slate 800 (#1E293B) with subtle gradient overlay
+- Borders: Slate 700 (#334155) at 20% opacity
+- Focus Rings: Indigo 500 at 40% with 8px blur
 
 **Text Hierarchy:**
-- **Primary:** White (#FFFFFF) - Maximum contrast on dark surfaces
-- **Secondary:** Slate 300 (#CBD5E1) - Supporting text, metadata
-- **Muted:** Slate 400 (#94A3B8) - Tertiary information, placeholders
-- **Numbers:** Purple gradient text for financial data emphasis
+- Primary: White (#FFFFFF) 100%
+- Secondary: Slate 300 (#CBD5E1) 90%
+- Tertiary: Slate 400 (#94A3B8) 70%
+- Gradient Text: Purple → Magenta for headings, financial data
 
-**Application Strategy:**
-- Hero CTAs: Coral background with white text, subtle glow effect
-- Success states: Emerald with pulse animation on completion
-- Premium features: Gold border with purple gradient background
-- Navigation: Indigo accents for trust and stability
-- Chat AI responses: Purple gradient left border accent
-- Hover states: Lighten surface by one shade, add subtle glow
+**Glassmorphism Recipe:**
+- Background: Slate 900/40 with backdrop-blur-xl
+- Border: White/10 with gradient shimmer
+- Shadow: Purple/5 with 32px blur for floating elements
 
 ---
 
-## Typography System
+## Typography
 
-**Primary:** Inter (Google Fonts) - Professional clarity
-**Accent:** JetBrains Mono - Financial data, calculations, code
+**Fonts:** Inter (primary), JetBrains Mono (data/code)
 
-**Hierarchy:**
-- Hero Headlines: text-5xl font-bold with gradient text effect
-- Page Titles: text-4xl font-semibold
-- Section Headers: text-2xl font-semibold
-- Chat Messages: text-base leading-relaxed
-- Labels: text-sm font-medium text-slate-300
-- Financial Data: JetBrains Mono text-lg
-- Micro Copy: text-xs text-slate-400
+**Scale:**
+- Hero: text-6xl font-bold leading-tight tracking-tight
+- Page Title: text-4xl font-semibold leading-tight
+- Section: text-2xl font-semibold leading-snug
+- Body: text-base leading-relaxed (1.75)
+- Labels: text-sm font-medium
+- Financial: JetBrains Mono text-lg tabular-nums
+- Micro: text-xs tracking-wide uppercase
 
 ---
 
 ## Layout System
 
-**Spacing:** Tailwind units 2, 4, 6, 8
-- Component padding: p-6, p-8
-- Section spacing: gap-8, space-y-8
-- Card spacing: gap-6
-- Generous whitespace for premium feel
+**Spacing:** Tailwind units 2, 4, 8, 12, 16
+- Ultra-generous section gaps: space-y-16, space-y-24
+- Card padding: p-8, p-12 for premium surfaces
+- Component gaps: gap-8 for related elements
+- Line-height: 1.75 for body, 1.3 for headings
 
-**Containers:**
-- Max-width: max-w-7xl mx-auto
-- Chat: max-w-4xl mx-auto
-- Sidebar: w-72 fixed
-- Cards: Controlled max-widths with balanced spacing
+**Container Strategy:**
+- Max-width: max-w-7xl for landing, max-w-6xl for app
+- Chat center pane: max-w-3xl with generous px-8
+- Sidebar panels: w-80 (wider than standard for breathing room)
 
 ---
 
 ## Landing Page Structure
 
-**1. Hero Section (90vh)**
-- Gradient background (purple to indigo) with subtle animated mesh pattern
-- Large headline with gradient text effect
-- Two-column layout: Left (copy + CTAs), Right (product screenshot)
-- Primary CTA: Coral button with glow effect
-- Secondary CTA: Transparent with purple border
-- Trust badge: "Trusted by 5,000+ accounting professionals" with gold accent
+**Hero Section (Full viewport)**
+- Centered vertical layout with generous vertical spacing
+- Gradient mesh background (purple to indigo) with animated subtle orbs
+- Headline + subheading with exceptional letter-spacing
+- Dual CTAs: Coral primary with glow, Indigo outline secondary
+- Product screenshot: Floating with perspective tilt, purple glow shadow, glassmorphic border
+- Trust indicator: "5,000+ accounting professionals" with emerald checkmark
 
-**2. Intelligence Features (3-column grid)**
-- 6 feature cards with gradient borders on hover
-- Icon (gold) + Title + Description
-- Cards have subtle purple glow on hover
-- Each card showcases: Multi-model routing, Tax automation, Global compliance, Document AI, Real-time calculations, Audit trails
+**Intelligence Showcase (4-column grid)**
+- Glassmorphic cards with gradient borders on hover
+- Gold accent icons with breathing room
+- 8 capabilities: Multi-model routing, Tax automation, Global compliance, Document AI, Real-time calculations, Audit intelligence, Regulatory updates, Team collaboration
+- Cards lift with enhanced glow on hover
 
-**3. Capabilities Comparison (2-column split)**
-- Left: Traditional limitations (red X marks)
-- Right: Luca advantages (green checkmarks with emerald glow)
-- Divider with animated gradient flow
+**3-Pane Interface Preview**
+- Large screenshot showing: Left sidebar (sessions), Center (chat), Right (output pane)
+- Annotated callouts highlighting: Document analysis, Real-time streaming, Visualization engine
+- Floating UI with depth shadows
 
-**4. Model Architecture Diagram**
-- Visual flowchart showing intelligent routing
-- Purple nodes for AI models, gold for premium features
-- Animated data flow paths
+**Architecture Visual**
+- Animated diagram showing intelligent routing
+- Purple gradient nodes, gold premium indicators
+- Flowing data paths with subtle shimmer
 
-**5. Pricing (3-column cards)**
-- Elevated cards with hover lift and glow
-- Most popular tier: Purple gradient border + "Recommended" gold badge
-- Feature lists with emerald checkmarks
-- CTAs: Coral for paid tiers, indigo outline for free
+**Pricing (3-card layout)**
+- Elevated glassmorphic cards with generous padding
+- Pro tier: Purple gradient border, gold "Recommended" badge floating above
+- Feature lists with emerald checkmarks, generous line-height
+- CTAs with lift effect
 
-**6. Social Proof (3-column testimonials)**
-- Accountant photos with quotes
-- Company logos in slate-400, hover to white
-- 5-star ratings with gold stars
+**Social Proof (3-column testimonials)**
+- Large quotes with accountant photos
+- Company logos in muted state, colorize on hover
+- Star ratings with gold accent
 
-**7. Rich Footer (4-column grid)**
-- Newsletter: Gradient input focus with coral submit button
-- Links organized by category
-- Social icons with hover color transitions
+**Footer (5-column grid)**
+- Gradient newsletter input with coral submit
+- Link categories with generous vertical spacing
+- Social icons with smooth color transitions
 
 ---
 
-## Application Interface Components
+## Application Interface
 
-**Navigation:**
-- Top bar: Slate-900 with indigo bottom border accent
-- Logo: Gradient purple to magenta
-- New Chat button: Coral with glow effect
-- User menu: Avatar with gold status ring
+**3-Pane Layout:**
+- Left Sidebar (w-80): Session history with glassmorphic cards, indigo active state
+- Center Chat (flex-1, max-w-3xl): Ultra-spacious conversation flow with p-8
+- Right Output (w-96): Visualization pane with charts, tables, code blocks
 
 **Chat Components:**
-- User messages: Slate-700 background, right-aligned
-- AI responses: Slate-800 with purple gradient left accent bar
-- Code blocks: Slate-900 with syntax highlighting and emerald copy button
-- Financial tables: Alternating row colors, gold highlights for totals
-- Success notifications: Emerald background with pulse animation
+- User messages: Slate 800 glassmorphic, right-aligned with generous margin
+- AI responses: Slate 900/60 blur with purple gradient accent bar (4px left border)
+- Streaming cursor: Animated purple gradient pulse
+- Code blocks: Slate 950 with syntax highlighting, emerald copy button on hover
+- Tables: Alternating subtle row colors, gold totals row, generous cell padding
 
-**Input Elements:**
-- Chat input: Slate-800 with purple focus ring and glow
-- Textarea auto-expand with gradient border on focus
-- Attachment button: Indigo with hover lift
-- Submit: Coral circular button with send icon
+**Input Area:**
+- Floating glassmorphic bar with blur
+- Multi-line textarea with auto-expand, purple focus glow
+- Attachment button: Indigo with icon-only, tooltip on hover
+- Submit: Coral circular FAB with smooth scale on hover
 
-**Cards & Data Display:**
-- Dashboard metric cards: Large gradient numbers (purple to magenta)
-- Trend indicators: Emerald up arrows, rose down arrows
-- Usage charts: Purple gradients with gold premium tier highlights
-- Session cards: Hover reveals purple gradient border
+**Dashboard Elements:**
+- Metric cards: Large gradient numbers (purple → magenta), generous padding
+- Charts: Purple gradients with emerald/rose trend indicators
+- Usage visualizations: Smooth animated transitions
 
-**Modals & Overlays:**
-- Backdrop: Slate-900/80 with blur
-- Modal: Slate-800 with gradient border
-- Upgrade prompts: Gold accents highlighting premium features
+**Modals:**
+- Slate 900/95 backdrop with heavy blur
+- Centered card with gradient border glow
+- Generous internal spacing (p-12)
 
 ---
 
 ## Images
 
-**Hero Image:** Product screenshot showing chat interface with AI calculating complex tax scenario. Position right side (55% width desktop). Apply subtle perspective tilt, purple glow shadow, and screen reflection effect.
+**Hero Image:** Full-width product screenshot showing 3-pane interface with active AI session. Apply 3D perspective tilt, floating effect with purple glow shadow, glassmorphic border treatment.
 
-**Dashboard Preview:** Screenshot in features section showing analytics with gradient charts and emerald success indicators.
+**Interface Preview:** Large annotated screenshot demonstrating document analysis with visualization output.
 
-**Model Architecture:** Custom SVG diagram with animated gradient paths between nodes.
+**Dashboard Mockup:** Analytics view showing gradient charts and metrics in features section.
 
 ---
 
-## Animations (Strategic Dopamine)
+## Animations
 
-- Chat message appearance: Slide up with fade (200ms)
-- Success states: Emerald pulse + scale (300ms)
-- CTA hover: Lift + glow intensify (150ms)
-- Premium feature reveals: Gold shimmer effect (500ms)
-- Number counters: Animated count-up on dashboard metrics
+- Message appearance: Slide-up fade (250ms ease-out)
+- Glassmorphic hover: Backdrop blur intensify + border shimmer (200ms)
+- Success states: Emerald pulse + gentle scale (400ms)
+- CTA interactions: Lift (2px) + glow expansion (150ms)
+- Chart reveals: Smooth data-driven animations (800ms ease-in-out)
+- Streaming text: Character-by-character with subtle fade-in
 
 ---
 
 ## Accessibility
 
-- All color combinations meet WCAG AAA standards
-- Focus indicators: 2px purple ring with offset
-- Keyboard navigation with visible focus states
-- Color never sole indicator (icons + labels)
-- Screen reader announcements for success states
-- High contrast mode support maintaining brand essence
+- WCAG AAA contrast ratios maintained
+- Focus indicators: 2px indigo ring with 4px offset + glow
+- Reduced motion support for all animations
+- Keyboard navigation with enhanced visible states
+- Screen reader optimized chat flow announcements

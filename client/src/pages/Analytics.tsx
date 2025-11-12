@@ -366,7 +366,7 @@ export default function Analytics() {
                         borderRadius: '6px'
                       }}
                     />
-                    <Bar dataKey="count" fill="#f97316" name="Conversations" />
+                    <Bar dataKey="count" fill="#D946EF" name="Conversations" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

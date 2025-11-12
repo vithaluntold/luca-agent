@@ -158,8 +158,8 @@
   --muted: 215 28% 27%;             /* Slate 700 */
   --muted-foreground: 215 21% 66%;  /* Slate 400 */
   
-  /* ACTION ENERGY - Coral for CTAs that demand clicks */
-  --accent: 25 95% 53%;             /* Coral #F97316 - High energy */
+  /* ACTION ENERGY - Magenta for CTAs that demand clicks */
+  --accent: 292 84% 61%;            /* Magenta #D946EF - Matches gradient */
   --accent-foreground: 0 0% 100%;
   
   /* SUCCESS & GROWTH - Emerald for dopamine rewards */

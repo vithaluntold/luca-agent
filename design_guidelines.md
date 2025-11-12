@@ -19,7 +19,7 @@
 **Brand Palette:**
 - Primary Gradient: Purple (#8B5CF6) → Magenta (#D946EF)
 - Trust Authority: Indigo (#4F46E5)
-- Action Coral: (#F97316)
+- Action Magenta: (#D946EF) - Matches gradient theme
 - Success Emerald: (#10B981)
 - Warning Amber: (#FBBF24)
 - Destructive Rose: (#F43F5E)

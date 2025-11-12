@@ -95,10 +95,16 @@ export default function Auth() {
     }
   };
 
-  // Redirect to chat after successful auth
+  // Redirect to appropriate page after successful auth
   useEffect(() => {
     if (shouldRedirect && user) {
-      setLocation('/chat');
+      // Redirect admin users to admin panel, regular users to chat
+      if (user.isAdmin) {
+        console.log('Admin login detected, redirecting to /admin');
+        setLocation('/admin');
+      } else {
+        setLocation('/chat');
+      }
     }
   }, [shouldRedirect, user, setLocation]);
   

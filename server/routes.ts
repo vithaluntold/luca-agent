@@ -2243,6 +2243,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User Analytics Endpoints (for regular users to view their own analytics)
+  
+  app.get("/api/analytics", requireAuth, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { userBehaviorPatterns, conversationAnalytics, sentimentTrends, messageAnalytics } = await import("@shared/schema");
+      const { eq, desc, gte, sql } = await import("drizzle-orm");
+      
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Get user behavior patterns
+      const [behavior] = await db
+        .select()
+        .from(userBehaviorPatterns)
+        .where(eq(userBehaviorPatterns.userId, userId))
+        .limit(1);
+      
+      // Get conversation analytics (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const conversations = await db
+        .select()
+        .from(conversationAnalytics)
+        .where(eq(conversationAnalytics.userId, userId))
+        .orderBy(desc(conversationAnalytics.createdAt))
+        .limit(100);
+      
+      // Get sentiment trends (last 30 days)
+      const sentimentData = await db
+        .select()
+        .from(sentimentTrends)
+        .where(eq(sentimentTrends.userId, userId))
+        .orderBy(desc(sentimentTrends.date))
+        .limit(30);
+      
+      // Get message analytics for detailed insights
+      const messageStats = await db
+        .select()
+        .from(messageAnalytics)
+        .where(eq(messageAnalytics.userId, userId))
+        .orderBy(desc(messageAnalytics.createdAt))
+        .limit(100);
+      
+      // Calculate summary statistics
+      const totalConversations = conversations.length;
+      const avgQuality = conversations.filter(c => c.qualityScore).length > 0
+        ? Math.round(conversations.filter(c => c.qualityScore).reduce((sum, c) => sum + (c.qualityScore || 0), 0) / conversations.filter(c => c.qualityScore).length)
+        : null;
+      
+      const topicsCount = new Map<string, number>();
+      conversations.forEach(c => {
+        if (c.topicsDiscussed) {
+          (c.topicsDiscussed as string[]).forEach(topic => {
+            topicsCount.set(topic, (topicsCount.get(topic) || 0) + 1);
+          });
+        }
+      });
+      
+      const topTopics = Array.from(topicsCount.entries())
+        .map(([topic, count]) => ({ topic, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      
+      res.json({
+        behavior: behavior || null,
+        conversations,
+        sentimentTrends: sentimentData,
+        messageStats,
+        summary: {
+          totalConversations,
+          averageQualityScore: avgQuality,
+          topTopics
+        }
+      });
+    } catch (error) {
+      console.error('User analytics error:', error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // AI Provider Health Monitoring Endpoints (Admin only)
   
   app.get("/api/admin/ai-providers/health", requireAuth, requireAdmin, async (req, res) => {

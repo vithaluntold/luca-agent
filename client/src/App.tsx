@@ -10,6 +10,7 @@ import Chat from "@/pages/Chat";
 import Auth from "@/pages/Auth";
 import Settings from "@/pages/Settings";
 import Integrations from "@/pages/Integrations";
+import Analytics from "@/pages/Analytics";
 import ScenarioSimulator from "@/pages/ScenarioSimulator";
 import DeliverableComposer from "@/pages/DeliverableComposer";
 import ForensicIntelligence from "@/pages/ForensicIntelligence";
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/auth" component={Auth} />
       <Route path="/settings" component={Settings} />
       <Route path="/integrations" component={Integrations} />
+      <Route path="/analytics" component={Analytics} />
       <Route path="/scenarios" component={ScenarioSimulator} />
       <Route path="/deliverables" component={DeliverableComposer} />
       <Route path="/forensics" component={ForensicIntelligence} />

@@ -529,9 +529,7 @@ export default function Chat() {
       <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md bg-gradient-to-r from-primary to-secondary flex items-center justify-center glow-primary">
-              <span className="text-white font-bold text-sm">L</span>
-            </div>
+            <img src={lucaLogoUrl} alt="Luca" className="h-8 w-8" data-testid="img-logo" />
             <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Luca
             </h1>

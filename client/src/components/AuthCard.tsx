@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import logoImg from "@assets/Luca Main Logo (1)_1762627933760.png";
+import logoImg from "@assets/Luca Main symbol (1)_1762981200262.png";
 import { useState } from "react";
 import { CheckCircle2, XCircle, AlertCircle, ShieldCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";

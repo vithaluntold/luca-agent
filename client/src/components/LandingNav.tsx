@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import logoImg from "@assets/Luca Main symbol (1)_1762981200262.png";
+import logoImg from "@assets/Luca Transparent symbol (3)_1763135780054.png";
 
 export default function LandingNav() {
   return (

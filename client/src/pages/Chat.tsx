@@ -42,7 +42,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import lucaLogoUrl from "@assets/Luca Main symbol (1)_1762981200262.png";
+import lucaLogoUrl from "@assets/Luca Transparent symbol (3)_1763135780054.png";
 import {
   Plus,
   Send,

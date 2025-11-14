@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Menu, Moon, Sun } from "lucide-react";
-import logoSymbol from "@assets/Luca Main symbol (1)_1762981200262.png";
+import logoSymbol from "@assets/Luca Transparent symbol (3)_1763135780054.png";
 import { useState, useEffect } from "react";
 
 interface ChatHeaderProps {

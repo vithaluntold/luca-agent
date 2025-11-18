@@ -174,22 +174,22 @@ export default function RegionalPricing() {
           <Tabs value={selectedRegion} onValueChange={(value) => setSelectedRegion(value as Region)} className="mb-8">
             <TabsList className="grid grid-cols-3 md:grid-cols-6 gap-2 h-auto p-2 bg-muted/50" data-testid="tabs-region-selector">
               <TabsTrigger value="usa" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" data-testid="tab-usa">
-                🇺🇸 USA
+                USA
               </TabsTrigger>
               <TabsTrigger value="canada" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" data-testid="tab-canada">
-                🇨🇦 Canada
+                Canada
               </TabsTrigger>
               <TabsTrigger value="india" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" data-testid="tab-india">
-                🇮🇳 India
+                India
               </TabsTrigger>
               <TabsTrigger value="uae" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" data-testid="tab-uae">
-                🇦🇪 UAE
+                UAE
               </TabsTrigger>
               <TabsTrigger value="indonesia" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" data-testid="tab-indonesia">
-                🇮🇩 Indonesia
+                Indonesia
               </TabsTrigger>
               <TabsTrigger value="turkey" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" data-testid="tab-turkey">
-                🇹🇷 Turkey
+                Turkey
               </TabsTrigger>
             </TabsList>
 

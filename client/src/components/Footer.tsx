@@ -72,15 +72,20 @@ export default function Footer() {
               <li><Link href="/about" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-about">About</Link></li>
               <li><Link href="/careers" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-careers">Careers</Link></li>
               <li><Link href="/privacy" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-privacy">Privacy</Link></li>
-              <li><Link href="/terms" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-terms">Terms</Link></li>
+              <li><Link href="/terms-of-service" className="hover:text-foreground hover-elevate transition-smooth" data-testid="link-footer-terms">Terms</Link></li>
             </ul>
           </div>
         </div>
         
-        <div className="pt-10 border-t border-border/30 text-center">
+        <div className="pt-10 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
           <p className="text-sm font-semibold text-foreground/80">
             &copy; 2025 LUCA. ALL RIGHTS RESERVED.
           </p>
+          <div className="flex gap-6 text-xs text-foreground/60">
+            <Link href="/refund-policy" className="hover:text-foreground transition-smooth" data-testid="link-footer-refund">Refund Policy</Link>
+            <Link href="/shipping-policy" className="hover:text-foreground transition-smooth" data-testid="link-footer-shipping">Shipping Policy</Link>
+            <Link href="/regional-pricing" className="hover:text-foreground transition-smooth" data-testid="link-footer-regional-pricing">Regional Pricing</Link>
+          </div>
         </div>
       </div>
     </footer>

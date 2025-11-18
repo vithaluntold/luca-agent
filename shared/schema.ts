@@ -60,6 +60,10 @@ export const conversations = pgTable("conversations", {
   pinned: boolean("pinned").notNull().default(false),
   isShared: boolean("is_shared").notNull().default(false),
   sharedToken: varchar("shared_token").unique(),
+  // User feedback fields - simple, direct user input (NOT calculated)
+  qualityScore: integer("quality_score"), // 1-5 rating from user
+  resolved: boolean("resolved").default(false), // Did this conversation resolve the user's issue?
+  userFeedback: text("user_feedback"), // Optional text feedback from user
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -67,6 +71,8 @@ export const conversations = pgTable("conversations", {
     .on(table.userId, table.profileId, table.updatedAt),
   pinnedIdx: index("conversations_pinned_idx").on(table.pinned),
   sharedTokenIdx: index("conversations_shared_token_idx").on(table.sharedToken),
+  qualityScoreIdx: index("conversations_quality_score_idx").on(table.qualityScore),
+  resolvedIdx: index("conversations_resolved_idx").on(table.resolved),
 }));
 
 export const messages = pgTable("messages", {
@@ -399,6 +405,13 @@ export const insertConversationSchema = createInsertSchema(conversations).pick({
   profileId: true,
   title: true,
   preview: true,
+});
+
+// Schema for updating conversation feedback (user ratings/feedback)
+export const updateConversationFeedbackSchema = z.object({
+  qualityScore: z.number().int().min(1).max(5).optional(),
+  resolved: z.boolean().optional(),
+  userFeedback: z.string().max(1000).optional(),
 });
 
 export const insertMessageSchema = createInsertSchema(messages).pick({

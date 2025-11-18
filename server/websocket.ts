@@ -11,6 +11,7 @@ import { sessionStore, SESSION_SECRET } from './index';
 import type { SessionData } from 'express-session';
 import cookie from 'cookie';
 import signature from 'cookie-signature';
+import { AnalyticsProcessor } from './services/analyticsProcessor';
 
 interface ChatStreamMessage {
   type: 'start' | 'chunk' | 'end' | 'error';
@@ -269,6 +270,16 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       tokensUsed: null
     });
 
+    // Process user message analytics (non-blocking)
+    AnalyticsProcessor.processMessage({
+      messageId: userMessage.id,
+      conversationId: conversation.id,
+      userId,
+      role: 'user',
+      content: query,
+      previousMessages: conversationHistory
+    }).catch(err => console.error('[WebSocket] Analytics error:', err));
+
     // Send start signal
     send(ws, {
       type: 'start',
@@ -341,6 +352,16 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
     });
     
     console.log('[WebSocket] Saved message with metadata:', assistantMessage.metadata);
+
+    // Process assistant message analytics (non-blocking)
+    AnalyticsProcessor.processMessage({
+      messageId: assistantMessage.id,
+      conversationId: conversation.id,
+      userId,
+      role: 'assistant',
+      content: fullResponse,
+      previousMessages: [...conversationHistory, { role: 'user', content: query }]
+    }).catch(err => console.error('[WebSocket] Analytics error:', err));
 
     // Send end signal with metadata (including visualization)
     send(ws, {

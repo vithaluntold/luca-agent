@@ -75,8 +75,10 @@ import {
   Network,
   FileBarChart,
   Calculator,
-  ChevronDown
+  ChevronDown,
+  Star
 } from "lucide-react";
+import { ConversationFeedback } from "@/components/ConversationFeedback";
 
 interface Message {
   id: string;
@@ -121,6 +123,8 @@ export default function Chat() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [chatMode, setChatMode] = useState<string>('standard');
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackConvId, setFeedbackConvId] = useState<string>("");
   const { user, logout, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -508,6 +512,11 @@ export default function Chat() {
     setRenameDialogOpen(true);
   };
 
+  const handleFeedback = (convId: string) => {
+    setFeedbackConvId(convId);
+    setFeedbackDialogOpen(true);
+  };
+
   const confirmRename = () => {
     if (renameValue.trim()) {
       renameMutation.mutate({ convId: renameConvId, title: renameValue.trim() });
@@ -739,6 +748,13 @@ export default function Chat() {
                             >
                               <Edit3 className="mr-2 h-4 w-4" />
                               Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleFeedback(conv.id)}
+                              data-testid={`menu-item-feedback-${conv.id}`}
+                            >
+                              <Star className="mr-2 h-4 w-4" />
+                              Rate Conversation
                             </DropdownMenuItem>
                             {conv.isShared ? (
                               <DropdownMenuItem 
@@ -1069,6 +1085,13 @@ export default function Chat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Conversation Feedback Dialog */}
+      <ConversationFeedback
+        conversation={conversationsData?.conversations.find((c: Conversation) => c.id === feedbackConvId) || null}
+        open={feedbackDialogOpen}
+        onOpenChange={setFeedbackDialogOpen}
+      />
     </div>
   );
 }

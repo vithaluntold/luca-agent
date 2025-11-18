@@ -22,7 +22,8 @@ import {
   insertUserSchema,
   insertSupportTicketSchema,
   insertTicketMessageSchema,
-  insertUserLLMConfigSchema
+  insertUserLLMConfigSchema,
+  updateConversationFeedbackSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { storeEncryptedFile, retrieveEncryptedFile, secureDeleteFile, calculateChecksum } from "./utils/fileEncryption";
@@ -1172,6 +1173,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Rename conversation error:', error);
       res.status(500).json({ error: "Failed to rename conversation" });
+    }
+  });
+
+  // Update conversation feedback (rating, resolved, user feedback)
+  app.patch("/api/conversations/:id/feedback", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      
+      const { id } = req.params;
+      
+      // Validate feedback data using Zod schema
+      const validation = updateConversationFeedbackSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Invalid feedback data", 
+          details: validation.error.errors 
+        });
+      }
+      
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Update feedback fields
+      await storage.updateConversation(id, validation.data);
+      
+      res.json({ 
+        success: true, 
+        feedback: validation.data 
+      });
+    } catch (error) {
+      console.error('Update conversation feedback error:', error);
+      res.status(500).json({ error: "Failed to update conversation feedback" });
     }
   });
   

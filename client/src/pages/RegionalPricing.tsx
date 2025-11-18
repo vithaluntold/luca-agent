@@ -371,6 +371,11 @@ export default function RegionalPricing() {
             </Accordion>
           </div>
         </div>
+
+        {/* Corporate Ownership */}
+        <div className="text-center py-8 text-sm text-foreground/60">
+          <p>Luca is operated by FinACEverse Inc.</p>
+        </div>
       </main>
       
       <Footer />

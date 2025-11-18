@@ -64,6 +64,14 @@ interface AnalyticsData {
     averageQualityScore: number | null;
     topTopics: Array<{ topic: string; count: number }>;
   };
+  userFeedback?: {
+    resolvedCount: number;
+    resolutionRate: number;
+    ratingDistribution: Array<{ rating: number; count: number }>;
+    averageUserRating: string | null;
+    totalRated: number;
+    totalConversations: number;
+  };
 }
 
 export default function Analytics() {
@@ -275,6 +283,43 @@ export default function Analytics() {
             </CardContent>
           </Card>
         </div>
+
+        {/* User Feedback Metrics */}
+        {data?.userFeedback && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card data-testid="card-resolution-rate">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Resolution Rate (All-Time)</CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-resolution-rate">
+                  {data.userFeedback.totalConversations > 0 ? `${data.userFeedback.resolutionRate}%` : 'N/A'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {data.userFeedback.resolvedCount} of {data.userFeedback.totalConversations} conversations resolved
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-user-rating">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Rating (All-Time)</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-user-rating">
+                  {data.userFeedback.totalRated > 0 && data.userFeedback.averageUserRating 
+                    ? `${data.userFeedback.averageUserRating} / 5.0`
+                    : 'N/A'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  From {data.userFeedback.totalRated} rated conversations
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

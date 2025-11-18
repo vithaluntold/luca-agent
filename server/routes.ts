@@ -2289,8 +2289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics", requireAuth, async (req, res) => {
     try {
       const { db } = await import("./db");
-      const { userBehaviorPatterns, conversationAnalytics, sentimentTrends, messageAnalytics } = await import("@shared/schema");
-      const { eq, desc, gte, sql } = await import("drizzle-orm");
+      const { userBehaviorPatterns, conversationAnalytics, sentimentTrends, messageAnalytics, conversations: conversationsTable } = await import("@shared/schema");
+      const { eq, desc, gte, sql, isNotNull } = await import("drizzle-orm");
       
       const userId = getCurrentUserId(req);
       if (!userId) {
@@ -2351,6 +2351,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
       
+      // Get user feedback stats using SQL aggregation (all-time, no date filter for complete picture)
+      const [feedbackStats] = await db
+        .select({
+          totalConversations: sql<number>`count(*)::int`,
+          resolvedCount: sql<number>`count(*) filter (where ${conversationsTable.resolved} = true)::int`,
+          avgRating: sql<string>`round(avg(${conversationsTable.qualityScore}), 1)`,
+          totalRated: sql<number>`count(*) filter (where ${conversationsTable.qualityScore} is not null)::int`,
+          rating1Count: sql<number>`count(*) filter (where ${conversationsTable.qualityScore} = 1)::int`,
+          rating2Count: sql<number>`count(*) filter (where ${conversationsTable.qualityScore} = 2)::int`,
+          rating3Count: sql<number>`count(*) filter (where ${conversationsTable.qualityScore} = 3)::int`,
+          rating4Count: sql<number>`count(*) filter (where ${conversationsTable.qualityScore} = 4)::int`,
+          rating5Count: sql<number>`count(*) filter (where ${conversationsTable.qualityScore} = 5)::int`,
+        })
+        .from(conversationsTable)
+        .where(eq(conversationsTable.userId, userId));
+      
+      const totalUserConversations = feedbackStats.totalConversations;
+      const resolvedCount = feedbackStats.resolvedCount;
+      const resolutionRate = totalUserConversations > 0 
+        ? Math.round((resolvedCount / totalUserConversations) * 100)
+        : 0;
+      
+      const ratingDistribution = [
+        { rating: 1, count: feedbackStats.rating1Count },
+        { rating: 2, count: feedbackStats.rating2Count },
+        { rating: 3, count: feedbackStats.rating3Count },
+        { rating: 4, count: feedbackStats.rating4Count },
+        { rating: 5, count: feedbackStats.rating5Count },
+      ];
+      
+      const avgUserRating = feedbackStats.totalRated > 0 ? feedbackStats.avgRating : null;
+      
       res.json({
         behavior: behavior || null,
         conversations,
@@ -2360,6 +2392,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalConversations,
           averageQualityScore: avgQuality,
           topTopics
+        },
+        userFeedback: {
+          resolvedCount,
+          resolutionRate,
+          ratingDistribution,
+          averageUserRating: avgUserRating,
+          totalRated: feedbackStats.totalRated,
+          totalConversations: totalUserConversations
         }
       });
     } catch (error) {

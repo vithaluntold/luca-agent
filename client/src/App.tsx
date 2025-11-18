@@ -19,6 +19,10 @@ import About from "@/pages/About";
 import Support from "@/pages/Support";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
+import TermsOfService from "@/pages/TermsOfService";
+import RefundPolicy from "@/pages/RefundPolicy";
+import ShippingPolicy from "@/pages/ShippingPolicy";
+import RegionalPricing from "@/pages/RegionalPricing";
 import API from "@/pages/API";
 import Docs from "@/pages/Docs";
 import Blog from "@/pages/Blog";
@@ -44,11 +48,15 @@ function Router() {
       <Route path="/deliverables" component={DeliverableComposer} />
       <Route path="/forensics" component={ForensicIntelligence} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/regional-pricing" component={RegionalPricing} />
       <Route path="/features" component={Features} />
       <Route path="/about" component={About} />
       <Route path="/support" component={Support} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/terms-of-service" component={TermsOfService} />
+      <Route path="/refund-policy" component={RefundPolicy} />
+      <Route path="/shipping-policy" component={ShippingPolicy} />
       <Route path="/api" component={API} />
       <Route path="/docs" component={Docs} />
       <Route path="/blog" component={Blog} />

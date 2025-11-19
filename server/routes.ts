@@ -27,7 +27,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { storeEncryptedFile, retrieveEncryptedFile, secureDeleteFile, calculateChecksum } from "./utils/fileEncryption";
-import { setupWebSocket } from "./websocket";
+// WebSocket removed - now using SSE for chat streaming
+// import { setupWebSocket } from "./websocket";
 
 // Extend session type to include OAuth and MFA properties
 declare module 'express-session' {
@@ -3544,8 +3545,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   
-  // Setup WebSocket server for real-time chat streaming (will be removed)
-  setupWebSocket(httpServer);
+  // WebSocket removed - now using Server-Sent Events (SSE) for chat streaming
+  // See POST /api/chat/stream endpoint above
   
   return httpServer;
 }

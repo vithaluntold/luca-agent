@@ -3,22 +3,29 @@ import { pgTable, text, varchar, timestamp, integer, jsonb, boolean, index, uniq
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Sessions table required for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
 export const users = pgTable("users", {
+  // Replit Auth fields
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  // Luca-specific fields
   subscriptionTier: text("subscription_tier").notNull().default("free"),
   isAdmin: boolean("is_admin").notNull().default(false),
-  // Account lockout fields
-  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
-  lockedUntil: timestamp("locked_until"),
-  lastFailedLogin: timestamp("last_failed_login"),
-  // MFA/2FA fields
-  mfaEnabled: boolean("mfa_enabled").notNull().default(false),
-  mfaSecret: text("mfa_secret"), // TOTP secret (encrypted)
-  mfaBackupCodes: text("mfa_backup_codes").array(), // Encrypted backup codes
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const profiles = pgTable("profiles", {
@@ -359,20 +366,19 @@ export const sentimentTrends = pgTable("sentiment_trends", {
   userIdDateIdx: index("sentiment_trends_user_id_date_idx").on(table.userId, table.date),
 }));
 
-// Simple password validation
-const passwordSchema = z.string()
-  .min(8, "Password must be at least 8 characters")
-  .max(128, "Password must not exceed 128 characters");
-
 // Zod schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  email: true,
-  password: true,
-  name: true,
-}).extend({
-  email: z.string().email("Please enter a valid email address"),
-  password: passwordSchema,
-  name: z.string().min(1, "Name is required"),
+// Replit Auth uses upsert instead of insert
+export const upsertUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email().optional().nullable(),
+  firstName: z.string().optional().nullable(),
+  lastName: z.string().optional().nullable(),
+  profileImageUrl: z.string().url().optional().nullable(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertProfileSchema = createInsertSchema(profiles).pick({
@@ -977,6 +983,7 @@ export const documentAttachmentSchema = z.object({
 export type DocumentAttachment = z.infer<typeof documentAttachmentSchema>;
 
 // Types
+export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;

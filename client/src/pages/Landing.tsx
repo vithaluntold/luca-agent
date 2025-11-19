@@ -4,7 +4,6 @@ import Features from "@/components/Features";
 import ProfessionalModes from "@/components/ProfessionalModes";
 import ModelArchitecture from "@/components/ModelArchitecture";
 import Pricing from "@/components/Pricing";
-import Testimonials from "@/components/Testimonials";
 import Footer from "@/components/Footer";
 
 export default function Landing() {
@@ -16,7 +15,6 @@ export default function Landing() {
       <ProfessionalModes />
       <ModelArchitecture />
       <Pricing />
-      <Testimonials />
       <Footer />
     </div>
   );

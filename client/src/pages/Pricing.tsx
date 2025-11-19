@@ -616,27 +616,29 @@ export default function Pricing() {
         </div>
 
         {/* Pay-as-you-go */}
-        <Card className="max-w-2xl mx-auto" data-testid="card-pay-as-you-go">
-          <CardHeader>
-            <CardTitle>Pay-as-you-go</CardTitle>
-            <CardDescription>
-              No subscription required - pay only for what you use
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold">
-                  {formatPrice(pricingData.payAsYouGo.pricing[currency], currency)}
+        {pricingData?.payAsYouGo && (
+          <Card className="max-w-2xl mx-auto" data-testid="card-pay-as-you-go">
+            <CardHeader>
+              <CardTitle>Pay-as-you-go</CardTitle>
+              <CardDescription>
+                No subscription required - pay only for what you use
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold">
+                    {formatPrice(pricingData.payAsYouGo.pricing[currency], currency)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">per 100 queries</div>
                 </div>
-                <div className="text-sm text-muted-foreground">per 100 queries</div>
+                <Button variant="outline" data-testid="button-pay-as-you-go">
+                  Buy Credits
+                </Button>
               </div>
-              <Button variant="outline" data-testid="button-pay-as-you-go">
-                Buy Credits
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -3112,6 +3112,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pricing endpoint with currency as path parameter (for React Query)
+  app.get("/api/pricing/:currency", async (req, res) => {
+    try {
+      const { subscriptionService } = await import("./services/subscriptionService");
+      const currency = req.params.currency || 'USD';
+      const validCurrencies = ['USD', 'INR', 'AED', 'CAD', 'IDR', 'TRY'];
+      
+      if (!validCurrencies.includes(currency)) {
+        return res.status(400).json({ error: "Invalid currency" });
+      }
+      
+      const pricing = subscriptionService.getPricing(currency as any);
+      res.json(pricing);
+    } catch (error) {
+      console.error('Get pricing error:', error);
+      res.status(500).json({ error: "Failed to fetch pricing" });
+    }
+  });
+
   // Get current user's subscription and usage
   app.get("/api/subscription", requireAuth, async (req, res) => {
     try {

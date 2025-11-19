@@ -1,6 +1,12 @@
 /**
  * AI Model Orchestrator
  * Coordinates multiple AI models and solvers to generate comprehensive responses
+ * 
+ * Enhanced with Advanced Reasoning Capabilities:
+ * - Chain-of-thought reasoning for complex queries
+ * - Multi-agent orchestration for specialized analysis
+ * - Cognitive monitoring for quality assurance
+ * - Parallel reasoning streams for efficiency
  */
 
 import { queryTriageService, type QueryClassification, type RoutingDecision } from './queryTriage';
@@ -10,6 +16,15 @@ import { requirementClarificationService, type ClarificationAnalysis } from './r
 import { documentAnalyzerAgent } from './agents/documentAnalyzer';
 import { visualizationGenerator } from './visualizationGenerator';
 import type { VisualizationData } from '../../shared/types/visualization';
+// Advanced Reasoning imports (feature-flagged)
+import { reasoningGovernor } from './reasoningGovernor';
+import { complianceSentinel } from './complianceSentinel';
+import { validationAgent } from './validationAgent';
+import type { 
+  EnhancedRoutingDecision, 
+  ReasoningMetadata,
+  CognitiveMonitorResult 
+} from '../../shared/types/reasoning';
 
 export type ResponseType = 'research' | 'analysis' | 'document' | 'calculation' | 'visualization' | 'export' | 'general';
 
@@ -24,6 +39,10 @@ export interface ResponseMetadata {
   classification: QueryClassification;
   calculationResults?: any;
   visualization?: VisualizationData;
+  // Advanced reasoning metadata (feature-flagged)
+  reasoning?: Partial<ReasoningMetadata>;
+  cognitiveMonitoring?: CognitiveMonitorResult;
+  qualityScore?: number;
 }
 
 export interface OrchestrationResult {
@@ -78,6 +97,19 @@ export class AIOrchestrator {
     
     // Step 2: Route to appropriate model and solvers
     const routingDecision = queryTriageService.routeQuery(classification, userTier);
+    
+    // Step 2.5: ADVANCED REASONING - Enhance routing decision with reasoning profile
+    // This is feature-flagged and backward compatible
+    let enhancedRouting: EnhancedRoutingDecision | null = null;
+    if (reasoningGovernor.isEnabled()) {
+      enhancedRouting = reasoningGovernor.enhanceRoutingDecision(
+        routingDecision,
+        classification,
+        options?.chatMode || 'standard',
+        userTier
+      );
+      console.log(`[Orchestrator] Reasoning profile: ${enhancedRouting.reasoningProfile}`);
+    }
     
     // PHASE 0: Requirement Clarification Analysis
     // CRITICAL: Skip clarification if document is attached - the answer is IN the document!
@@ -164,7 +196,8 @@ export class AIOrchestrator {
       classification,
       calculationResults,
       clarificationAnalysis,
-      options?.chatMode
+      options?.chatMode,
+      enhancedRouting // Pass enhanced routing for CoT prompt enhancement
     );
     
     // Step 5: Call the AI provider with enhanced context and provider routing
@@ -183,6 +216,61 @@ export class AIOrchestrator {
     );
     
     let finalResponse = aiResponse.content;
+    
+    // Step 5.5: ADVANCED REASONING - Cognitive Monitoring & Validation
+    // Run compliance checks and validation (feature-flagged, backward compatible)
+    let cognitiveMonitoring: CognitiveMonitorResult | undefined;
+    let validationResult: any | undefined;
+    let qualityScore = 1.0;
+    
+    if (enhancedRouting?.enableCognitiveMonitoring) {
+      try {
+        console.log('[Orchestrator] Running compliance monitoring...');
+        
+        // Run compliance sentinel
+        cognitiveMonitoring = await complianceSentinel.validateResponse(
+          query,
+          finalResponse,
+          {
+            chatMode: options?.chatMode,
+            uploadedDocuments: options?.attachment ? [options.attachment] : undefined,
+            previousMessages: conversationHistory
+          }
+        );
+        
+        // Run validation agent
+        validationResult = await validationAgent.validate(
+          query,
+          finalResponse,
+          {
+            calculationResults,
+            uploadedDocuments: options?.attachment ? [options.attachment] : undefined
+          }
+        );
+        
+        // Calculate overall quality score
+        const complianceScore = cognitiveMonitoring.overallStatus === 'pass' ? 1.0 : 
+                               cognitiveMonitoring.overallStatus === 'warning' ? 0.8 : 0.5;
+        qualityScore = (complianceScore + validationResult.confidence) / 2;
+        
+        console.log(`[Orchestrator] Quality score: ${(qualityScore * 100).toFixed(0)}%`);
+        
+        // Auto-repair if quality is low but not failed
+        if (cognitiveMonitoring.overallStatus === 'warning' && qualityScore > 0.6) {
+          console.log('[Orchestrator] Low quality detected - auto-repair could be attempted');
+          // TODO: Implement auto-repair loop in future phase
+        }
+        
+        // Log if human review required
+        if (cognitiveMonitoring.requiresHumanReview) {
+          console.warn('[Orchestrator] Response requires human review - flagging for attention');
+        }
+        
+      } catch (error) {
+        console.error('[Orchestrator] Cognitive monitoring failed:', error);
+        // Don't fail request if monitoring fails - it's a quality check, not critical path
+      }
+    }
     
     // CRITICAL ENFORCEMENT: For partial_answer_then_clarify, ALWAYS append clarifying questions
     // This ensures the advisor behavior is guaranteed regardless of model compliance
@@ -235,7 +323,7 @@ export class AIOrchestrator {
       // Don't fail the request if visualization fails
     }
     
-    // Build response metadata
+    // Build response metadata (now includes reasoning metadata)
     const metadata = this.buildResponseMetadata(
       query,
       classification,
@@ -243,7 +331,11 @@ export class AIOrchestrator {
       calculationResults,
       options?.attachment,
       visualization,
-      options?.chatMode
+      options?.chatMode,
+      enhancedRouting,
+      cognitiveMonitoring,
+      qualityScore,
+      processingTimeMs
     );
     
     return {
@@ -262,6 +354,7 @@ export class AIOrchestrator {
 
   /**
    * Build response metadata to control output pane display
+   * Now includes advanced reasoning metadata
    */
   private buildResponseMetadata(
     query: string,
@@ -270,7 +363,11 @@ export class AIOrchestrator {
     calculations: any,
     attachment?: ProcessQueryOptions['attachment'],
     visualization?: VisualizationData | null,
-    chatMode?: string
+    chatMode?: string,
+    enhancedRouting?: EnhancedRoutingDecision | null,
+    cognitiveMonitoring?: CognitiveMonitorResult,
+    qualityScore?: number,
+    processingTimeMs?: number
   ): ResponseMetadata {
     const lowerQuery = query.toLowerCase();
     
@@ -315,6 +412,27 @@ export class AIOrchestrator {
       responseType === 'export' ||
       (responseType === 'calculation' && calculations);
     
+    // Build reasoning metadata if advanced features were used
+    let reasoningMetadata: Partial<ReasoningMetadata> | undefined;
+    if (enhancedRouting) {
+      reasoningMetadata = {
+        profile: enhancedRouting.reasoningProfile,
+        governorDecisions: [
+          `Reasoning profile: ${enhancedRouting.reasoningProfile}`,
+          enhancedRouting.enableChainOfThought ? 'Chain-of-thought enabled' : null,
+          enhancedRouting.enableCognitiveMonitoring ? 'Cognitive monitoring enabled' : null,
+          enhancedRouting.enableMultiAgent ? 'Multi-agent enabled' : null
+        ].filter(Boolean) as string[],
+        totalProcessingTimeMs: processingTimeMs || 0,
+        totalTokensUsed: 0, // Will be filled by caller
+      };
+      
+      // Add cognitive monitoring results if available
+      if (cognitiveMonitoring) {
+        reasoningMetadata.cognitiveMonitoring = cognitiveMonitoring;
+      }
+    }
+    
     return {
       responseType,
       showInOutputPane,
@@ -325,7 +443,10 @@ export class AIOrchestrator {
       hasResearch: classification.requiresResearch || classification.requiresRealTimeData,
       classification,
       calculationResults: calculations,
-      visualization: visualization || undefined
+      visualization: visualization || undefined,
+      reasoning: reasoningMetadata,
+      cognitiveMonitoring,
+      qualityScore
     };
   }
 
@@ -450,13 +571,15 @@ export class AIOrchestrator {
 
   /**
    * Build enhanced context with calculation results, clarification insights, and chat mode for AI model
+   * Now includes Chain-of-Thought prompt enhancement when enabled
    */
   private buildEnhancedContext(
     query: string,
     classification: QueryClassification,
     calculations: any,
     clarificationAnalysis?: ClarificationAnalysis,
-    chatMode?: string
+    chatMode?: string,
+    enhancedRouting?: EnhancedRoutingDecision | null
   ): string {
     let context = `You are Luca, a pan-global accounting superintelligence and expert CPA/CA advisor. `;
     context += `You are NOT a generic text generation machine. You are a thoughtful, detail-oriented professional who:\n`;
@@ -624,6 +747,13 @@ export class AIOrchestrator {
     context += `- Acknowledges limitations and recommends consulting a licensed professional for final decisions\n`;
     context += `- Proactively identifies additional considerations the user should be aware of\n\n`;
     context += `Remember: You are an expert advisor educating intelligent non-experts. Balance deep expertise with accessibility. Make complex topics understandable without sacrificing accuracy or depth.`;
+    
+    // ADVANCED REASONING: Add Chain-of-Thought prompt enhancement if enabled
+    if (enhancedRouting?.enableChainOfThought && chatMode) {
+      const cotEnhancement = reasoningGovernor.getCoTPromptEnhancement(chatMode);
+      context += cotEnhancement;
+      console.log('[Orchestrator] Chain-of-thought reasoning enabled for', chatMode);
+    }
     
     return context;
   }

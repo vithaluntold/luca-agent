@@ -1,6 +1,7 @@
 import LandingNav from "@/components/LandingNav";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
+import Integrations from "@/components/Integrations";
 import ProfessionalModes from "@/components/ProfessionalModes";
 import ModelArchitecture from "@/components/ModelArchitecture";
 import Pricing from "@/components/Pricing";
@@ -12,6 +13,7 @@ export default function Landing() {
       <LandingNav />
       <Hero />
       <Features />
+      <Integrations />
       <ProfessionalModes />
       <ModelArchitecture />
       <Pricing />

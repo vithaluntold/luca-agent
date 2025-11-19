@@ -181,7 +181,7 @@ export default function TermsOfService() {
                 <div>
                   <p className="font-semibold mb-2">6.1 Service Ownership</p>
                   <p className="text-sm text-foreground/70">
-                    The Service, including all content, features, functionality, software, and design, is owned by FinACEverse 
+                    The Service, including all content, features, functionality, software, and design, is owned by Tekkacel 
                     and is protected by international copyright, trademark, patent, and other intellectual property laws.
                   </p>
                 </div>
@@ -288,9 +288,9 @@ export default function TermsOfService() {
             </Card>
 
             {/* Professional Disclaimer */}
-            <Card className="border-orange-500/50 bg-orange-500/5">
+            <Card className="border-destructive/50 bg-destructive/5">
               <CardHeader>
-                <CardTitle className="text-orange-600 dark:text-orange-400">10. Professional Advice Disclaimer</CardTitle>
+                <CardTitle className="text-destructive">10. Professional Advice Disclaimer</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="font-semibold">
@@ -406,7 +406,7 @@ export default function TermsOfService() {
 
         {/* Corporate Ownership */}
         <div className="text-center py-8 text-sm text-foreground/60">
-          <p>Luca is operated by FinACEverse Inc.</p>
+          <p>Luca is operated by Tekkacel Inc.</p>
         </div>
       </main>
       

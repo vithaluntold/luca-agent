@@ -260,7 +260,7 @@ export default function RefundPolicy() {
 
         {/* Corporate Ownership */}
         <div className="text-center py-8 text-sm text-foreground/60">
-          <p>Luca is operated by FinACEverse Inc.</p>
+          <p>Luca is operated by Tekkacel Inc.</p>
         </div>
       </main>
       

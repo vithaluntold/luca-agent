@@ -17,42 +17,45 @@ export function setupSecurityMiddleware(app: Express) {
   // Trust proxy for rate limiting behind reverse proxy
   app.set('trust proxy', 1);
   
-  // CORS - Environment-specific origin allowlists
+  // CORS - Environment-specific origin allowlists with wildcard support
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  
-  const allowedOrigins = isDevelopment ? [
-    'http://localhost:5000',     // Express server
-    'http://localhost:5173',     // Vite dev server
-    'http://127.0.0.1:5000',
-    'http://127.0.0.1:5173',
-  ] : [
-    // Production: Replit domains only
-    process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
-    process.env.REPL_SLUG && process.env.REPL_OWNER ? 
-      `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : null,
-    process.env.REPL_SLUG && process.env.REPL_OWNER ?
-      `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.dev` : null,
-  ].filter(Boolean) as string[];
   
   app.use(cors({
     origin: (origin, callback) => {
       // Allow same-origin requests (no origin header)
       if (!origin) return callback(null, true);
       
-      // Check if origin is in allowlist
-      const isAllowed = allowedOrigins.some(allowed => origin.startsWith(allowed));
-      
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        // Log blocked origins for debugging
+      try {
+        const originUrl = new URL(origin);
+        const hostname = originUrl.hostname;
+        
+        // Development: Allow localhost and 127.0.0.1
         if (isDevelopment) {
-          console.warn('[CORS] Unknown origin (allowing in dev):', origin);
-          callback(null, true); // Permissive in dev for easier testing
-        } else {
-          console.warn('[CORS] Blocked origin:', origin);
-          callback(new Error('CORS policy: Origin not allowed'));
+          if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return callback(null, true);
+          }
+          // Still allow Replit domains in dev for testing deployed previews
+          if (hostname.endsWith('.repl.co') || hostname.endsWith('.replit.dev')) {
+            return callback(null, true);
+          }
+          // Unknown origin in dev: Allow but warn (helps local testing)
+          console.warn('[CORS] Unknown origin in development:', origin);
+          return callback(null, true);
         }
+        
+        // Production: Strict wildcard matching for Replit domains only
+        if (hostname.endsWith('.repl.co') || hostname.endsWith('.replit.dev')) {
+          return callback(null, true);
+        }
+        
+        // Production: Block unknown origins
+        console.warn('[CORS] Blocked origin in production:', origin);
+        callback(new Error('CORS policy: Origin not allowed'));
+        
+      } catch (err) {
+        // Invalid origin URL
+        console.error('[CORS] Invalid origin URL:', origin);
+        callback(new Error('Invalid origin'));
       }
     },
     credentials: true, // Allow cookies for authenticated origins
@@ -76,12 +79,23 @@ export function setupSecurityMiddleware(app: Express) {
     // Content Security Policy - Split by environment
     contentSecurityPolicy: {
       directives: isDev ? {
-        // Development: Relaxed for Vite HMR
+        // Development: Relaxed for Vite HMR (including ws://)
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite needs eval
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:", "blob:"],
-        connectSrc: ["'self'", "ws://localhost:*", "wss://localhost:*", "http://localhost:*"],
+        connectSrc: [
+          "'self'",
+          "ws://localhost:*",
+          "ws://127.0.0.1:*",
+          "wss://localhost:*",
+          "http://localhost:*",
+          "http://127.0.0.1:*",
+          "https://*.repl.co",
+          "https://*.replit.dev",
+          "wss://*.repl.co",
+          "wss://*.replit.dev"
+        ],
         fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
@@ -90,7 +104,7 @@ export function setupSecurityMiddleware(app: Express) {
         // Production: Strict security
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // Some inline styles needed
+        styleSrc: ["'self'", "'unsafe-inline'"], // TODO: Replace with nonce/hash system
         imgSrc: ["'self'", "data:", "https:", "blob:"],
         connectSrc: [
           "'self'",

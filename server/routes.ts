@@ -125,11 +125,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isDev) console.log('[Auth] Registration successful');
       res.json({ user: userWithoutPassword });
     } catch (error) {
+      // Always log errors with stack traces for debugging, but scrub PII in production
       console.error('[Auth] Registration error:', {
         message: error instanceof Error ? error.message : 'Unknown error',
-        stack: isDev ? (error instanceof Error ? error.stack : undefined) : undefined,
-        // Never log validation errors in production (may contain PII)
-        details: isDev && error instanceof z.ZodError ? error.errors : undefined
+        stack: error instanceof Error ? error.stack : undefined,
+        // Only log validation details in development (may contain PII)
+        validationErrors: isDev && error instanceof z.ZodError ? error.errors : undefined
       });
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });

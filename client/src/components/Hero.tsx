@@ -74,12 +74,6 @@ export default function Hero() {
                 </Button>
               </Link>
             </div>
-            
-            {/* Trust Indicator */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="w-5 h-5 text-success" />
-              <span>Trusted by 5,000+ accounting professionals across 6 countries</span>
-            </div>
           </div>
           
           {/* Right Column - 3-Pane Interface Preview */}

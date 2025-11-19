@@ -138,12 +138,24 @@ const integrations = {
     {
       name: "Razorpay",
       icon: "RP",
-      description: "Payment gateway",
+      description: "Payment gateway for India",
       badge: "Payments",
       features: [
         "Payment reconciliation",
         "Settlement tracking",
         "Refund management"
+      ],
+      available: true
+    },
+    {
+      name: "Cashfree",
+      icon: "CF",
+      description: "India payment gateway",
+      badge: "Payments",
+      features: [
+        "UPI & card payments",
+        "Order management",
+        "Webhook verification"
       ],
       available: true
     }

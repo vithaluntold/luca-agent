@@ -103,16 +103,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // CRITICAL: Explicitly save session before responding
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
-          if (err) {
-            console.error('[Register] Session save error:', err);
-            reject(err);
-          } else {
-            console.log('[Register] Session created successfully:', {
-              userId: user.id,
-              sessionID: req.sessionID
-            });
-            resolve();
-          }
+          if (err) reject(err);
+          else resolve();
         });
       });
       
@@ -187,16 +179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // CRITICAL: Explicitly save session before responding
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
-          if (err) {
-            console.error('[Login] Session save error:', err);
-            reject(err);
-          } else {
-            console.log('[Login] Session created successfully:', {
-              userId: user.id,
-              sessionID: req.sessionID
-            });
-            resolve();
-          }
+          if (err) reject(err);
+          else resolve();
         });
       });
       

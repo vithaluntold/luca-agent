@@ -54,11 +54,8 @@ export class ReasoningGovernor {
     chatMode: string,
     subscriptionTier: string
   ): ReasoningProfile {
-    console.log(`[ReasoningGovernor] Determining profile: chatMode='${chatMode}', tier='${subscriptionTier}', enableCoT=${this.config.enableCoT}`);
-    
     // Free tier always uses fast reasoning (preserves current behavior)
     if (subscriptionTier === 'free') {
-      console.log(`[ReasoningGovernor] Free tier → profile='fast'`);
       return 'fast';
     }
 
@@ -67,7 +64,6 @@ export class ReasoningGovernor {
     // Frontend sends 'deep-research' and 'calculation' as mode names
     if ((chatMode === 'deep-research' || chatMode === 'calculation')) {
       if (this.config.enableCoT) {
-        console.log(`[ReasoningGovernor] CoT mode (${chatMode}) → profile='cot'`);
         return 'cot';
       }
     }
@@ -88,7 +84,6 @@ export class ReasoningGovernor {
     }
 
     // Default: standard fast reasoning (current behavior)
-    console.log(`[ReasoningGovernor] Default → profile='fast'`);
     return 'fast';
   }
 

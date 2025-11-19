@@ -6,6 +6,7 @@ import { AnalyticsProcessor } from "./services/analyticsProcessor";
 import { providerHealthMonitor, aiProviderRegistry, AIProviderName } from "./services/aiProviders";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
+import { normalizeChatMode } from "./services/chatModeNormalizer";
 import { 
   setupSecurityMiddleware,
   authRateLimiter,
@@ -705,14 +706,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const { conversationId, message, profileId, chatMode, documentAttachment } = req.body;
+      const { conversationId, message, profileId, chatMode: rawChatMode, documentAttachment } = req.body;
+      
+      // CRITICAL: Normalize chat mode at request boundary to ensure consistency
+      const chatMode = normalizeChatMode(rawChatMode);
       
       if (!message) {
         return res.status(400).json({ error: "Message required" });
       }
       
       // Log chat mode for debugging
-      if (chatMode && chatMode !== 'standard') {
+      if (chatMode !== 'standard') {
         console.log(`[API] Professional mode selected: ${chatMode}`);
       }
       
@@ -3344,17 +3348,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationId, 
         query, 
         profileId = null,
-        chatMode: rawChatMode = 'standard',
+        chatMode: rawChatMode,
         documentAttachment
       } = req.body;
 
-      // Validate chat mode
-      const knownChatModes = ['standard', 'deep-research', 'checklist', 'workflow', 'audit-plan', 'calculation'];
-      const chatMode = rawChatMode || 'standard';
-      
-      if (chatMode !== 'standard' && !knownChatModes.includes(chatMode)) {
-        console.log(`[SSE] Unknown chat mode '${chatMode}' - passing through to orchestrator`);
-      }
+      // CRITICAL: Normalize chat mode at request boundary to ensure consistency
+      const chatMode = normalizeChatMode(rawChatMode);
 
       // Validate required fields
       if (!query) {
@@ -3499,13 +3498,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await new Promise(resolve => setTimeout(resolve, 10));
         }
 
-        // Build metadata object
+        // Build metadata object (CRITICAL: Include reasoning metadata for auditability)
         const metadata: any = {};
         if (result.metadata.showInOutputPane) {
           metadata.showInOutputPane = true;
         }
         if (result.metadata.visualization) {
           metadata.visualization = result.metadata.visualization;
+        }
+        // CRITICAL FIX: Include advanced reasoning metadata for CoT traces
+        if (result.metadata.reasoning) {
+          metadata.reasoning = result.metadata.reasoning;
+        }
+        if (result.metadata.cognitiveMonitoring) {
+          metadata.cognitiveMonitoring = result.metadata.cognitiveMonitoring;
+        }
+        if (result.metadata.qualityScore !== undefined) {
+          metadata.qualityScore = result.metadata.qualityScore;
         }
 
         // Save assistant message with metadata

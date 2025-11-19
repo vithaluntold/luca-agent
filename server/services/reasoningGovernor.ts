@@ -54,28 +54,33 @@ export class ReasoningGovernor {
     chatMode: string,
     subscriptionTier: string
   ): ReasoningProfile {
+    console.log(`[ReasoningGovernor] Determining profile: chatMode='${chatMode}', tier='${subscriptionTier}', enableCoT=${this.config.enableCoT}`);
+    
     // Free tier always uses fast reasoning (preserves current behavior)
     if (subscriptionTier === 'free') {
+      console.log(`[ReasoningGovernor] Free tier → profile='fast'`);
       return 'fast';
     }
 
     // CRITICAL FIX: Research and Calculate modes ALWAYS benefit from CoT (not just complex)
     // This is the key quality improvement - explicit step-by-step reasoning
-    if ((chatMode === 'research' || chatMode === 'calculate')) {
+    // Frontend sends 'deep-research' and 'calculation' as mode names
+    if ((chatMode === 'deep-research' || chatMode === 'calculation')) {
       if (this.config.enableCoT) {
+        console.log(`[ReasoningGovernor] CoT mode (${chatMode}) → profile='cot'`);
         return 'cot';
       }
     }
 
     // Audit mode can benefit from multi-agent approach for complex cases
-    if (chatMode === 'audit' && classification.complexity === 'complex') {
+    if (chatMode === 'audit-plan' && classification.complexity === 'complex') {
       if (this.config.enableMultiAgent) {
         return 'multi-agent';
       }
     }
 
     // High-stakes financial calculations can use parallel reasoning
-    if (chatMode === 'calculate' && 
+    if (chatMode === 'calculation' && 
         (subscriptionTier === 'professional' || subscriptionTier === 'enterprise')) {
       if (this.config.enableParallelReasoning) {
         return 'parallel';
@@ -83,6 +88,7 @@ export class ReasoningGovernor {
     }
 
     // Default: standard fast reasoning (current behavior)
+    console.log(`[ReasoningGovernor] Default → profile='fast'`);
     return 'fast';
   }
 
@@ -100,10 +106,10 @@ export class ReasoningGovernor {
     
     // Determine which agents to invoke based on chat mode and profile
     const agentsToInvoke: AgentType[] = [];
-    if (profile === 'multi-agent' && chatMode === 'audit') {
+    if (profile === 'multi-agent' && chatMode === 'audit-plan') {
       agentsToInvoke.push('audit', 'compliance');
     }
-    if (profile === 'multi-agent' && chatMode === 'research') {
+    if (profile === 'multi-agent' && chatMode === 'deep-research') {
       agentsToInvoke.push('research', 'validation');
     }
 
@@ -137,7 +143,7 @@ export class ReasoningGovernor {
     }
 
     // Always monitor in Calculate, Audit, and Research modes for paid tiers
-    const regulatedModes = ['calculate', 'audit', 'research'];
+    const regulatedModes = ['calculation', 'audit-plan', 'deep-research'];
     const paidTiers = ['payg', 'plus', 'professional', 'enterprise'];
     
     return regulatedModes.includes(chatMode) && paidTiers.includes(subscriptionTier);
@@ -165,9 +171,10 @@ export class ReasoningGovernor {
   /**
    * Get Chain-of-Thought prompt enhancement
    * Returns additional system prompt to inject
+   * CRITICAL: Frontend sends 'calculation', 'deep-research', 'audit-plan' as mode names
    */
   getCoTPromptEnhancement(chatMode: string): string {
-    if (chatMode === 'calculate') {
+    if (chatMode === 'calculation') {
       return `
 
 IMPORTANT REASONING INSTRUCTIONS:
@@ -187,7 +194,7 @@ Use this format:
 [Your conclusion here]`;
     }
 
-    if (chatMode === 'research') {
+    if (chatMode === 'deep-research') {
       return `
 
 IMPORTANT REASONING INSTRUCTIONS:
@@ -202,7 +209,7 @@ Conduct thorough research with explicit reasoning:
 Cite sources and show confidence levels for each claim.`;
     }
 
-    if (chatMode === 'audit') {
+    if (chatMode === 'audit-plan') {
       return `
 
 IMPORTANT REASONING INSTRUCTIONS:

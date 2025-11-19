@@ -20,6 +20,7 @@ import type { VisualizationData } from '../../shared/types/visualization';
 import { reasoningGovernor } from './reasoningGovernor';
 import { complianceSentinel } from './complianceSentinel';
 import { validationAgent } from './validationAgent';
+import { normalizeChatMode, isCotMode } from './chatModeNormalizer';
 import type { 
   EnhancedRoutingDecision, 
   ReasoningMetadata,
@@ -85,6 +86,9 @@ export class AIOrchestrator {
   ): Promise<OrchestrationResult> {
     const startTime = Date.now();
     
+    // CRITICAL: Normalize chat mode early to ensure consistent naming throughout
+    const chatMode = normalizeChatMode(options?.chatMode);
+    
     // CRITICAL DEBUGGING: Log attachment status immediately
     console.log(`[Orchestrator] processQuery called with attachment:`, options?.attachment ? `YES (${options.attachment.filename})` : 'NO');
     
@@ -102,19 +106,19 @@ export class AIOrchestrator {
     // CRITICAL: CoT for Research/Calculate runs independently of full governor
     // This ensures quality improvement even when other features are disabled
     let enhancedRouting: EnhancedRoutingDecision | null = null;
-    const cotMode = options?.chatMode === 'research' || options?.chatMode === 'calculate';
+    const cotMode = isCotMode(chatMode);
     
     if (reasoningGovernor.isEnabled() || cotMode) {
       enhancedRouting = reasoningGovernor.enhanceRoutingDecision(
         routingDecision,
         classification,
-        options?.chatMode || 'standard',
+        chatMode,
         userTier
       );
       console.log(`[Orchestrator] Reasoning profile: ${enhancedRouting.reasoningProfile}`);
       
       if (cotMode && !enhancedRouting.enableChainOfThought) {
-        console.warn(`[Orchestrator] CoT expected for ${options?.chatMode} but not enabled - check feature flags`);
+        console.warn(`[Orchestrator] CoT expected for ${chatMode} but not enabled - check feature flags`);
       }
     }
     
@@ -203,7 +207,7 @@ export class AIOrchestrator {
       classification,
       calculationResults,
       clarificationAnalysis,
-      options?.chatMode,
+      chatMode,
       enhancedRouting // Pass enhanced routing for CoT prompt enhancement
     );
     
@@ -244,7 +248,7 @@ export class AIOrchestrator {
           query,
           finalResponse,
           {
-            chatMode: options?.chatMode,
+            chatMode,
             uploadedDocuments: options?.attachment ? [options.attachment] : undefined,
             previousMessages: conversationHistory
           }
@@ -316,9 +320,9 @@ export class AIOrchestrator {
     let visualization: VisualizationData | null = null;
     try {
       // For workflow mode, generate workflow diagram; for others, generate charts
-      if (options?.chatMode === 'workflow') {
+      if (chatMode === 'workflow') {
         const { WorkflowGenerator } = await import('./workflowGenerator');
-        visualization = await WorkflowGenerator.generateWorkflowVisualization(finalResponse, options.chatMode);
+        visualization = await WorkflowGenerator.generateWorkflowVisualization(finalResponse, chatMode);
       } else {
         visualization = visualizationGenerator.generateVisualization({
           query,
@@ -343,7 +347,7 @@ export class AIOrchestrator {
       calculationResults,
       options?.attachment,
       visualization,
-      options?.chatMode,
+      chatMode,
       enhancedRouting,
       cognitiveMonitoring,
       qualityScore,

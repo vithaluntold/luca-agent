@@ -6,9 +6,9 @@
 import type { ProviderCapabilities, ReasoningCapability } from '../../shared/types/reasoning';
 
 export const PROVIDER_CAPABILITIES: ProviderCapabilities[] = [
-  // Anthropic Claude
+  // Anthropic Claude (CRITICAL: providerId must match AIProviderName.CLAUDE = 'claude')
   {
-    providerId: 'anthropic',
+    providerId: 'claude',
     modelId: 'claude-3-5-sonnet-20241022',
     capabilities: ['chain-of-thought', 'long-context', 'structured-output', 'function-calling'],
     maxContextTokens: 200000,
@@ -16,9 +16,9 @@ export const PROVIDER_CAPABILITIES: ProviderCapabilities[] = [
     optimalFor: ['research', 'audit', 'complex-reasoning', 'multi-step-analysis']
   },
   
-  // Google Gemini
+  // Google Gemini (CRITICAL: providerId must match AIProviderName.GEMINI = 'gemini')
   {
-    providerId: 'google',
+    providerId: 'gemini',
     modelId: 'gemini-2.0-flash-exp',
     capabilities: ['chain-of-thought', 'long-context', 'multi-modal', 'function-calling'],
     maxContextTokens: 128000,

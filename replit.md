@@ -16,13 +16,20 @@ Luca employs a multi-provider AI architecture with a provider abstraction layer 
 
 **Advanced AI Reasoning System (NEW)**: Luca now implements a sophisticated reasoning architecture designed to surpass ChatGPT quality:
 - **Reasoning Governor**: Orchestrates five reasoning profiles (fast, cot, analytical, multi-agent, parallel) based on query complexity and chat mode
-- **Chain-of-Thought (CoT) Reasoning**: Research and Calculate modes ALWAYS use explicit step-by-step reasoning prompts (enabled by default for paid tiers), with mode-specific templates guiding systematic problem-solving
+- **Chain-of-Thought (CoT) Reasoning**: Research ('deep-research') and Calculate ('calculation') modes ALWAYS use explicit step-by-step reasoning prompts (enabled by default for paid tiers), with mode-specific templates guiding systematic problem-solving
 - **Cognitive Monitoring**: Compliance Sentinel validates responses for hallucinations via claim verification, source grounding, and contradiction detection; Validation Agent checks rule compliance and numeric accuracy
 - **Feature Flags**: Gradual rollout controlled via ENABLE_COT_REASONING (default ON), ENABLE_COMPLIANCE_MONITORING, ENABLE_VALIDATION_AGENT, ENABLE_MULTI_AGENT (all opt-in)
-- **Provider Capability Mapping**: Dynamic detection of which AI models support advanced reasoning (OpenAI O1/O3, Claude 3.7+, Gemini 2.0+)
+- **Provider Capability Mapping**: Dynamic detection of which AI models support advanced reasoning; provider IDs align with AIProviderName enum ('claude', 'gemini', 'openai', etc.)
 - **Quality Scoring**: Every response gets a quality score (0-1) based on compliance checks and validation confidence, with auto-repair hooks for low-quality responses
 - **Reasoning Metadata**: All governor decisions, CoT traces, and monitoring results stored in message metadata for auditability and continuous improvement
 - **Architecture**: Backward compatible design - reasoning governor sits as optional middleware, preserves existing triage/routing, fails gracefully if disabled
+- **Chat Mode Normalization**: Centralized normalization at request boundary ensures consistent mode naming throughout the system; supports legacy mode names ('research' → 'deep-research', 'calculate' → 'calculation', 'audit' → 'audit-plan') for backward compatibility
+
+**Critical Bug Fixes (Nov 19, 2025)**:
+- Fixed chat mode name mismatches: Backend now correctly recognizes 'deep-research', 'calculation', 'audit-plan' instead of legacy names
+- Fixed provider capability registry: Provider IDs now match AIProviderName enum ('claude', 'gemini' instead of 'anthropic', 'google')
+- Fixed metadata persistence: Reasoning metadata (including CoT traces, quality scores, cognitive monitoring) now properly saved to database for all chat endpoints
+- Implemented chat mode normalizer (server/services/chatModeNormalizer.ts) for consistent mode handling across all code paths
 
 The Output Pane features a comprehensive export system with industry-grade financial visualizations and document generation in six formats: TXT, CSV, DOCX, PDF, PPTX, and XLSX. Visualizations are powered by Apache ECharts for advanced charts (Combo, Waterfall, Gauge, KPI Card, DataTable) and Recharts for legacy types (line, bar, pie, area, workflow). Visualization data is stored in `messages.metadata.visualization`. The DocumentExporter service converts markdown and chart data. The system includes search functionality, copy-to-clipboard, and formatted/code view modes.
 

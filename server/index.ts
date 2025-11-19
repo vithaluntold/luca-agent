@@ -1,21 +1,37 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { VirusScanService } from "./services/virusScanService";
 
 const app = express();
 
-const MemoryStoreSession = MemoryStore(session);
-
-// Create session store (export for WebSocket authentication)
-export const sessionStore = new MemoryStoreSession({
-  checkPeriod: 86400000 // Prune expired entries every 24h
-});
-
 // Session secret (export for WebSocket authentication)
 export const SESSION_SECRET = process.env.SESSION_SECRET || 'luca-session-secret-change-in-production';
+
+// Create session store based on environment
+// Development: Use MemoryStore (fast, simple)
+// Production: Use PostgreSQL (persistent, works with autoscaling)
+const createSessionStore = () => {
+  if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
+    const PgStore = connectPg(session);
+    return new PgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+      ttl: 30 * 24 * 60 * 60, // 30 days in seconds
+      tableName: 'sessions',
+    });
+  } else {
+    const MemoryStoreSession = MemoryStore(session);
+    return new MemoryStoreSession({
+      checkPeriod: 86400000 // Prune expired entries every 24h
+    });
+  }
+};
+
+export const sessionStore = createSessionStore();
 
 // Session configuration with hardened security
 app.use(session({
@@ -28,7 +44,6 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     sameSite: 'lax', // Good CSRF protection while allowing normal navigation
-    // domain: undefined, // Set to your domain in production if needed
   },
   store: sessionStore,
   rolling: true, // Reset maxAge on every request (keeps active sessions alive)

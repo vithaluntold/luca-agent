@@ -14,6 +14,16 @@ The user interface features a 3-pane resizable layout: a left pane for conversat
 ### Technical Implementations
 Luca employs a multi-provider AI architecture with a provider abstraction layer and a health monitoring system for dynamic selection and intelligent failover among LLMs. A Professional Requirement Clarification System ensures tailored, jurisdiction-specific advice by detecting context, analyzing missing details, and recognizing accounting nuances. The Query Processing Pipeline uses an Intelligent Query Triage System to classify questions and route them to optimal AI models and advanced financial solvers. Server-Sent Events (SSE) enable real-time streaming chat responses. The platform includes file upload capabilities with a robust document processing pipeline using Azure Document Intelligence (primary) with fallback to pdf-parse text extraction.
 
+**Advanced AI Reasoning System (NEW)**: Luca now implements a sophisticated reasoning architecture designed to surpass ChatGPT quality:
+- **Reasoning Governor**: Orchestrates five reasoning profiles (fast, cot, analytical, multi-agent, parallel) based on query complexity and chat mode
+- **Chain-of-Thought (CoT) Reasoning**: Research and Calculate modes ALWAYS use explicit step-by-step reasoning prompts (enabled by default for paid tiers), with mode-specific templates guiding systematic problem-solving
+- **Cognitive Monitoring**: Compliance Sentinel validates responses for hallucinations via claim verification, source grounding, and contradiction detection; Validation Agent checks rule compliance and numeric accuracy
+- **Feature Flags**: Gradual rollout controlled via ENABLE_COT_REASONING (default ON), ENABLE_COMPLIANCE_MONITORING, ENABLE_VALIDATION_AGENT, ENABLE_MULTI_AGENT (all opt-in)
+- **Provider Capability Mapping**: Dynamic detection of which AI models support advanced reasoning (OpenAI O1/O3, Claude 3.7+, Gemini 2.0+)
+- **Quality Scoring**: Every response gets a quality score (0-1) based on compliance checks and validation confidence, with auto-repair hooks for low-quality responses
+- **Reasoning Metadata**: All governor decisions, CoT traces, and monitoring results stored in message metadata for auditability and continuous improvement
+- **Architecture**: Backward compatible design - reasoning governor sits as optional middleware, preserves existing triage/routing, fails gracefully if disabled
+
 The Output Pane features a comprehensive export system with industry-grade financial visualizations and document generation in six formats: TXT, CSV, DOCX, PDF, PPTX, and XLSX. Visualizations are powered by Apache ECharts for advanced charts (Combo, Waterfall, Gauge, KPI Card, DataTable) and Recharts for legacy types (line, bar, pie, area, workflow). Visualization data is stored in `messages.metadata.visualization`. The DocumentExporter service converts markdown and chart data. The system includes search functionality, copy-to-clipboard, and formatted/code view modes.
 
 AI responses are designed for accessibility, starting with plain-language summaries, defining technical terms, using analogies, and structuring information clearly. This applies to all 6 chat modes (Standard, Research, Checklist, Workflow, Audit, Calculate).

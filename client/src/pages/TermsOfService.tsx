@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Shield, AlertTriangle, Scale } from "lucide-react";
+import tekkacelLogo from "@assets/logo (1)_1763537745161.png";
 
 export default function TermsOfService() {
   return (
@@ -405,8 +406,10 @@ export default function TermsOfService() {
         </div>
 
         {/* Corporate Ownership */}
-        <div className="text-center py-8 text-sm text-foreground/60">
-          <p>Luca is operated by Tekkacel.</p>
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-foreground/60">
+          <p>Luca is operated by</p>
+          <img src={tekkacelLogo} alt="Tekkacel" className="h-4 w-auto" />
+          <p>Tekkacel.</p>
         </div>
       </main>
       

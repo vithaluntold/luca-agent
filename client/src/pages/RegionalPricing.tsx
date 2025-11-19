@@ -12,6 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import tekkacelLogo from "@assets/logo (1)_1763537745161.png";
 
 type Region = "usa" | "canada" | "india" | "uae" | "indonesia" | "turkey";
 
@@ -373,8 +374,10 @@ export default function RegionalPricing() {
         </div>
 
         {/* Corporate Ownership */}
-        <div className="text-center py-8 text-sm text-foreground/60">
-          <p>Luca is operated by Tekkacel.</p>
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-foreground/60">
+          <p>Luca is operated by</p>
+          <img src={tekkacelLogo} alt="Tekkacel" className="h-4 w-auto" />
+          <p>Tekkacel.</p>
         </div>
       </main>
       

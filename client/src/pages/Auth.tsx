@@ -59,6 +59,17 @@ export default function Auth() {
     } catch (error: any) {
       const message = error.message || "Authentication failed";
       
+      // For signup, show specific validation errors
+      if (mode === 'register') {
+        toast({
+          variant: "destructive",
+          title: "Signup Failed",
+          description: message
+        });
+        return;
+      }
+      
+      // Login-specific error handling below
       // Check for MFA requirement
       if (message.includes("MFA") || message.includes("two-factor") || message.includes("verification")) {
         setRequireMfa(true);
@@ -86,10 +97,10 @@ export default function Auth() {
         setLockoutMessage(undefined);
       }
       
-      // Display appropriate error (generic message for security)
+      // Display generic error for login (security best practice)
       toast({
         variant: "destructive",
-        title: "Authentication Error",
+        title: "Login Failed",
         description: "Invalid email or password. Please try again."
       });
     }

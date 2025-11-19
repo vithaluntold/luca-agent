@@ -374,11 +374,9 @@ export default function RegionalPricing() {
         </div>
 
         {/* Corporate Ownership */}
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-foreground/60">
-          <p>Luca is operated by</p>
-          <img src={tekkacelLogo} alt="Tekkacel" className="h-4 w-auto" />
-          <p>Tekkacel.</p>
-        </div>
+        <p className="text-center py-8 text-sm text-foreground/60 flex items-center justify-center gap-2">
+          Luca is operated by <img src={tekkacelLogo} alt="Tekkacel" className="h-4 w-auto" /> Tekkacel.
+        </p>
       </main>
       
       <Footer />

@@ -79,12 +79,9 @@ export default function Footer() {
         </div>
         
         <div className="pt-10 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
-          <div className="flex items-center gap-2">
-            <img src={tekkacelLogo} alt="Tekkacel" className="h-5 w-auto" />
-            <p className="text-sm font-semibold text-foreground/80">
-              &copy; 2025 Tekkacel. All rights reserved.
-            </p>
-          </div>
+          <p className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+            &copy; 2025 <img src={tekkacelLogo} alt="Tekkacel" className="h-5 w-auto" /> Tekkacel. All rights reserved.
+          </p>
           <div className="flex gap-6 text-xs text-foreground/60">
             <Link href="/refund-policy" className="hover:text-foreground transition-smooth" data-testid="link-footer-refund">Refund Policy</Link>
             <Link href="/shipping-policy" className="hover:text-foreground transition-smooth" data-testid="link-footer-shipping">Shipping Policy</Link>

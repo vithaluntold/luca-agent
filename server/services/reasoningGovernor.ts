@@ -15,11 +15,14 @@ import type {
 } from '../../shared/types/reasoning';
 import { supportsChainOfThought } from './providerCapabilities';
 
-// Feature flags - can be controlled via environment or user tier
+// Feature flags - aligned with documented names
+// CoT is enabled by default (just better prompting, no extra cost)
+// Monitoring and multi-agent are opt-in (require extra API calls)
 const FEATURE_FLAGS = {
-  ENABLE_CHAIN_OF_THOUGHT: process.env.ENABLE_COT === 'true' || false,
+  ENABLE_CHAIN_OF_THOUGHT: process.env.ENABLE_COT_REASONING !== 'false', // Default ON
   ENABLE_MULTI_AGENT: process.env.ENABLE_MULTI_AGENT === 'true' || false,
-  ENABLE_COGNITIVE_MONITORING: process.env.ENABLE_COGNITIVE_MONITORING === 'true' || false,
+  ENABLE_COGNITIVE_MONITORING: process.env.ENABLE_COMPLIANCE_MONITORING === 'true' || 
+                              process.env.ENABLE_VALIDATION_AGENT === 'true' || false,
   ENABLE_PARALLEL_REASONING: process.env.ENABLE_PARALLEL_REASONING === 'true' || false,
 };
 
@@ -42,6 +45,9 @@ export class ReasoningGovernor {
   /**
    * Determine reasoning profile based on query classification and chat mode
    * This is the main decision point that doesn't break existing routing
+   * 
+   * CRITICAL: Research and Calculate modes ALWAYS use CoT (when enabled)
+   * regardless of complexity - this is how we surpass ChatGPT quality
    */
   determineReasoningProfile(
     classification: any,
@@ -53,15 +59,15 @@ export class ReasoningGovernor {
       return 'fast';
     }
 
-    // Complex queries in Research or Calculate modes benefit from CoT
-    if ((chatMode === 'research' || chatMode === 'calculate') && 
-        classification.complexity === 'complex') {
+    // CRITICAL FIX: Research and Calculate modes ALWAYS benefit from CoT (not just complex)
+    // This is the key quality improvement - explicit step-by-step reasoning
+    if ((chatMode === 'research' || chatMode === 'calculate')) {
       if (this.config.enableCoT) {
         return 'cot';
       }
     }
 
-    // Audit mode can benefit from multi-agent approach
+    // Audit mode can benefit from multi-agent approach for complex cases
     if (chatMode === 'audit' && classification.complexity === 'complex') {
       if (this.config.enableMultiAgent) {
         return 'multi-agent';
@@ -102,15 +108,15 @@ export class ReasoningGovernor {
     }
 
     // Check if selected model supports CoT
-    const modelSupportsCoT = supportsChainOfThought(
-      existingDecision.selectedModel.split('-')[0], // provider from model name
-      existingDecision.selectedModel
-    );
+    // CRITICAL FIX: Normalize routing decision fields with fallbacks
+    const provider = existingDecision.preferredProvider || 'openai'; // Default to openai
+    const modelName = existingDecision.primaryModel || existingDecision.selectedModel || 'gpt-4o-mini';
+    const modelSupportsCoT = supportsChainOfThought(provider, modelName);
 
     return {
-      selectedModel: existingDecision.selectedModel,
+      selectedModel: modelName,
       reasoning: existingDecision.reasoning,
-      fallbackModels: existingDecision.fallbackModels,
+      fallbackModels: existingDecision.fallbackProviders || existingDecision.fallbackModels || [],
       reasoningProfile: profile,
       enableChainOfThought: profile === 'cot' && modelSupportsCoT && this.config.enableCoT,
       enableMultiAgent: profile === 'multi-agent' && this.config.enableMultiAgent,

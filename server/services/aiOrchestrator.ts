@@ -99,9 +99,12 @@ export class AIOrchestrator {
     const routingDecision = queryTriageService.routeQuery(classification, userTier);
     
     // Step 2.5: ADVANCED REASONING - Enhance routing decision with reasoning profile
-    // This is feature-flagged and backward compatible
+    // CRITICAL: CoT for Research/Calculate runs independently of full governor
+    // This ensures quality improvement even when other features are disabled
     let enhancedRouting: EnhancedRoutingDecision | null = null;
-    if (reasoningGovernor.isEnabled()) {
+    const cotMode = options?.chatMode === 'research' || options?.chatMode === 'calculate';
+    
+    if (reasoningGovernor.isEnabled() || cotMode) {
       enhancedRouting = reasoningGovernor.enhanceRoutingDecision(
         routingDecision,
         classification,
@@ -109,6 +112,10 @@ export class AIOrchestrator {
         userTier
       );
       console.log(`[Orchestrator] Reasoning profile: ${enhancedRouting.reasoningProfile}`);
+      
+      if (cotMode && !enhancedRouting.enableChainOfThought) {
+        console.warn(`[Orchestrator] CoT expected for ${options?.chatMode} but not enabled - check feature flags`);
+      }
     }
     
     // PHASE 0: Requirement Clarification Analysis
@@ -218,12 +225,17 @@ export class AIOrchestrator {
     let finalResponse = aiResponse.content;
     
     // Step 5.5: ADVANCED REASONING - Cognitive Monitoring & Validation
-    // Run compliance checks and validation (feature-flagged, backward compatible)
+    // CRITICAL: Monitoring runs independently of CoT - separate feature flags
+    // This ensures quality checks even when advanced reasoning is disabled
     let cognitiveMonitoring: CognitiveMonitorResult | undefined;
     let validationResult: any | undefined;
     let qualityScore = 1.0;
     
-    if (enhancedRouting?.enableCognitiveMonitoring) {
+    const shouldMonitor = enhancedRouting?.enableCognitiveMonitoring || 
+                         (process.env.ENABLE_COMPLIANCE_MONITORING === 'true' || 
+                          process.env.ENABLE_VALIDATION_AGENT === 'true');
+    
+    if (shouldMonitor) {
       try {
         console.log('[Orchestrator] Running compliance monitoring...');
         

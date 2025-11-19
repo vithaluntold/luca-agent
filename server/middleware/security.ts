@@ -27,7 +27,7 @@ export function setupSecurityMiddleware(app: Express) {
       
       try {
         const originUrl = new URL(origin);
-        const hostname = originUrl.hostname;
+        const hostname = originUrl.hostname.toLowerCase(); // Normalize to lowercase
         
         // Development: Allow localhost and 127.0.0.1
         if (isDevelopment) {

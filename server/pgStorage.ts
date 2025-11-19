@@ -26,7 +26,6 @@ import {
   type Conversation,
   type Message,
   type InsertUser,
-  type UpsertUser,
   type InsertConversation,
   type InsertMessage,
   type UserLLMConfig,
@@ -62,21 +61,6 @@ export class PostgresStorage implements IStorage {
 
   async createUser(data: InsertUser): Promise<User> {
     const result = await db.insert(users).values(data).returning();
-    return result[0];
-  }
-
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const result = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
     return result[0];
   }
 

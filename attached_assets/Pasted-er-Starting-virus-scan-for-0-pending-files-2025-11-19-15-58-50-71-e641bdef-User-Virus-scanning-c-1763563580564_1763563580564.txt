@@ -1,0 +1,111 @@
+er
+Starting virus scan for 0 pending files...
+
+2025-11-19 15:58:50.71
+e641bdef
+User
+Virus scanning complete
+2025-11-19 15:58:50.71
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:03:50.64
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:03:50.64
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:06:06.50
+e641bdef
+User
+10:36:06 AM [express] POST /api/chat/stream 401 in 5ms :: {"error":"Authentication required"}
+2025-11-19 16:06:20.98
+e641bdef
+User
+10:36:20 AM [express] POST /api/chat/stream 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:06:32.76
+e641bdef
+User
+10:36:32 AM [express] POST /api/chat/stream 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:08:50.51
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:08:50.51
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:10:25.80
+e641bdef
+User
+10:40:25 AM [express] POST /api/chat/stream 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:10:31.51
+e641bdef
+User
+10:40:31 AM [express] GET /api/conversations 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:10:31.51
+e641bdef
+User
+10:40:31 AM [express] GET /api/profiles 401 in 0ms :: {"error":"Authentication required"}
+2025-11-19 16:10:33.73
+e641bdef
+User
+10:40:33 AM [express] POST /api/chat/stream 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:10:46.81
+e641bdef
+User
+10:40:46 AM [express] POST /api/chat/upload-file 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:13:50.50
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:13:50.50
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:18:12.81
+e641bdef
+User
+10:48:12 AM [express] POST /api/chat/stream 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:18:50.69
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:18:50.69
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:23:50.86
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:23:50.86
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:28:51.37
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:28:51.37
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:33:50.40
+e641bdef
+User
+Virus scanning complete
+2025-11-19 16:33:50.40
+e641bdef
+User
+Starting virus scan for 0 pending files...
+2025-11-19 16:37:00.84
+e641bdef
+User
+11:07:00 AM [express] POST /api/chat/stream 401 in 1ms :: {"error":"Authentication required"}
+2025-11-19 16:38:50.99
+e641bdef
+User
+Starting virus scan for 0 pending files...

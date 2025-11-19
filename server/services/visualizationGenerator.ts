@@ -326,10 +326,11 @@ export class VisualizationGenerator {
    */
   private extractNarrativeData(response: string): Array<Record<string, any>> | null {
     // Look for bullet point lists with numerical data
+    // Exclude numbered list markers (1., 2., 3., etc.) to avoid false positives
     const bulletPattern = /[•\-*]\s*([^:]+):\s*\$?([0-9,]+(?:\.[0-9]+)?)/g;
     const matches = Array.from(response.matchAll(bulletPattern));
     
-    if (matches.length < 2) {
+    if (matches.length < 3) { // Require at least 3 data points for meaningful chart
       return null;
     }
     
@@ -339,13 +340,43 @@ export class VisualizationGenerator {
       const label = match[1].trim();
       const value = parseFloat(match[2].replace(/,/g, ''));
       
+      // Skip if this looks like a numbered list item (e.g., "1. Information Request")
+      if (/^[0-9]+[\.\)]?\s/.test(label)) {
+        continue;
+      }
+      
+      // Skip non-numeric or unreasonably small values
+      if (isNaN(value) || value < 10) {
+        continue;
+      }
+      
       data.push({
         name: label,
         value: value
       });
     }
     
-    return data.length > 0 ? data : null;
+    // Additional validation: check if data has meaningful variation
+    if (data.length < 3) {
+      return null;
+    }
+    
+    // Check if values are just sequential (1, 2, 3, etc.) - likely not real data
+    const values = data.map(d => d.value);
+    const isSequential = values.every((val, idx) => idx === 0 || val === values[idx - 1] + 1);
+    if (isSequential) {
+      return null;
+    }
+    
+    // Check for minimum value variation (at least 20% difference between min and max)
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const variation = (maxValue - minValue) / maxValue;
+    if (variation < 0.2) {
+      return null; // Not enough variation to make visualization meaningful
+    }
+    
+    return data;
   }
 
   /**

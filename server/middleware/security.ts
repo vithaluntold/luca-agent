@@ -1,9 +1,11 @@
 import helmet from 'helmet';
+import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import type { Express } from 'express';
 
 /**
  * Military-grade security middleware
+ * - CORS for cross-origin requests
  * - Helmet for HTTP security headers
  * - Rate limiting to prevent abuse
  * - Content Security Policy
@@ -15,6 +17,34 @@ export function setupSecurityMiddleware(app: Express) {
   // Trust proxy for rate limiting behind reverse proxy
   app.set('trust proxy', 1);
   
+  // CORS - Allow credentials and configure origins
+  const allowedOrigins = [
+    'http://localhost:5000',
+    'http://localhost:5173', // Vite dev server
+    process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
+    process.env.REPL_SLUG && process.env.REPL_OWNER ? 
+      `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : null,
+  ].filter(Boolean) as string[];
+  
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin is allowed
+      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS policy: Origin not allowed'));
+      }
+    },
+    credentials: true, // Allow cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'],
+    maxAge: 86400 // 24 hours
+  }));
+  
   // Helmet - Security headers
   app.use(helmet({
     // HTTP Strict Transport Security (HSTS)
@@ -24,14 +54,14 @@ export function setupSecurityMiddleware(app: Express) {
       preload: true
     },
     
-    // Content Security Policy
+    // Content Security Policy - Allow API requests
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Vite requires unsafe-inline in dev
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // unsafe-eval needed for Vite
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: ["'self'", "https://*.repl.co", "https://*.replit.dev", "wss://*.repl.co"],
         fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],

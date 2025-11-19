@@ -3316,9 +3316,235 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SSE Chat Streaming endpoint - replaces WebSocket
+  app.post("/api/chat/stream", chatRateLimiter, requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      const { 
+        conversationId, 
+        query, 
+        profileId = null,
+        chatMode: rawChatMode = 'standard',
+        documentAttachment
+      } = req.body;
+
+      // Validate chat mode
+      const knownChatModes = ['standard', 'deep-research', 'checklist', 'workflow', 'audit-plan', 'calculation'];
+      const chatMode = rawChatMode || 'standard';
+      
+      if (chatMode !== 'standard' && !knownChatModes.includes(chatMode)) {
+        console.log(`[SSE] Unknown chat mode '${chatMode}' - passing through to orchestrator`);
+      }
+
+      // Validate required fields
+      if (!query) {
+        return res.status(400).json({ error: 'Missing query' });
+      }
+
+      // Get user tier for routing
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+      const userTier = user.subscriptionTier;
+
+      // Process document attachment if present
+      let attachmentBuffer: Buffer | undefined;
+      let attachmentMetadata: { filename: string; mimeType: string; documentType?: string } | undefined;
+      
+      if (documentAttachment) {
+        const ALLOWED_MIME_TYPES = [
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg',
+          'image/tiff',
+          'image/tif',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv',
+          'text/plain'
+        ];
+        const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
+        if (!ALLOWED_MIME_TYPES.includes(documentAttachment.type)) {
+          return res.status(400).json({ 
+            error: 'Invalid file type. Allowed types: PDF, PNG, JPEG, TIFF, Excel (XLSX, XLS), CSV, TXT' 
+          });
+        }
+
+        attachmentBuffer = Buffer.from(documentAttachment.data, 'base64');
+
+        if (attachmentBuffer.byteLength > MAX_SIZE_BYTES) {
+          return res.status(400).json({ error: 'File too large. Maximum size is 10MB' });
+        }
+
+        attachmentMetadata = {
+          filename: documentAttachment.filename,
+          mimeType: documentAttachment.type,
+          documentType: documentAttachment.type
+        };
+
+        console.log(`[SSE] Document attachment validated: ${documentAttachment.filename} (${attachmentBuffer.byteLength} bytes)`);
+      }
+
+      // Get or create conversation
+      let conversation;
+      if (conversationId) {
+        conversation = await storage.getConversation(conversationId);
+        if (!conversation || conversation.userId !== userId) {
+          return res.status(403).json({ error: 'Conversation not found or unauthorized' });
+        }
+      } else {
+        conversation = await storage.createConversation({
+          userId,
+          title: query.substring(0, 50),
+          profileId
+        });
+      }
+
+      // Get conversation history
+      const history = await storage.getConversationMessages(conversation.id);
+      const conversationHistory = history.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      }));
+
+      // Save user message
+      const userMessage = await storage.createMessage({
+        conversationId: conversation.id,
+        role: 'user',
+        content: query,
+        modelUsed: null,
+        routingDecision: null,
+        calculationResults: null,
+        tokensUsed: null
+      });
+
+      // Process user message analytics (non-blocking)
+      AnalyticsProcessor.processMessage({
+        messageId: userMessage.id,
+        conversationId: conversation.id,
+        userId,
+        role: 'user',
+        content: query,
+        previousMessages: conversationHistory
+      }).catch(err => console.error('[SSE] Analytics error:', err));
+
+      // Set up Server-Sent Events
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+      // Helper function to send SSE messages
+      const sendSSE = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // Send start signal
+      sendSSE({
+        type: 'start',
+        conversationId: conversation.id,
+        messageId: userMessage.id
+      });
+
+      try {
+        // Process query and get response
+        const result = await aiOrchestrator.processQuery(
+          query,
+          conversationHistory,
+          userTier,
+          { 
+            chatMode,
+            attachment: attachmentBuffer && attachmentMetadata ? {
+              buffer: attachmentBuffer,
+              filename: attachmentMetadata.filename,
+              mimeType: attachmentMetadata.mimeType,
+              documentType: attachmentMetadata.documentType
+            } : undefined
+          }
+        );
+
+        const fullResponse = result.response;
+
+        // Stream response in chunks
+        const chunkSize = 50;
+        for (let i = 0; i < fullResponse.length; i += chunkSize) {
+          const chunk = fullResponse.slice(i, i + chunkSize);
+          sendSSE({
+            type: 'chunk',
+            content: chunk
+          });
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        // Build metadata object
+        const metadata: any = {};
+        if (result.metadata.showInOutputPane) {
+          metadata.showInOutputPane = true;
+        }
+        if (result.metadata.visualization) {
+          metadata.visualization = result.metadata.visualization;
+        }
+
+        // Save assistant message with metadata
+        const assistantMessage = await storage.createMessage({
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: fullResponse,
+          modelUsed: result.modelUsed,
+          routingDecision: result.routingDecision,
+          calculationResults: result.calculationResults,
+          tokensUsed: result.tokensUsed,
+          metadata: Object.keys(metadata).length > 0 ? metadata : null
+        });
+
+        // Process assistant message analytics (non-blocking)
+        AnalyticsProcessor.processMessage({
+          messageId: assistantMessage.id,
+          conversationId: conversation.id,
+          userId,
+          role: 'assistant',
+          content: fullResponse,
+          previousMessages: [...conversationHistory, { role: 'user', content: query }]
+        }).catch(err => console.error('[SSE] Analytics error:', err));
+
+        // Send end signal with metadata
+        sendSSE({
+          type: 'end',
+          messageId: assistantMessage.id,
+          metadata: {
+            tokensUsed: result.tokensUsed,
+            modelUsed: result.modelUsed,
+            processingTimeMs: result.processingTimeMs,
+            showInOutputPane: result.metadata.showInOutputPane,
+            visualization: result.metadata.visualization
+          }
+        });
+
+        res.end();
+      } catch (error: any) {
+        console.error('[SSE] Chat stream error:', error);
+        sendSSE({
+          type: 'error',
+          error: error.message || 'An error occurred while processing your request'
+        });
+        res.end();
+      }
+    } catch (error: any) {
+      console.error('[SSE] Request error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: error.message || 'Internal server error' });
+      } else {
+        res.end();
+      }
+    }
+  });
+
   const httpServer = createServer(app);
   
-  // Setup WebSocket server for real-time chat streaming
+  // Setup WebSocket server for real-time chat streaming (will be removed)
   setupWebSocket(httpServer);
   
   return httpServer;

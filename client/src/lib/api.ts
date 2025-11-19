@@ -112,6 +112,109 @@ export const conversationApi = {
 };
 
 export const chatApi = {
+  // SSE Streaming version
+  streamMessage: async (
+    data: { 
+      conversationId?: string; 
+      query: string; 
+      profileId?: string | null;
+      chatMode?: string;
+      documentAttachment?: {
+        data: string;
+        type: string;
+        filename: string;
+      };
+    },
+    callbacks: {
+      onStart?: (conversationId: string) => void;
+      onChunk?: (content: string) => void;
+      onEnd?: (metadata: any) => void;
+      onError?: (error: string) => void;
+    }
+  ) => {
+    const response = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: data.query,
+        conversationId: data.conversationId,
+        profileId: data.profileId,
+        chatMode: data.chatMode,
+        documentAttachment: data.documentAttachment,
+      }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullContent = '';
+    let currentConversationId: string | undefined;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          
+          try {
+            const event = JSON.parse(data);
+
+            switch (event.type) {
+              case 'start':
+                if (event.conversationId) {
+                  currentConversationId = event.conversationId;
+                  callbacks.onStart?.(event.conversationId);
+                }
+                break;
+
+              case 'chunk':
+                if (event.content) {
+                  fullContent += event.content;
+                  callbacks.onChunk?.(event.content);
+                }
+                break;
+
+              case 'end':
+                callbacks.onEnd?.(event.metadata);
+                break;
+
+              case 'error':
+                callbacks.onError?.(event.error || 'An error occurred');
+                break;
+            }
+          } catch (parseError) {
+            console.error('[chatApi] Failed to parse SSE message:', parseError);
+          }
+        }
+      }
+    }
+
+    return {
+      conversationId: currentConversationId,
+      content: fullContent,
+    };
+  },
+
+  // Legacy non-streaming version (kept for compatibility)
   sendMessage: async (data: { 
     conversationId?: string; 
     message: string; 

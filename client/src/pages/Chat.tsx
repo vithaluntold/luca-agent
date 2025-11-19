@@ -285,43 +285,65 @@ export default function Chat() {
       // Preserve user's text message and send file data separately
       const messageContent = content.trim() || (fileData ? 'Please analyze this document' : '');
       
-      return chatApi.sendMessage({
+      // Add a streaming placeholder message
+      const streamingId = 'streaming-' + Date.now();
+      setMessages(prev => [...prev.filter(m => m.id !== 'uploading-temp'), {
+        id: streamingId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      
+      // Use SSE streaming
+      const result = await chatApi.streamMessage({
         conversationId: activeConversation,
-        message: messageContent,
+        query: messageContent,
         profileId: profileIdToUse,
         chatMode: chatMode,
         documentAttachment: fileData ? {
           data: fileData.base64Data,
-          type: fileData.type, // MIME type (e.g., application/pdf)
+          type: fileData.type,
           filename: fileData.name
         } : undefined
+      }, {
+        onStart: (convId) => {
+          if (!activeConversation) {
+            setActiveConversation(convId);
+          }
+        },
+        onChunk: (chunk) => {
+          setMessages(prev => prev.map(msg => 
+            msg.id === streamingId 
+              ? { ...msg, content: msg.content + chunk }
+              : msg
+          ));
+        },
+        onEnd: (metadata) => {
+          // Store metadata for visualization
+          if (metadata) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === streamingId 
+                ? { ...msg, metadata }
+                : msg
+            ));
+          }
+        },
+        onError: (error) => {
+          throw new Error(error);
+        }
       });
+      
+      return result;
     },
-    onSuccess: (data) => {
-      if (!activeConversation) {
-        setActiveConversation(data.conversationId);
-      }
-      
-      // Remove temporary "uploading/analyzing" message and add actual response
-      setMessages(prev => {
-        const filtered = prev.filter(msg => msg.id !== 'uploading-temp');
-        return [...filtered, {
-          id: data.message.id,
-          role: 'assistant',
-          content: data.message.content,
-          timestamp: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          metadata: data.metadata.calculationResults
-        }];
-      });
-      
+    onSuccess: () => {
       // Clear selected file after successful send
       setSelectedFile(null);
       
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
     onError: (error: any) => {
-      // Remove temporary "uploading/analyzing" message on error
-      setMessages(prev => prev.filter(msg => msg.id !== 'uploading-temp'));
+      // Remove temporary messages on error
+      setMessages(prev => prev.filter(msg => !msg.id.startsWith('uploading-') && !msg.id.startsWith('streaming-')));
       
       toast({
         variant: "destructive",

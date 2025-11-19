@@ -1,0 +1,68 @@
+============================================================
+                ASSISTANT — TECHNICAL FUNCTIONAL SPEC
+                (high-level, non-introspective)
+============================================================
+
+1) MODEL BACKBONE (inference-time view)
+   - Tokenizer
+     - Byte/Unicode-level tokenization (BPE/byte-level variant).
+     - Vocabulary + special tokens (system, user, tool markers).
+
+   - Input embedding
+     - Token embeddings + positional embeddings / rotary encodings.
+     - Possible prefix embeddings for system/instruction context.
+
+   - Transformer stack (decoder-style or decoder-heavy architecture)
+     - Repeated layers: Multi-head self-attention → layer norm → feed-forward (GLU/SwiGlu/GeLU) → residuals.
+     - Attention variants: dense causal attention; optionally sparse or sliding-window for very long contexts.
+     - Cross-attention modules appear when conditioning on retrieval or tool outputs.
+
+   - Output head
+     - Linear projection → softmax over token vocabulary.
+     - Temperature, top-k/top-p sampling or deterministic (greedy/beam) decoding.
+
+2) TRAINING & ALIGNMENT (functional view)
+   - Pretraining
+     - Large-scale unsupervised language modeling on mixed corpora (web, books, code, dialogue datasets).
+     - Objective: next-token prediction (likelihood maximization) with data filtering and deduplication.
+
+   - Fine-tuning / Instruction tuning
+     - Supervised fine-tuning on human-written instruction→response pairs.
+     - Instruction datasets curated for helpfulness, style, and task coverage.
+
+   - Alignment & safety
+     - Reinforcement fine-tuning (RLHF / RL from human preferences or variants) to align output to human judgments.
+     - Additional ranking/classifier layers or safety filters to block disallowed content.
+     - System prompt & guardrails applied at runtime to constrain behavior.
+
+3) EXTENSIONS / PRODUCTION FEATURES
+   - Retrieval-Augmented Generation (RAG)
+     - External retrievers (dense/sparse vector DB) + context concatenation or fusion layers.
+     - Retrieval + grounding to reduce hallucination; hybrid caching for expensive queries.
+
+   - Tooling / API integrations
+     - Tool call interface (structured “tool name + args”) with deterministic handler execution.
+     - Plugins / connectors (search, DB, calculators, code execution) and result re-ingestion.
+
+   - Long Context handling
+     - Chunking, hierarchical attention, or extended context attention (window sizes configurable; may use summary / condensation).
+     - Memory layers: session memory vs ephemeral turn storage.
+
+4) SERVING INFRASTRUCTURE
+   - Sharding & parallelism: tensor/model/data parallel strategies for large models.
+   - Quantization & kernel optimizations: int8/4, operator fusion for latency & cost reduction.
+   - Observability: telemetry, token-level logging (redacted), latency & error metrics.
+   - Safety pipeline: policy filters, classifier retest, human escalation for edge cases.
+   - Rate limiting, access control, enterprise features (longer context, audit logs).
+
+5) EVALUATION AND LIFECYCLE
+   - Continuous testing: benchmarks (LLM eval suites), adversarial tests, red-team results.
+   - Monitoring drift: performance on critical tasks, safety regressions.
+   - Iterative updates: retraining, fine-tuning, calibration of safety classifiers.
+
+6) LIMITS & GUARANTEES (what this functional spec does not include)
+   - No exposure of internal token-by-token latent activations or chain-of-thought traces.
+   - No privileged access to private user data outside the current session.
+   - No claims about exact parameter counts, private training examples, or proprietary optimizer internals.
+
+============================================================

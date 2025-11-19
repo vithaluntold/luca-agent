@@ -115,10 +115,9 @@ export class AIOrchestrator {
         chatMode,
         userTier
       );
-      console.log(`[Orchestrator] Reasoning profile: ${enhancedRouting.reasoningProfile}`);
       
       if (cotMode && !enhancedRouting.enableChainOfThought) {
-        console.warn(`[Orchestrator] CoT expected for ${chatMode} but not enabled - check feature flags`);
+        console.warn(`[AIOrchestrator] CoT expected for ${chatMode} but not enabled - check feature flags`);
       }
     }
     

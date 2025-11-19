@@ -17,55 +17,93 @@ export function setupSecurityMiddleware(app: Express) {
   // Trust proxy for rate limiting behind reverse proxy
   app.set('trust proxy', 1);
   
-  // CORS - Allow credentials and configure origins
-  const allowedOrigins = [
-    'http://localhost:5000',
-    'http://localhost:5173', // Vite dev server
+  // CORS - Environment-specific origin allowlists
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  const allowedOrigins = isDevelopment ? [
+    'http://localhost:5000',     // Express server
+    'http://localhost:5173',     // Vite dev server
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:5173',
+  ] : [
+    // Production: Replit domains only
     process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
     process.env.REPL_SLUG && process.env.REPL_OWNER ? 
       `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : null,
+    process.env.REPL_SLUG && process.env.REPL_OWNER ?
+      `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.dev` : null,
   ].filter(Boolean) as string[];
   
   app.use(cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
+      // Allow same-origin requests (no origin header)
       if (!origin) return callback(null, true);
       
-      // Check if origin is allowed
-      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+      // Check if origin is in allowlist
+      const isAllowed = allowedOrigins.some(allowed => origin.startsWith(allowed));
+      
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error('CORS policy: Origin not allowed'));
+        // Log blocked origins for debugging
+        if (isDevelopment) {
+          console.warn('[CORS] Unknown origin (allowing in dev):', origin);
+          callback(null, true); // Permissive in dev for easier testing
+        } else {
+          console.warn('[CORS] Blocked origin:', origin);
+          callback(new Error('CORS policy: Origin not allowed'));
+        }
       }
     },
-    credentials: true, // Allow cookies to be sent
+    credentials: true, // Allow cookies for authenticated origins
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['Set-Cookie'],
-    maxAge: 86400 // 24 hours
+    maxAge: isDevelopment ? 600 : 86400, // 10min dev, 24h prod
   }));
   
-  // Helmet - Security headers
+  // Helmet - Security headers (environment-specific CSP)
+  const isDev = process.env.NODE_ENV !== 'production';
+  
   app.use(helmet({
-    // HTTP Strict Transport Security (HSTS)
-    hsts: {
+    // HTTP Strict Transport Security (HSTS) - production only
+    hsts: isDev ? false : {
       maxAge: 31536000, // 1 year
       includeSubDomains: true,
       preload: true
     },
     
-    // Content Security Policy - Allow API requests
+    // Content Security Policy - Split by environment
     contentSecurityPolicy: {
-      directives: {
+      directives: isDev ? {
+        // Development: Relaxed for Vite HMR
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // unsafe-eval needed for Vite
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite needs eval
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:", "blob:"],
-        connectSrc: ["'self'", "https://*.repl.co", "https://*.replit.dev", "wss://*.repl.co"],
+        connectSrc: ["'self'", "ws://localhost:*", "wss://localhost:*", "http://localhost:*"],
         fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         frameSrc: ["'none'"],
+      } : {
+        // Production: Strict security
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"], // Some inline styles needed
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: [
+          "'self'",
+          "https://*.repl.co",
+          "https://*.replit.dev",
+          "wss://*.repl.co",
+          "wss://*.replit.dev"
+        ],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        upgradeInsecureRequests: [],
       },
     },
     

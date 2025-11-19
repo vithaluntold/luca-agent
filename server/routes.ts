@@ -79,14 +79,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Authentication routes (with rate limiting)
   app.post("/api/auth/register", authRateLimiter, async (req, res) => {
+    const isDev = process.env.NODE_ENV !== 'production';
+    
     try {
-      console.log('[Auth] Registration attempt:', { email: req.body.email });
+      if (isDev) {
+        console.log('[Auth] Registration attempt:', { email: req.body.email });
+      }
+      
       const validatedData = insertUserSchema.parse(req.body);
       
       // Check if user exists
       const existing = await storage.getUserByEmail(validatedData.email);
       if (existing) {
-        console.log('[Auth] Registration failed: Email already exists');
+        if (isDev) console.log('[Auth] Registration failed: Email already exists');
         return res.status(400).json({ error: "Email already registered" });
       }
       
@@ -101,7 +106,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Establish session
       req.session.userId = user.id;
-      console.log('[Auth] Session userId set:', user.id);
       
       // CRITICAL: Explicitly save session before responding
       await new Promise<void>((resolve, reject) => {
@@ -110,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error('[Auth] Session save error:', err);
             reject(err);
           } else {
-            console.log('[Auth] Session saved successfully');
+            if (isDev) console.log('[Auth] Session saved successfully');
             resolve();
           }
         });
@@ -118,10 +122,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Don't send password back
       const { password, ...userWithoutPassword } = user;
-      console.log('[Auth] Registration successful');
+      if (isDev) console.log('[Auth] Registration successful');
       res.json({ user: userWithoutPassword });
     } catch (error) {
-      console.error('[Auth] Registration error:', error);
+      console.error('[Auth] Registration error:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: isDev ? (error instanceof Error ? error.stack : undefined) : undefined,
+        // Never log validation errors in production (may contain PII)
+        details: isDev && error instanceof z.ZodError ? error.errors : undefined
+      });
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
@@ -130,18 +139,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/login", authRateLimiter, async (req, res) => {
+    const isDev = process.env.NODE_ENV !== 'production';
+    
     try {
       const { email, password } = req.body;
-      console.log('[Auth] Login attempt:', { 
-        email, 
-        hasPassword: !!password,
-        sessionID: req.sessionID,
-        cookies: req.headers.cookie ? 'present' : 'missing'
-      });
+      
+      if (isDev) {
+        console.log('[Auth] Login attempt:', { 
+          email, 
+          hasPassword: !!password,
+          sessionID: req.sessionID,
+          cookies: req.headers.cookie ? 'present' : 'missing'
+        });
+      }
       
       const user = await storage.getUserByEmail(email);
       if (!user) {
-        console.log('[Auth] Login failed: User not found');
+        if (isDev) console.log('[Auth] Login failed: User not found');
         return res.status(401).json({ error: "Invalid credentials" });
       }
       
@@ -151,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const lockoutMinutes = user.lockedUntil 
           ? Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
           : 30;
-        console.log('[Auth] Login failed: Account locked');
+        if (isDev) console.log('[Auth] Login failed: Account locked');
         return res.status(423).json({ 
           error: `Account is locked due to too many failed login attempts. Please try again in ${lockoutMinutes} minutes.`,
           lockedUntil: user.lockedUntil
@@ -160,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
-        console.log('[Auth] Login failed: Invalid password');
+        if (isDev) console.log('[Auth] Login failed: Invalid password');
         // Track failed login attempt
         await storage.incrementFailedLoginAttempts(user.id);
         const updatedUser = await storage.getUser(user.id);
@@ -181,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if MFA is enabled for this user
       if (user.mfaEnabled) {
-        console.log('[Auth] MFA required for user');
+        if (isDev) console.log('[Auth] MFA required for user');
         // Don't establish session yet - require MFA verification first
         return res.status(200).json({ 
           mfaRequired: true,
@@ -195,7 +209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Establish session
       req.session.userId = user.id;
-      console.log('[Auth] Session userId set:', user.id);
       
       // CRITICAL: Explicitly save session before responding
       await new Promise<void>((resolve, reject) => {

@@ -43,8 +43,18 @@ export function setupSecurityMiddleware(app: Express) {
           return callback(null, true);
         }
         
-        // Production: Strict wildcard matching for Replit domains only
+        // Production: Strict wildcard matching for Replit domains and production domains
         if (hostname.endsWith('.repl.co') || hostname.endsWith('.replit.dev')) {
+          return callback(null, true);
+        }
+        
+        // Production: Allow askluca.io and www.askluca.io
+        if (hostname === 'askluca.io' || hostname === 'www.askluca.io') {
+          return callback(null, true);
+        }
+        
+        // Production: Allow Render deployment domain
+        if (hostname === 'luca-agent.onrender.com') {
           return callback(null, true);
         }
         

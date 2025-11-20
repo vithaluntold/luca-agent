@@ -13,6 +13,7 @@ const connectionString = process.env.DATABASE_URL;
 const client = postgres(connectionString, {
   prepare: false,
   max: 10,
+  ssl: 'require', // Required for Supabase
 });
 
 export const db = drizzle(client, { schema });

@@ -10,19 +10,19 @@ const testUsers = [
   {
     email: 'admin@askluca.io',
     password: 'Admin@123456',
-    fullName: 'Luca Admin',
+    name: 'Luca Admin',
     subscriptionTier: 'enterprise' as const,
   },
   {
     email: 'demo@askluca.io',
     password: 'Demo@123456',
-    fullName: 'Demo User',
+    name: 'Demo User',
     subscriptionTier: 'professional' as const,
   },
   {
     email: 'test@askluca.io',
     password: 'Test@123456',
-    fullName: 'Test User',
+    name: 'Test User',
     subscriptionTier: 'free' as const,
   },
 ];
@@ -46,7 +46,7 @@ async function createTestUsers() {
       const user = await storage.createUser({
         email: userData.email,
         password: hashedPassword,
-        fullName: userData.fullName,
+        name: userData.name,
         subscriptionTier: userData.subscriptionTier,
       });
 

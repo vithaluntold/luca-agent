@@ -9,62 +9,91 @@ import { generateConversationTitle } from './conversationTitleGenerator';
 import { storage } from '../pgStorage';
 import { AnalyticsProcessor } from './analyticsProcessor';
 
-// Redis connection
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const redisClient = new Redis(REDIS_URL, {
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  retryStrategy: (times) => Math.min(times * 50, 2000)
-});
+// Redis connection (optional for local dev)
+const REDIS_URL = process.env.REDIS_URL;
+const isRedisEnabled = !!REDIS_URL;
 
-redisClient.on('error', (error) => {
-  console.error('[Redis] Connection error:', error);
-});
+let redisClient: Redis | null = null;
 
-redisClient.on('connect', () => {
-  console.log('[Redis] Connected successfully');
-});
-
-// Job Queues
-export const titleGenerationQueue: Queue = new Bull('conversation-titles', REDIS_URL, {
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000
+if (isRedisEnabled) {
+  redisClient = new Redis(REDIS_URL, {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    retryStrategy: (times) => {
+      // Stop retrying after 5 attempts in development
+      if (process.env.NODE_ENV !== 'production' && times > 5) {
+        console.warn('[Redis] Max retries reached. Running without Redis.');
+        return null;
+      }
+      return Math.min(times * 50, 2000);
     },
-    removeOnComplete: 100, // Keep last 100 completed jobs
-    removeOnFail: 500 // Keep last 500 failed jobs for debugging
-  }
-});
+    lazyConnect: true, // Don't auto-connect
+  });
 
-export const analyticsQueue: Queue = new Bull('analytics', REDIS_URL, {
-  defaultJobOptions: {
-    attempts: 2,
-    backoff: {
-      type: 'fixed',
-      delay: 5000
-    },
-    removeOnComplete: 50,
-    removeOnFail: 200
-  }
-});
+  redisClient.on('error', (error) => {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Redis] Connection error:', error);
+    }
+  });
 
-export const fileProcessingQueue: Queue = new Bull('file-processing', REDIS_URL, {
-  defaultJobOptions: {
-    attempts: 2,
-    timeout: 60000, // 1 minute timeout
-    removeOnComplete: 50,
-    removeOnFail: 200
-  }
-});
+  redisClient.on('connect', () => {
+    console.log('[Redis] ✓ Connected successfully');
+  });
 
-// Job Processors
+  // Attempt connection
+  redisClient.connect().catch((error) => {
+    console.warn('[Redis] ⚠️  Not available - job queues disabled:', error.message);
+    redisClient = null;
+  });
+} else {
+  console.log('[Redis] ⚠️  REDIS_URL not set - running without job queues (dev mode)');
+}
 
-/**
- * Process conversation title generation
- */
-titleGenerationQueue.process(async (job: Job) => {
+// Job Queues (only create if Redis is available)
+export let titleGenerationQueue: Queue | null = null;
+export let analyticsQueue: Queue | null = null;
+export let fileProcessingQueue: Queue | null = null;
+
+if (isRedisEnabled && REDIS_URL) {
+  titleGenerationQueue = new Bull('conversation-titles', REDIS_URL, {
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000
+      },
+      removeOnComplete: 100, // Keep last 100 completed jobs
+      removeOnFail: 500 // Keep last 500 failed jobs for debugging
+    }
+  });
+
+  analyticsQueue = new Bull('analytics', REDIS_URL, {
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: {
+        type: 'fixed',
+        delay: 5000
+      },
+      removeOnComplete: 50,
+      removeOnFail: 200
+    }
+  });
+
+  fileProcessingQueue = new Bull('file-processing', REDIS_URL, {
+    defaultJobOptions: {
+      attempts: 2,
+      timeout: 60000, // 1 minute timeout
+      removeOnComplete: 50,
+      removeOnFail: 200
+    }
+  });
+
+  // Job Processors
+
+  /**
+   * Process conversation title generation
+   */
+  titleGenerationQueue.process(async (job: Job) => {
   const { conversationId, query } = job.data;
   
   console.log(`[TitleQueue] Processing job ${job.id} for conversation ${conversationId}`);
@@ -79,12 +108,12 @@ titleGenerationQueue.process(async (job: Job) => {
     console.error(`[TitleQueue] ✗ Failed for conversation ${conversationId}:`, error);
     throw error; // Will trigger retry
   }
-});
+  });
 
-/**
- * Process analytics calculations
- */
-analyticsQueue.process(async (job: Job) => {
+  /**
+   * Process analytics calculations
+   */
+  analyticsQueue.process(async (job: Job) => {
   const { messageId, conversationId, userId, role, content, previousMessages } = job.data;
   
   console.log(`[AnalyticsQueue] Processing message ${messageId}`);
@@ -105,12 +134,12 @@ analyticsQueue.process(async (job: Job) => {
     // Don't retry analytics - it's non-critical
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
-});
+  });
 
-/**
- * Process file uploads (virus scanning, encryption, analysis)
- */
-fileProcessingQueue.process(async (job: Job) => {
+  /**
+   * Process file uploads (virus scanning, encryption, analysis)
+   */
+  fileProcessingQueue.process(async (job: Job) => {
   const { fileId, filePath, userId } = job.data;
   
   console.log(`[FileQueue] Processing file ${fileId}`);
@@ -124,29 +153,42 @@ fileProcessingQueue.process(async (job: Job) => {
     console.error(`[FileQueue] Failed for file ${fileId}:`, error);
     throw error;
   }
-});
+  });
 
-// Queue Event Handlers
+  // Queue Event Handlers
 
-titleGenerationQueue.on('completed', (job, result) => {
-  console.log(`[TitleQueue] Job ${job.id} completed:`, result.title);
-});
+  titleGenerationQueue.on('completed', (job, result) => {
+    console.log(`[TitleQueue] Job ${job.id} completed:`, result.title);
+  });
 
-titleGenerationQueue.on('failed', (job, err) => {
-  console.error(`[TitleQueue] Job ${job?.id} failed after ${job?.attemptsMade} attempts:`, err.message);
-});
+  titleGenerationQueue.on('failed', (job, err) => {
+    console.error(`[TitleQueue] Job ${job?.id} failed after ${job?.attemptsMade} attempts:`, err.message);
+  });
 
-analyticsQueue.on('failed', (job, err) => {
-  console.error(`[AnalyticsQueue] Job ${job?.id} failed:`, err.message);
-});
+  analyticsQueue.on('failed', (job, err) => {
+    console.error(`[AnalyticsQueue] Job ${job?.id} failed:`, err.message);
+  });
 
-fileProcessingQueue.on('failed', (job, err) => {
-  console.error(`[FileQueue] Job ${job?.id} failed:`, err.message);
-});
+  fileProcessingQueue.on('failed', (job, err) => {
+    console.error(`[FileQueue] Job ${job?.id} failed:`, err.message);
+  });
+}
 
 // Monitoring & Health Check
 
 export async function getQueueStats() {
+  if (!isRedisEnabled || !titleGenerationQueue || !analyticsQueue || !fileProcessingQueue) {
+    return {
+      titleGeneration: { waiting: 0, active: 0, completed: 0, failed: 0 },
+      analytics: { waiting: 0, active: 0, completed: 0, failed: 0 },
+      fileProcessing: { waiting: 0, active: 0, completed: 0, failed: 0 },
+      redis: {
+        status: 'disabled',
+        ready: false
+      }
+    };
+  }
+  
   const [titleStats, analyticsStats, fileStats] = await Promise.all([
     titleGenerationQueue.getJobCounts(),
     analyticsQueue.getJobCounts(),
@@ -158,8 +200,8 @@ export async function getQueueStats() {
     analytics: analyticsStats,
     fileProcessing: fileStats,
     redis: {
-      status: redisClient.status,
-      ready: redisClient.status === 'ready'
+      status: redisClient?.status || 'disconnected',
+      ready: redisClient?.status === 'ready'
     }
   };
 }
@@ -169,12 +211,14 @@ export async function getQueueStats() {
 async function gracefulShutdown() {
   console.log('[Queue] Gracefully shutting down queues...');
   
-  await Promise.all([
-    titleGenerationQueue.close(),
-    analyticsQueue.close(),
-    fileProcessingQueue.close(),
-    redisClient.quit()
-  ]);
+  if (isRedisEnabled && titleGenerationQueue && analyticsQueue && fileProcessingQueue) {
+    await Promise.all([
+      titleGenerationQueue.close(),
+      analyticsQueue.close(),
+      fileProcessingQueue.close(),
+      redisClient?.quit()
+    ]);
+  }
   
   console.log('[Queue] All queues closed');
 }

@@ -357,21 +357,35 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
     console.log('[WebSocket] Saved message with metadata:', assistantMessage.metadata);
 
     // Process assistant message analytics (non-blocking, queued)
-    analyticsQueue.add({
-      messageId: assistantMessage.id,
-      conversationId: conversation.id,
-      userId,
-      role: 'assistant',
-      content: fullResponse,
-      previousMessages: [...conversationHistory, { role: 'user', content: query }]
-    }).catch(err => console.error('[WebSocket] Failed to queue analytics:', err));
+    if (analyticsQueue) {
+      analyticsQueue.add({
+        messageId: assistantMessage.id,
+        conversationId: conversation.id,
+        userId,
+        role: 'assistant',
+        content: fullResponse,
+        previousMessages: [...conversationHistory, { role: 'user', content: query }]
+      }).catch(err => console.error('[WebSocket] Failed to queue analytics:', err));
+    }
 
     // Auto-generate conversation title and metadata if this is the first message (queued)
     if (conversationHistory.length === 0 && conversation.title === 'New Conversation') {
-      titleGenerationQueue.add({
-        conversationId: conversation.id,
-        query
-      }).catch(err => console.error('[WebSocket] Failed to queue title generation:', err));
+      if (titleGenerationQueue) {
+        titleGenerationQueue.add({
+          conversationId: conversation.id,
+          query
+        }).catch(err => console.error('[WebSocket] Failed to queue title generation:', err));
+      } else {
+        // Generate title synchronously in dev mode without Redis
+        import('./services/conversationTitleGenerator').then(async ({ generateConversationTitle }) => {
+          try {
+            const { title, metadata } = await generateConversationTitle(query);
+            await storage.updateConversation(conversation.id, { title, metadata });
+          } catch (err) {
+            console.error('[WebSocket] Failed to generate title:', err);
+          }
+        });
+      }
     }
 
     // Send end signal with metadata (including visualization)

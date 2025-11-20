@@ -19,14 +19,16 @@ export class CacheService {
    * Get from cache with fallback to memory
    */
   static async get<T>(key: string): Promise<T | null> {
-    try {
-      // Try Redis first
-      const redisValue = await redisClient.get(key);
-      if (redisValue) {
-        return JSON.parse(redisValue) as T;
+    // Try Redis first (if available)
+    if (redisClient) {
+      try {
+        const redisValue = await redisClient.get(key);
+        if (redisValue) {
+          return JSON.parse(redisValue) as T;
+        }
+      } catch (error) {
+        console.warn('[Cache] Redis get failed, using memory:', error);
       }
-    } catch (error) {
-      console.warn('[Cache] Redis get failed, using memory:', error);
     }
     
     // Fallback to memory cache
@@ -40,11 +42,13 @@ export class CacheService {
   static async set(key: string, value: any, ttlSeconds: number = 300): Promise<void> {
     const serialized = JSON.stringify(value);
     
-    try {
-      // Set in Redis
-      await redisClient.setex(key, ttlSeconds, serialized);
-    } catch (error) {
-      console.warn('[Cache] Redis set failed, using memory:', error);
+    // Set in Redis (if available)
+    if (redisClient) {
+      try {
+        await redisClient.setex(key, ttlSeconds, serialized);
+      } catch (error) {
+        console.warn('[Cache] Redis set failed, using memory:', error);
+      }
     }
     
     // Also set in memory cache as fallback
@@ -57,10 +61,12 @@ export class CacheService {
   static async del(key: string | string[]): Promise<void> {
     const keys = Array.isArray(key) ? key : [key];
     
-    try {
-      await redisClient.del(...keys);
-    } catch (error) {
-      console.warn('[Cache] Redis del failed:', error);
+    if (redisClient) {
+      try {
+        await redisClient.del(...keys);
+      } catch (error) {
+        console.warn('[Cache] Redis del failed:', error);
+      }
     }
     
     keys.forEach(k => memoryCache.del(k));
@@ -70,10 +76,12 @@ export class CacheService {
    * Clear all caches
    */
   static async flush(): Promise<void> {
-    try {
-      await redisClient.flushdb();
-    } catch (error) {
-      console.warn('[Cache] Redis flush failed:', error);
+    if (redisClient) {
+      try {
+        await redisClient.flushdb();
+      } catch (error) {
+        console.warn('[Cache] Redis flush failed:', error);
+      }
     }
     
     memoryCache.flushAll();
@@ -85,9 +93,12 @@ export class CacheService {
   static getStats() {
     return {
       memory: memoryCache.getStats(),
-      redis: {
+      redis: redisClient ? {
         status: redisClient.status,
         ready: redisClient.status === 'ready'
+      } : {
+        status: 'disabled',
+        ready: false
       }
     };
   }

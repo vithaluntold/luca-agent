@@ -3,14 +3,31 @@
  * Handles subscription payments for LucaAgent
  */
 
-const { Cashfree } = require('cashfree-pg');
+import crypto from 'crypto';
 
-// Configure Cashfree SDK
-Cashfree.XClientId = process.env.CASHFREE_APP_ID || '';
-Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY || '';
-Cashfree.XEnvironment = process.env.NODE_ENV === 'production' 
-  ? Cashfree.Environment.PRODUCTION 
-  : Cashfree.Environment.SANDBOX;
+// Cashfree SDK types (v5.x uses different pattern)
+let Cashfree: any;
+let cashfreeInitialized = false;
+
+async function initCashfree() {
+  if (cashfreeInitialized) return;
+  
+  try {
+    const cashfreePg = await import('cashfree-pg');
+    Cashfree = cashfreePg.Cashfree;
+    
+    // Configure Cashfree SDK
+    Cashfree.XClientId = process.env.CASHFREE_APP_ID || '';
+    Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY || '';
+    Cashfree.XEnvironment = process.env.NODE_ENV === 'production' 
+      ? Cashfree.Environment.PRODUCTION 
+      : Cashfree.Environment.SANDBOX;
+    
+    cashfreeInitialized = true;
+  } catch (error) {
+    console.error('[Cashfree] Failed to initialize:', error);
+  }
+}
 
 export interface SubscriptionPlan {
   id: string;
@@ -107,6 +124,8 @@ class CashfreeService {
    * Create a payment order for subscription
    */
   async createPaymentOrder(params: CreateOrderParams): Promise<PaymentOrder> {
+    await initCashfree();
+    
     const plan = SUBSCRIPTION_PLANS[params.planId];
     
     if (!plan) {
@@ -158,6 +177,8 @@ class CashfreeService {
     currency: string;
     paymentDetails: any;
   }> {
+    await initCashfree();
+    
     const response = await Cashfree.PGOrderFetchPayments('2023-08-01', orderId);
     
     const payment = response.data[0];
@@ -178,8 +199,6 @@ class CashfreeService {
     signature: string,
     timestamp: string
   ): boolean {
-    const crypto = require('crypto');
-    
     const signatureData = `${timestamp}${payload}`;
     const expectedSignature = crypto
       .createHmac('sha256', process.env.CASHFREE_SECRET_KEY!)

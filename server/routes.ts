@@ -6,6 +6,7 @@ import { AnalyticsProcessor } from "./services/analyticsProcessor";
 import { providerHealthMonitor, aiProviderRegistry, AIProviderName } from "./services/aiProviders";
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
+import { requireSuperAdmin } from "./middleware/superAdmin";
 import { normalizeChatMode } from "./services/chatModeNormalizer";
 import { registerPaymentRoutes } from "./routes/payments";
 import { 
@@ -3717,6 +3718,212 @@ app.post("/api/auth/login", authRateLimiter, async (req, res) => {
       } else {
         res.end();
       }
+    }
+  });
+
+  // System Monitoring & Health Endpoints (Super Admin only)
+  
+  app.get("/api/admin/system/health", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { systemMonitor } = await import('./services/systemMonitor');
+      const metrics = await systemMonitor.getSystemMetrics();
+      res.json({ metrics });
+    } catch (error) {
+      console.error('System health check error:', error);
+      res.status(500).json({ error: "Failed to fetch system health" });
+    }
+  });
+
+  app.get("/api/admin/system/threats", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { systemMonitor } = await import('./services/systemMonitor');
+      const threats = systemMonitor.getThreats(100);
+      const stats = systemMonitor.getThreatStats();
+      res.json({ threats, stats });
+    } catch (error) {
+      console.error('Threats fetch error:', error);
+      res.status(500).json({ error: "Failed to fetch threats" });
+    }
+  });
+
+  app.get("/api/admin/system/routes", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { systemMonitor } = await import('./services/systemMonitor');
+      const routes = systemMonitor.getRouteHealth();
+      res.json({ routes });
+    } catch (error) {
+      console.error('Routes health check error:', error);
+      res.status(500).json({ error: "Failed to fetch routes health" });
+    }
+  });
+
+  app.get("/api/admin/system/integrations", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { systemMonitor } = await import('./services/systemMonitor');
+      const integrations = await systemMonitor.checkIntegrations();
+      res.json({ integrations });
+    } catch (error) {
+      console.error('Integrations health check error:', error);
+      res.status(500).json({ error: "Failed to fetch integrations health" });
+    }
+  });
+
+  app.get("/api/admin/system/alerts", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { apmService } = await import('./services/apmService');
+      const alerts = apmService.getActiveAlerts();
+      const stats = apmService.getAlertStats();
+      res.json({ alerts, stats });
+    } catch (error) {
+      console.error('Alerts fetch error:', error);
+      res.status(500).json({ error: "Failed to fetch alerts" });
+    }
+  });
+
+  app.post("/api/admin/system/alerts/:id/resolve", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { apmService } = await import('./services/apmService');
+      const success = apmService.resolveAlert(req.params.id);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: "Alert not found" });
+      }
+    } catch (error) {
+      console.error('Alert resolve error:', error);
+      res.status(500).json({ error: "Failed to resolve alert" });
+    }
+  });
+
+  app.get("/api/admin/system/maintenance", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { maintenanceModeService } = await import('./services/maintenanceMode');
+      const maintenances = maintenanceModeService.getScheduledMaintenances();
+      res.json({ maintenances });
+    } catch (error) {
+      console.error('Maintenance fetch error:', error);
+      res.status(500).json({ error: "Failed to fetch maintenance schedules" });
+    }
+  });
+
+  app.post("/api/admin/system/maintenance/schedule", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { maintenanceModeService } = await import('./services/maintenanceMode');
+      const adminUserId = getCurrentUserId(req);
+      
+      const schema = z.object({
+        startTime: z.string(),
+        endTime: z.string(),
+        reason: z.string(),
+        affectedServices: z.array(z.string()),
+      });
+      
+      const { startTime, endTime, reason, affectedServices } = schema.parse(req.body);
+      
+      const maintenance = maintenanceModeService.scheduleMaintenance({
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        reason,
+        affectedServices,
+        createdBy: adminUserId || 'admin',
+        notifyUsers: true
+      });
+      
+      res.json({ maintenance });
+    } catch (error) {
+      console.error('Maintenance schedule error:', error);
+      res.status(500).json({ error: "Failed to schedule maintenance" });
+    }
+  });
+
+  app.post("/api/admin/system/maintenance/:id/cancel", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { maintenanceModeService } = await import('./services/maintenanceMode');
+      const success = maintenanceModeService.cancelMaintenance(req.params.id);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: "Maintenance not found" });
+      }
+    } catch (error) {
+      console.error('Maintenance cancel error:', error);
+      res.status(500).json({ error: "Failed to cancel maintenance" });
+    }
+  });
+
+  app.get("/api/admin/system/deployments", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { maintenanceModeService } = await import('./services/maintenanceMode');
+      const deployments = maintenanceModeService.getDeploymentHistory(10);
+      res.json({ deployments });
+    } catch (error) {
+      console.error('Deployments fetch error:', error);
+      res.status(500).json({ error: "Failed to fetch deployments" });
+    }
+  });
+
+  app.post("/api/admin/system/deployments/start", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { maintenanceModeService } = await import('./services/maintenanceMode');
+      const adminUserId = getCurrentUserId(req);
+      
+      const schema = z.object({
+        version: z.string(),
+        changes: z.array(z.string()),
+      });
+      
+      const { version, changes } = schema.parse(req.body);
+      
+      const deployment = maintenanceModeService.startDeployment({
+        version,
+        changes,
+        deployedBy: adminUserId || 'admin'
+      });
+      
+      // Perform health check after deployment
+      setTimeout(async () => {
+        const healthCheckPassed = await maintenanceModeService.performHealthCheck(deployment.id);
+        maintenanceModeService.completeDeployment(deployment.id, healthCheckPassed, healthCheckPassed);
+      }, 5000); // Health check after 5 seconds
+      
+      res.json({ deployment });
+    } catch (error) {
+      console.error('Deployment start error:', error);
+      res.status(500).json({ error: "Failed to start deployment" });
+    }
+  });
+
+  app.post("/api/admin/system/deployments/:id/rollback", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { maintenanceModeService } = await import('./services/maintenanceMode');
+      
+      const schema = z.object({
+        reason: z.string(),
+      });
+      
+      const { reason } = schema.parse(req.body);
+      
+      const rollback = maintenanceModeService.rollbackDeployment(req.params.id, reason);
+      
+      if (rollback) {
+        res.json({ rollback });
+      } else {
+        res.status(404).json({ error: "Deployment not found or rollback not available" });
+      }
+    } catch (error) {
+      console.error('Deployment rollback error:', error);
+      res.status(500).json({ error: "Failed to rollback deployment" });
+    }
+  });
+
+  app.get("/api/admin/system/performance", requireAuth, requireSuperAdmin, async (req, res) => {
+    try {
+      const { apmService } = await import('./services/apmService');
+      const performance = apmService.getMetricStats('http_request_duration', 60);
+      res.json({ performance });
+    } catch (error) {
+      console.error('Performance metrics error:', error);
+      res.status(500).json({ error: "Failed to fetch performance metrics" });
     }
   });
 

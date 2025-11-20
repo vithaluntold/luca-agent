@@ -5,6 +5,7 @@ import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { VirusScanService } from "./services/virusScanService";
+import { apmService } from "./services/apmService";
 
 const app = express();
 
@@ -78,6 +79,9 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// APM Tracking Middleware
+app.use(apmService.trackRequest());
 
 app.use((req, res, next) => {
   const start = Date.now();

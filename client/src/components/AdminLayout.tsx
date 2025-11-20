@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Users, CreditCard, Tag, BarChart3, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Tag, BarChart3, Settings, LogOut, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { queryClient } from "@/lib/queryClient";
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard, testId: "link-admin-dashboard" },
+  { name: "System Monitor", href: "/admin/system-monitoring", icon: Activity, testId: "link-admin-system-monitoring" },
   { name: "Coupons", href: "/admin/coupons", icon: Tag, testId: "link-admin-coupons" },
   { name: "Users", href: "/admin/users", icon: Users, testId: "link-admin-users" },
   { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard, testId: "link-admin-subscriptions" },
@@ -25,13 +26,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     queryKey: ["/api/auth/user"],
   });
 
+  const user = userData?.user;
+  
+  // Check if user is super admin (based on email whitelist)
+  const isSuperAdmin = user?.email && (process.env.SUPER_ADMIN_EMAILS || '').split(',').includes(user.email);
+  
+  // Filter navigation based on super admin status
+  const filteredNavigation = navigation.filter(item => {
+    if (item.name === "System Monitor") {
+      return isSuperAdmin;
+    }
+    return true;
+  });
+
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     queryClient.clear();
     window.location.href = "/";
   };
 
-  const user = userData?.user;
   const initials = user?.name
     ?.split(" ")
     .map((n: string) => n[0])
@@ -50,7 +63,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = location === item.href;
             return (
               <Link key={item.name} href={item.href}>

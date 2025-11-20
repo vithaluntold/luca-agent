@@ -31,6 +31,7 @@ import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminCoupons from "@/pages/admin/Coupons";
 import AdminUsers from "@/pages/admin/Users";
 import AdminSubscriptions from "@/pages/admin/Subscriptions";
+import SystemMonitoring from "@/pages/admin/SystemMonitoring";
 import AdminLayout from "@/components/AdminLayout";
 import AdminGuard from "@/components/AdminGuard";
 import NotFound from "@/pages/not-found";
@@ -65,6 +66,13 @@ function Router() {
         <AdminGuard>
           <AdminLayout>
             <AdminDashboard />
+          </AdminLayout>
+        </AdminGuard>
+      </Route>
+      <Route path="/admin/system-monitoring">
+        <AdminGuard>
+          <AdminLayout>
+            <SystemMonitoring />
           </AdminLayout>
         </AdminGuard>
       </Route>

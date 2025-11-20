@@ -17,6 +17,7 @@ import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonito
 import { requirementClarificationService, type ClarificationAnalysis } from './requirementClarification';
 import { documentAnalyzerAgent } from './agents/documentAnalyzer';
 import { visualizationGenerator } from './visualizationGenerator';
+import { promptBuilder } from './promptBuilder';
 import type { VisualizationData } from '../../shared/types/visualization';
 // Advanced Reasoning imports (feature-flagged)
 import { reasoningGovernor } from './reasoningGovernor';
@@ -1051,10 +1052,26 @@ export class AIOrchestrator {
     
     const actualModel = modelMap[model] || 'gpt-4o';
     
+    // NEW: Use intelligent prompt builder to avoid length limits
+    const prompts = promptBuilder.buildPrompts(
+      userQuery,
+      classification,
+      calculations,
+      clarificationAnalysis,
+      chatMode,
+      enhancedRouting
+    );
+    
+    // Build messages with tiered prompts
     const messages = [
-      { role: 'system' as const, content: enhancedContext },
+      // Tier 1: Minimal system prompt
+      { role: 'system' as const, content: prompts.systemPrompt },
+      // Tier 2: Comprehensive instructions as first message
+      { role: 'system' as const, content: prompts.instructionsMessage },
+      // Conversation history
       ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
-      { role: 'user' as const, content: userQuery }
+      // Tier 3: User query + context suffix
+      { role: 'user' as const, content: userQuery + prompts.contextSuffix }
     ];
     
     // Build initial provider list from triage decision
@@ -1115,7 +1132,7 @@ export class AIOrchestrator {
           messages,
           model: actualModel,
           temperature: 0.7,
-          maxTokens: 2000,
+          maxTokens: 8000, // INCREASED: Allow comprehensive multi-page responses (was 2000)
           attachment: attachment ? {
             buffer: attachment.buffer,
             filename: attachment.filename,

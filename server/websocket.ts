@@ -12,6 +12,7 @@ import type { SessionData } from 'express-session';
 import cookie from 'cookie';
 import signature from 'cookie-signature';
 import { AnalyticsProcessor } from './services/analyticsProcessor';
+import { generateConversationTitle } from './services/conversationTitleGenerator';
 
 interface ChatStreamMessage {
   type: 'start' | 'chunk' | 'end' | 'error';
@@ -245,9 +246,11 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
         return;
       }
     } else {
+      // Create new conversation with temporary title
       conversation = await storage.createConversation({
         userId,
-        title: query.substring(0, 50),
+        title: 'New Conversation', // Will be auto-generated after first message
+        metadata: null,
         profileId
       });
     }
@@ -362,6 +365,16 @@ async function handleChatStream(ws: AuthenticatedWebSocket, message: any) {
       content: fullResponse,
       previousMessages: [...conversationHistory, { role: 'user', content: query }]
     }).catch(err => console.error('[WebSocket] Analytics error:', err));
+
+    // Auto-generate conversation title and metadata if this is the first message
+    if (conversationHistory.length === 0 && conversation.title === 'New Conversation') {
+      generateConversationTitle(query)
+        .then(async ({ title, metadata }) => {
+          await storage.updateConversation(conversation.id, { title, metadata });
+          console.log('[WebSocket] Auto-generated title:', title, 'metadata:', metadata);
+        })
+        .catch(err => console.error('[WebSocket] Title generation error:', err));
+    }
 
     // Send end signal with metadata (including visualization)
     send(ws, {

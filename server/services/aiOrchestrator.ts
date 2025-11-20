@@ -286,7 +286,12 @@ export class AIOrchestrator {
       routingDecision.primaryModel,
       routingDecision.preferredProvider,
       routingDecision.fallbackProviders,
-      undefined // Don't pass attachment - content already in enrichedQuery
+      undefined, // Don't pass attachment - content already in enrichedQuery
+      classification,
+      calculationResults,
+      clarificationAnalysis,
+      chatMode,
+      enhancedRouting
     );
     
     let finalResponse = aiResponse.content;
@@ -1039,7 +1044,12 @@ export class AIOrchestrator {
     model: string,
     preferredProvider?: AIProviderName,
     fallbackProviders?: AIProviderName[],
-    attachment?: ProcessQueryOptions['attachment']
+    attachment?: ProcessQueryOptions['attachment'],
+    classification?: QueryClassification,
+    calculations?: any,
+    clarificationAnalysis?: ClarificationAnalysis,
+    chatMode?: string,
+    enhancedRouting?: EnhancedRoutingDecision | null
   ): Promise<{ content: string; tokensUsed: number }> {
     // Map custom models to actual OpenAI models
     const modelMap: Record<string, string> = {
@@ -1052,27 +1062,37 @@ export class AIOrchestrator {
     
     const actualModel = modelMap[model] || 'gpt-4o';
     
-    // NEW: Use intelligent prompt builder to avoid length limits
-    const prompts = promptBuilder.buildPrompts(
-      userQuery,
-      classification,
-      calculations,
-      clarificationAnalysis,
-      chatMode,
-      enhancedRouting
-    );
-    
-    // Build messages with tiered prompts
-    const messages = [
-      // Tier 1: Minimal system prompt
-      { role: 'system' as const, content: prompts.systemPrompt },
-      // Tier 2: Comprehensive instructions as first message
-      { role: 'system' as const, content: prompts.instructionsMessage },
-      // Conversation history
-      ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
-      // Tier 3: User query + context suffix
-      { role: 'user' as const, content: userQuery + prompts.contextSuffix }
-    ];
+    // NEW: Use intelligent prompt builder to avoid length limits (if classification available)
+    let messages;
+    if (classification) {
+      const prompts = promptBuilder.buildPrompts(
+        userQuery,
+        classification,
+        calculations,
+        clarificationAnalysis,
+        chatMode,
+        enhancedRouting
+      );
+      
+      // Build messages with tiered prompts
+      messages = [
+        // Tier 1: Minimal system prompt
+        { role: 'system' as const, content: prompts.systemPrompt },
+        // Tier 2: Comprehensive instructions as first message
+        { role: 'system' as const, content: prompts.instructionsMessage },
+        // Conversation history
+        ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+        // Tier 3: User query + context suffix
+        { role: 'user' as const, content: userQuery + prompts.contextSuffix }
+      ];
+    } else {
+      // Fallback to simple message structure
+      messages = [
+        { role: 'system' as const, content: enhancedContext },
+        ...history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+        { role: 'user' as const, content: userQuery }
+      ];
+    }
     
     // Build initial provider list from triage decision
     const candidateProviders: AIProviderName[] = [];

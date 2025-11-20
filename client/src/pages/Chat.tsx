@@ -101,6 +101,7 @@ interface Message {
 interface Conversation {
   id: string;
   title: string;
+  metadata?: string | null;
   preview: string | null;
   updatedAt: string;
   profileId: string | null;
@@ -644,7 +645,7 @@ export default function Chat() {
         {/* Left Pane: Sessions */}
         {!leftPaneCollapsed && (
           <>
-            <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
+            <ResizablePanel defaultSize={15} minSize={12} maxSize={30}>
               <div className="flex flex-col h-full bg-muted/30">
                 <div className="flex items-center justify-between px-4 py-3 border-b">
                   <h2 className="font-semibold text-sm">Conversations</h2>
@@ -751,7 +752,7 @@ export default function Chat() {
                     {filteredConversations.map((conv) => (
                       <div
                         key={conv.id}
-                        className={`group relative flex items-center gap-1 rounded-md ${
+                        className={`group relative flex items-stretch gap-1 rounded-md ${
                           activeConversation === conv.id
                             ? 'bg-primary/10 border border-primary/20'
                             : ''
@@ -759,17 +760,22 @@ export default function Chat() {
                       >
                         <button
                           onClick={() => setActiveConversation(conv.id)}
-                          className="flex-1 text-left px-3 py-2 hover-elevate transition-colors"
+                          className="flex-1 text-left px-3 py-2 hover-elevate transition-colors min-w-0"
                           data-testid={`conversation-${conv.id}`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-start gap-2">
                             {conv.pinned ? (
-                              <Pin className="h-4 w-4 flex-shrink-0 text-primary" />
+                              <Pin className="h-4 w-4 flex-shrink-0 text-primary mt-0.5" />
                             ) : (
-                              <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                              <MessageSquare className="h-4 w-4 flex-shrink-0 mt-0.5" />
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{conv.title}</p>
+                              {(conv as any).metadata && (
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                  {(conv as any).metadata}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </button>
@@ -779,7 +785,7 @@ export default function Chat() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="h-8 w-8 flex-shrink-0 my-auto"
                               data-testid={`button-conversation-menu-${conv.id}`}
                               onClick={(e) => e.stopPropagation()}
                             >

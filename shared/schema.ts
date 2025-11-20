@@ -65,6 +65,7 @@ export const conversations = pgTable("conversations", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   profileId: varchar("profile_id").references(() => profiles.id, { onDelete: "set null" }),
   title: text("title").notNull(),
+  metadata: text("metadata"), // AI-generated subtitle describing conversation context
   preview: text("preview"),
   pinned: boolean("pinned").notNull().default(false),
   isShared: boolean("is_shared").notNull().default(false),
@@ -413,6 +414,7 @@ export const insertConversationSchema = createInsertSchema(conversations).pick({
   userId: true,
   profileId: true,
   title: true,
+  metadata: true,
   preview: true,
 });
 
@@ -1094,8 +1096,9 @@ export const subscriptions = pgTable("subscriptions", {
   billingCycle: text("billing_cycle"), // 'monthly', 'annual'
   amount: integer("amount"), // Amount in smallest currency unit (paise for INR, cents for USD)
   currency: text("currency").default("USD"), // 'USD', 'INR', 'AED', 'CAD', 'IDR', 'TRY'
-  razorpaySubscriptionId: text("razorpay_subscription_id"),
-  razorpayCustomerId: text("razorpay_customer_id"),
+  paymentGateway: text("payment_gateway"), // 'cashfree', 'razorpay'
+  gatewaySubscriptionId: text("gateway_subscription_id"), // Cashfree or Razorpay subscription ID
+  gatewayCustomerId: text("gateway_customer_id"), // Customer ID in payment gateway
   currentPeriodStart: timestamp("current_period_start"),
   currentPeriodEnd: timestamp("current_period_end"),
   cancelAt: timestamp("cancel_at"),
@@ -1105,7 +1108,7 @@ export const subscriptions = pgTable("subscriptions", {
 }, (table) => ({
   userIdIdx: index("subscriptions_user_id_idx").on(table.userId),
   statusIdx: index("subscriptions_status_idx").on(table.status),
-  razorpaySubscriptionIdIdx: index("subscriptions_razorpay_subscription_id_idx").on(table.razorpaySubscriptionId),
+  gatewaySubscriptionIdIdx: index("subscriptions_gateway_subscription_id_idx").on(table.gatewaySubscriptionId),
 }));
 
 export const coupons = pgTable("coupons", {
@@ -1155,9 +1158,10 @@ export const payments = pgTable("payments", {
   currency: text("currency").notNull().default("USD"),
   status: text("status").notNull().default("pending"), // 'pending', 'successful', 'failed', 'refunded'
   paymentMethod: text("payment_method"), // 'card', 'upi', 'netbanking', 'wallet'
-  razorpayOrderId: text("razorpay_order_id"),
-  razorpayPaymentId: text("razorpay_payment_id").unique(), // Unique to ensure idempotency
-  razorpaySignature: text("razorpay_signature"),
+  paymentGateway: text("payment_gateway"), // 'cashfree', 'razorpay'
+  gatewayOrderId: text("gateway_order_id"), // Cashfree order_id or Razorpay order_id
+  gatewayPaymentId: text("gateway_payment_id").unique(), // Unique to ensure idempotency
+  gatewaySignature: text("gateway_signature"),
   failureReason: text("failure_reason"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -1166,8 +1170,8 @@ export const payments = pgTable("payments", {
   userIdIdx: index("payments_user_id_idx").on(table.userId),
   subscriptionIdIdx: index("payments_subscription_id_idx").on(table.subscriptionId),
   statusIdx: index("payments_status_idx").on(table.status),
-  razorpayOrderIdIdx: index("payments_razorpay_order_id_idx").on(table.razorpayOrderId),
-  razorpayPaymentIdIdx: uniqueIndex("payments_razorpay_payment_id_idx").on(table.razorpayPaymentId),
+  gatewayOrderIdIdx: index("payments_gateway_order_id_idx").on(table.gatewayOrderId),
+  gatewayPaymentIdIdx: uniqueIndex("payments_gateway_payment_id_idx").on(table.gatewayPaymentId),
 }));
 
 export const usageQuotas = pgTable("usage_quotas", {

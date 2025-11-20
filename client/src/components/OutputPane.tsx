@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import VisualizationRenderer, { ChartData } from "./visualizations/VisualizationRenderer";
 import ChecklistRenderer from "./ChecklistRenderer";
 import WorkflowRenderer from "./visualizations/WorkflowRenderer";
+import SpreadsheetViewer from "./SpreadsheetViewer";
 import { parseWorkflowContent } from "@/utils/workflowParser";
 
 interface OutputPaneProps {
@@ -41,7 +42,7 @@ interface OutputPaneProps {
   visualization?: ChartData;
   onCollapse?: () => void;
   isCollapsed?: boolean;
-  contentType?: 'markdown' | 'checklist' | 'workflow' | 'calculation';
+  contentType?: 'markdown' | 'checklist' | 'workflow' | 'calculation' | 'spreadsheet';
   title?: string;
   onFullscreenToggle?: () => void;
   isFullscreen?: boolean;
@@ -49,6 +50,7 @@ interface OutputPaneProps {
   conversationId?: string;
   messageId?: string;
   hasExcel?: boolean;
+  spreadsheetData?: any;
 }
 
 export default function OutputPane({ 
@@ -63,7 +65,8 @@ export default function OutputPane({
   onChatToggle,
   conversationId,
   messageId,
-  hasExcel = false
+  hasExcel = false,
+  spreadsheetData
 }: OutputPaneProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'formatted' | 'code'>('formatted');
@@ -311,23 +314,34 @@ export default function OutputPane({
 
       {/* Output Content */}
       <ScrollArea className="flex-1 p-4">
-        {content || visualization ? (
+        {content || visualization || spreadsheetData ? (
           <div className="space-y-6">
-            {visualization && (
-              <div className="bg-card border rounded-lg p-4" data-testid="visualization-container">
-                <VisualizationRenderer chartData={visualization} />
-              </div>
-            )}
-            
-            {content && (
-              <div>
-                {contentType === 'checklist' ? (
-                  <ChecklistRenderer 
-                    content={content}
-                    title={title}
-                    onExport={(format) => handleExport(format as any)}
-                  />
-                ) : contentType === 'workflow' ? (
+            {/* Spreadsheet Viewer for calculations */}
+            {contentType === 'spreadsheet' && spreadsheetData ? (
+              <SpreadsheetViewer
+                data={spreadsheetData}
+                conversationId={conversationId}
+                messageId={messageId}
+                onFullscreen={onFullscreenToggle}
+                isFullscreen={isFullscreen}
+              />
+            ) : (
+              <>
+                {visualization && (
+                  <div className="bg-card border rounded-lg p-4" data-testid="visualization-container">
+                    <VisualizationRenderer chartData={visualization} />
+                  </div>
+                )}
+                
+                {content && (
+                  <div>
+                    {contentType === 'checklist' ? (
+                      <ChecklistRenderer 
+                        content={content}
+                        title={title}
+                        onExport={(format) => handleExport(format as any)}
+                      />
+                    ) : contentType === 'workflow' ? (
                   <div className="bg-card border rounded-lg p-4">
                     {(() => {
                       const workflowData = parseWorkflowContent(content);
@@ -409,6 +423,8 @@ export default function OutputPane({
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </div>
         ) : (

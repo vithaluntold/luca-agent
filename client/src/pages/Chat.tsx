@@ -205,7 +205,9 @@ export default function Chat() {
   
   // Determine content type from the most recent message
   const latestOutputMessage = outputMessages[outputMessages.length - 1];
-  const outputContentType = chatMode === 'checklist' ? 'checklist' :
+  const hasSpreadsheet = latestOutputMessage?.metadata?.spreadsheetData;
+  const outputContentType = hasSpreadsheet ? 'spreadsheet' :
+                          chatMode === 'checklist' ? 'checklist' :
                           chatMode === 'workflow' ? 'workflow' :
                           chatMode === 'audit-plan' ? 'calculation' :
                           'markdown';
@@ -213,6 +215,7 @@ export default function Chat() {
   // Check if latest message has Excel file
   const hasExcel = latestOutputMessage?.metadata?.hasExcel || false;
   const outputMessageId = latestOutputMessage?.id;
+  const spreadsheetData = latestOutputMessage?.metadata?.spreadsheetData;
   
   // Get the most recent visualization from output messages
   const outputVisualization = outputMessages
@@ -1177,6 +1180,7 @@ export default function Chat() {
                 conversationId={activeConversation}
                 messageId={outputMessageId}
                 hasExcel={hasExcel}
+                spreadsheetData={spreadsheetData}
               />
             </ResizablePanel>
           </>
@@ -1287,6 +1291,7 @@ export default function Chat() {
           conversationId={activeConversation}
           messageId={outputMessageId}
           hasExcel={hasExcel}
+          spreadsheetData={spreadsheetData}
         />
       )}
     </div>

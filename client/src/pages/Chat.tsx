@@ -90,6 +90,19 @@ import {
 } from "lucide-react";
 import { ConversationFeedback } from "@/components/ConversationFeedback";
 
+// Helper function to get appropriate status message based on chat mode
+const getStatusForMode = (mode: string): string => {
+  const statusMessages: Record<string, string> = {
+    'standard': 'Thinking...',
+    'deep-research': 'Researching sources...',
+    'checklist': 'Creating checklist...',
+    'workflow': 'Designing workflow...',
+    'audit-plan': 'Planning audit approach...',
+    'calculation': 'Calculating...',
+  };
+  return statusMessages[mode] || 'Processing...';
+};
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -134,6 +147,7 @@ export default function Chat() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [lucaStatus, setLucaStatus] = useState<string>('');
   const [showChatOverlay, setShowChatOverlay] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [chatMode, setChatMode] = useState<string>('standard');
@@ -337,11 +351,19 @@ export default function Chat() {
       }, {
         onStart: (convId) => {
           setIsStreaming(true);
+          setLucaStatus(getStatusForMode(chatMode));
           if (!activeConversation) {
             setActiveConversation(convId);
           }
         },
         onChunk: (chunk) => {
+          // Update status based on content being streamed
+          if (chunk.includes('```') || chunk.includes('mermaid')) {
+            setLucaStatus('Generating visualization...');
+          } else if (chunk.includes('##') || chunk.includes('###')) {
+            setLucaStatus('Structuring response...');
+          }
+          
           setMessages(prev => prev.map(msg => 
             msg.id === streamingId 
               ? { ...msg, content: msg.content + chunk }
@@ -350,6 +372,7 @@ export default function Chat() {
         },
         onEnd: (metadata) => {
           setIsStreaming(false);
+          setLucaStatus('');
           // Store metadata for visualization
           if (metadata) {
             setMessages(prev => prev.map(msg => 
@@ -361,6 +384,7 @@ export default function Chat() {
         },
         onError: (error) => {
           setIsStreaming(false);
+          setLucaStatus('');
           throw new Error(error);
         }
       });
@@ -371,6 +395,7 @@ export default function Chat() {
       // Clear selected file after successful send
       setSelectedFile(null);
       setIsStreaming(false);
+      setLucaStatus('');
       
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
@@ -378,6 +403,7 @@ export default function Chat() {
       // Remove temporary messages on error
       setMessages(prev => prev.filter(msg => !msg.id.startsWith('uploading-') && !msg.id.startsWith('streaming-')));
       setIsStreaming(false);
+      setLucaStatus('');
       
       toast({
         variant: "destructive",
@@ -973,21 +999,23 @@ export default function Chat() {
                     </div>
                     ))}
                     
-                    {/* Thinking indicator - only show when pending but not yet streaming */}
-                    {sendMessageMutation.isPending && !isStreaming && (
+                    {/* Dynamic status indicator */}
+                    {(sendMessageMutation.isPending || isStreaming) && (
                       <div className="flex gap-3 justify-start">
                         <Avatar className="h-8 w-8 flex-shrink-0">
                           <AvatarImage src={lucaLogoUrl} alt="Luca" />
                           <AvatarFallback>L</AvatarFallback>
                         </Avatar>
-                        <div className="max-w-[80%] rounded-lg px-4 py-3 bg-muted">
-                          <div className="flex items-center gap-2">
+                        <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gradient-to-r from-primary/5 to-secondary/5 border border-primary/10">
+                          <div className="flex items-center gap-3">
                             <div className="flex gap-1">
                               <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                               <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                               <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                             </div>
-                            <span className="text-sm text-muted-foreground">Luca is thinking...</span>
+                            <span className="text-sm font-medium text-primary">
+                              {lucaStatus || getStatusForMode(chatMode)}
+                            </span>
                           </div>
                         </div>
                       </div>

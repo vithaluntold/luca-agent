@@ -114,16 +114,19 @@ export function setupSecurityMiddleware(app: Express) {
         // Production: Strict security
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // TODO: Replace with nonce/hash system
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Allow Google Fonts
         imgSrc: ["'self'", "data:", "https:", "blob:"],
         connectSrc: [
           "'self'",
           "https://*.repl.co",
           "https://*.replit.dev",
           "wss://*.repl.co",
-          "wss://*.replit.dev"
+          "wss://*.replit.dev",
+          "wss://askluca.io",
+          "wss://www.askluca.io",
+          "wss://luca-agent.onrender.com"
         ],
-        fontSrc: ["'self'", "data:"],
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         frameSrc: ["'none'"],

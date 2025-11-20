@@ -7,6 +7,7 @@ import { providerHealthMonitor, aiProviderRegistry, AIProviderName } from "./ser
 import { requireAuth, getCurrentUserId } from "./middleware/auth";
 import { requireAdmin } from "./middleware/admin";
 import { normalizeChatMode } from "./services/chatModeNormalizer";
+import { registerPaymentRoutes } from "./routes/payments";
 import { 
   setupSecurityMiddleware,
   authRateLimiter,
@@ -76,6 +77,9 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   // Apply military-grade security middleware
   setupSecurityMiddleware(app);
+  
+  // Register payment routes (Cashfree integration)
+  registerPaymentRoutes(app);
   
   // Authentication routes (with rate limiting)
   app.post("/api/auth/register", authRateLimiter, async (req, res) => {

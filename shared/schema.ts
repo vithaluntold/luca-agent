@@ -83,6 +83,10 @@ export const conversations = pgTable("conversations", {
   sharedTokenIdx: index("conversations_shared_token_idx").on(table.sharedToken),
   qualityScoreIdx: index("conversations_quality_score_idx").on(table.qualityScore),
   resolvedIdx: index("conversations_resolved_idx").on(table.resolved),
+  // NEW: Index for search/filtering by metadata
+  metadataIdx: index("conversations_metadata_idx").on(table.metadata),
+  // NEW: Index for pagination by creation time
+  userCreatedIdx: index("conversations_user_created_idx").on(table.userId, table.createdAt),
 }));
 
 export const messages = pgTable("messages", {
@@ -98,7 +102,12 @@ export const messages = pgTable("messages", {
   excelFilename: text("excel_filename"),
   excelBuffer: text("excel_buffer"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // NEW: Index for fetching conversation messages with pagination
+  conversationCreatedIdx: index("messages_conversation_created_idx").on(table.conversationId, table.createdAt),
+  // NEW: Index for analytics queries by user
+  roleCreatedIdx: index("messages_role_created_idx").on(table.role, table.createdAt),
+}));
 
 export const modelRoutingLogs = pgTable("model_routing_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

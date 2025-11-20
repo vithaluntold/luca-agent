@@ -94,6 +94,8 @@ export const messages = pgTable("messages", {
   calculationResults: jsonb("calculation_results"),
   metadata: jsonb("metadata"),
   tokensUsed: integer("tokens_used"),
+  excelFilename: text("excel_filename"),
+  excelBuffer: text("excel_buffer"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

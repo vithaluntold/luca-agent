@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { 
   FileText, 
   Download, 
@@ -14,7 +22,8 @@ import {
   Code,
   AlignLeft,
   Copy,
-  Check
+  Check,
+  MessageSquare
 } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -23,21 +32,59 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useToast } from "@/hooks/use-toast";
 import VisualizationRenderer, { ChartData } from "./visualizations/VisualizationRenderer";
+import ChecklistRenderer from "./ChecklistRenderer";
+import WorkflowRenderer from "./visualizations/WorkflowRenderer";
+import { parseWorkflowContent } from "@/utils/workflowParser";
 
 interface OutputPaneProps {
   content: string;
   visualization?: ChartData;
   onCollapse?: () => void;
   isCollapsed?: boolean;
+  contentType?: 'markdown' | 'checklist' | 'workflow' | 'calculation';
+  title?: string;
+  onFullscreenToggle?: () => void;
+  isFullscreen?: boolean;
+  onChatToggle?: () => void;
+  conversationId?: string;
+  messageId?: string;
+  hasExcel?: boolean;
 }
 
-export default function OutputPane({ content, visualization, onCollapse, isCollapsed }: OutputPaneProps) {
+export default function OutputPane({ 
+  content, 
+  visualization, 
+  onCollapse, 
+  isCollapsed, 
+  contentType = 'markdown', 
+  title,
+  onFullscreenToggle,
+  isFullscreen = false,
+  onChatToggle,
+  conversationId,
+  messageId,
+  hasExcel = false
+}: OutputPaneProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'formatted' | 'code'>('formatted');
   const [currentPage, setCurrentPage] = useState(1);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const itemsPerPage = 1000; // characters per page
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen && onFullscreenToggle) {
+        onFullscreenToggle();
+      }
+    };
+    
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isFullscreen, onFullscreenToggle]);
 
   const handleExport = async (format: 'docx' | 'pdf' | 'pptx' | 'xlsx' | 'csv' | 'txt') => {
     try {
@@ -120,7 +167,7 @@ export default function OutputPane({ content, visualization, onCollapse, isColla
     currentPage * itemsPerPage
   );
 
-  if (isCollapsed) {
+  if (isCollapsed && !isFullscreen) {
     return (
       <div className="flex items-center justify-center h-full bg-background border-l">
         <Button
@@ -136,12 +183,17 @@ export default function OutputPane({ content, visualization, onCollapse, isColla
   }
 
   return (
-    <div className="flex flex-col h-full bg-background border-l">
+    <div className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 h-screen bg-background' : 'h-full bg-background border-l'}`}>
       {/* Output Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Output</h2>
+          <h2 className="font-semibold text-sm">
+            {isFullscreen ? 'Output (Fullscreen)' : 'Output'}
+          </h2>
+          {title && (
+            <span className="text-xs text-muted-foreground">• {title}</span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -152,6 +204,25 @@ export default function OutputPane({ content, visualization, onCollapse, isColla
           >
             {viewMode === 'formatted' ? <Code className="h-4 w-4" /> : <AlignLeft className="h-4 w-4" />}
           </Button>
+          {hasExcel && conversationId && messageId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                const downloadUrl = `/api/conversations/${conversationId}/messages/${messageId}/excel`;
+                window.open(downloadUrl, '_blank');
+                toast({
+                  title: "Downloading Excel file",
+                  description: "Your financial calculations workbook is being downloaded."
+                });
+              }}
+              title="Download Excel Workbook"
+              data-testid="button-download-excel"
+              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -161,14 +232,38 @@ export default function OutputPane({ content, visualization, onCollapse, isColla
           >
             {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onCollapse}
-            data-testid="button-collapse-output"
-          >
-            <Minimize2 className="h-4 w-4" />
-          </Button>
+          {isFullscreen && onChatToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onChatToggle}
+              data-testid="button-chat-toggle"
+              title="Toggle Chat"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+          )}
+          {onFullscreenToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onFullscreenToggle}
+              data-testid="button-fullscreen-toggle"
+              className={isFullscreen ? "bg-primary/10 hover:bg-primary/20" : ""}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+          )}
+          {!isFullscreen && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCollapse}
+              data-testid="button-collapse-output"
+            >
+              <Minimize2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -225,37 +320,93 @@ export default function OutputPane({ content, visualization, onCollapse, isColla
             )}
             
             {content && (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                {viewMode === 'formatted' ? (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                    components={{
-                      code({ inline, className, children, ...props }: any) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={vscDarkPlus}
-                            language={match[1]}
-                            PreTag="div"
-                            {...props}
-                          >
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        );
-                      }
-                    }}
-                  >
-                    {paginatedContent}
-                  </ReactMarkdown>
+              <div>
+                {contentType === 'checklist' ? (
+                  <ChecklistRenderer 
+                    content={content}
+                    title={title}
+                    onExport={(format) => handleExport(format as any)}
+                  />
+                ) : contentType === 'workflow' ? (
+                  <div className="bg-card border rounded-lg p-4">
+                    {(() => {
+                      const workflowData = parseWorkflowContent(content);
+                      return (
+                        <WorkflowRenderer
+                          nodes={workflowData.nodes}
+                          edges={workflowData.edges}
+                          title={title}
+                          layout={workflowData.layout}
+                        />
+                      );
+                    })()}
+                  </div>
                 ) : (
-                  <pre className="bg-muted p-4 rounded-md overflow-x-auto">
-                    <code className="text-sm">{paginatedContent}</code>
-                  </pre>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    {viewMode === 'formatted' ? (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={{
+                          code({ inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <SyntaxHighlighter
+                                style={vscDarkPlus}
+                                language={match[1]}
+                                PreTag="div"
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                          table: ({ children, ...props }) => (
+                            <div className="my-4 w-full overflow-auto">
+                              <Table {...props}>
+                                {children}
+                              </Table>
+                            </div>
+                          ),
+                          thead: ({ children, ...props }) => (
+                            <TableHeader {...props}>
+                              {children}
+                            </TableHeader>
+                          ),
+                          tbody: ({ children, ...props }) => (
+                            <TableBody {...props}>
+                              {children}
+                            </TableBody>
+                          ),
+                          tr: ({ children, ...props }) => (
+                            <TableRow {...props}>
+                              {children}
+                            </TableRow>
+                          ),
+                          th: ({ children, ...props }) => (
+                            <TableHead {...props}>
+                              {children}
+                            </TableHead>
+                          ),
+                          td: ({ children, ...props }) => (
+                            <TableCell {...props}>
+                              {children}
+                            </TableCell>
+                          ),
+                        }}
+                      >
+                        {paginatedContent}
+                      </ReactMarkdown>
+                    ) : (
+                      <pre className="bg-muted p-4 rounded-md overflow-x-auto">
+                        <code className="text-sm">{paginatedContent}</code>
+                      </pre>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -267,6 +418,11 @@ export default function OutputPane({ content, visualization, onCollapse, isColla
             <p className="text-xs max-w-sm">
               Exportable output appears here when you use professional features like calculations, document generation, or data analysis.
             </p>
+            {isFullscreen && (
+              <div className="mt-4 text-xs opacity-70">
+                Click the minimize button above to return to normal view
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>

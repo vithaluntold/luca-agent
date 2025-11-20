@@ -17,14 +17,20 @@ export const SESSION_SECRET = process.env.SESSION_SECRET || 'luca-session-secret
 const createSessionStore = () => {
   if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
     const PgStore = connectPg(session);
+    console.log('[Session] Using PostgreSQL session store');
     return new PgStore({
       conString: process.env.DATABASE_URL,
       createTableIfMissing: true,
       ttl: 30 * 24 * 60 * 60, // 30 days in seconds
       tableName: 'sessions',
+      // Handle connection errors gracefully
+      errorLog: (err: any) => {
+        console.error('[Session Store] PostgreSQL error:', err);
+      },
     });
   } else {
     const MemoryStoreSession = MemoryStore(session);
+    console.log('[Session] Using Memory session store');
     return new MemoryStoreSession({
       checkPeriod: 86400000 // Prune expired entries every 24h
     });
@@ -34,7 +40,7 @@ const createSessionStore = () => {
 export const sessionStore = createSessionStore();
 
 // Session configuration with hardened security
-app.use(session({
+const sessionConfig = {
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -43,11 +49,22 @@ app.use(session({
     httpOnly: true, // Prevents client-side JavaScript access
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    sameSite: 'lax', // Good CSRF protection while allowing normal navigation
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Allow cross-site in production for OAuth
   },
   store: sessionStore,
   rolling: true, // Reset maxAge on every request (keeps active sessions alive)
-}));
+};
+
+// Log session configuration for debugging
+if (process.env.NODE_ENV !== 'production') {
+  console.log('[Session] Configuration:', {
+    secure: sessionConfig.cookie.secure,
+    sameSite: sessionConfig.cookie.sameSite,
+    store: process.env.DATABASE_URL ? 'PostgreSQL' : 'Memory'
+  });
+}
+
+app.use(session(sessionConfig));
 
 declare module 'http' {
   interface IncomingMessage {

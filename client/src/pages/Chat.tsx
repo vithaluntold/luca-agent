@@ -38,10 +38,20 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import OutputPane from "@/components/OutputPane";
 import ModeDockRibbon from "@/components/ModeDockRibbon";
+import ReasoningFeedback from "@/components/ReasoningFeedback";
+import ChatOverlay from "@/components/ChatOverlay";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import lucaLogoUrl from "@assets/Luca Transparent symbol (3)_1763135780054.png";
 import {
   Plus,
@@ -109,6 +119,7 @@ interface Profile {
 export default function Chat() {
   const [leftPaneCollapsed, setLeftPaneCollapsed] = useState(false);
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
+  const [isOutputFullscreen, setIsOutputFullscreen] = useState(false);
   const [activeConversation, setActiveConversation] = useState<string | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -121,6 +132,8 @@ export default function Chat() {
   const [showShareCopied, setShowShareCopied] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [showChatOverlay, setShowChatOverlay] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [chatMode, setChatMode] = useState<string>('standard');
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
@@ -169,7 +182,22 @@ export default function Chat() {
 
   // Only show output pane content for document/visualization/export/calculation responses
   const outputMessages = messages.filter(m => m.role === 'assistant' && m.metadata?.showInOutputPane);
-  const outputContent = outputMessages.map(m => m.content).join('\n\n---\n\n');
+  
+  // Use deliverable content when available, fallback to regular content
+  const outputContent = outputMessages
+    .map(m => m.metadata?.deliverableContent || m.content)
+    .join('\n\n---\n\n');
+  
+  // Determine content type from the most recent message
+  const latestOutputMessage = outputMessages[outputMessages.length - 1];
+  const outputContentType = chatMode === 'checklist' ? 'checklist' :
+                          chatMode === 'workflow' ? 'workflow' :
+                          chatMode === 'audit-plan' ? 'calculation' :
+                          'markdown';
+  
+  // Check if latest message has Excel file
+  const hasExcel = latestOutputMessage?.metadata?.hasExcel || false;
+  const outputMessageId = latestOutputMessage?.id;
   
   // Get the most recent visualization from output messages
   const outputVisualization = outputMessages
@@ -307,6 +335,7 @@ export default function Chat() {
         } : undefined
       }, {
         onStart: (convId) => {
+          setIsStreaming(true);
           if (!activeConversation) {
             setActiveConversation(convId);
           }
@@ -319,6 +348,7 @@ export default function Chat() {
           ));
         },
         onEnd: (metadata) => {
+          setIsStreaming(false);
           // Store metadata for visualization
           if (metadata) {
             setMessages(prev => prev.map(msg => 
@@ -329,6 +359,7 @@ export default function Chat() {
           }
         },
         onError: (error) => {
+          setIsStreaming(false);
           throw new Error(error);
         }
       });
@@ -338,12 +369,14 @@ export default function Chat() {
     onSuccess: () => {
       // Clear selected file after successful send
       setSelectedFile(null);
+      setIsStreaming(false);
       
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
     onError: (error: any) => {
       // Remove temporary messages on error
       setMessages(prev => prev.filter(msg => !msg.id.startsWith('uploading-') && !msg.id.startsWith('streaming-')));
+      setIsStreaming(false);
       
       toast({
         variant: "destructive",
@@ -863,13 +896,61 @@ export default function Chat() {
                           }`}
                         >
                         {message.role === 'assistant' ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkMath]}
-                              rehypePlugins={[rehypeKatex]}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
+                          <div className="space-y-4">
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
+                                components={{
+                                  table: ({ children, ...props }) => (
+                                    <div className="my-4 w-full overflow-auto">
+                                      <Table {...props}>
+                                        {children}
+                                      </Table>
+                                    </div>
+                                  ),
+                                  thead: ({ children, ...props }) => (
+                                    <TableHeader {...props}>
+                                      {children}
+                                    </TableHeader>
+                                  ),
+                                  tbody: ({ children, ...props }) => (
+                                    <TableBody {...props}>
+                                      {children}
+                                    </TableBody>
+                                  ),
+                                  tr: ({ children, ...props }) => (
+                                    <TableRow {...props}>
+                                      {children}
+                                    </TableRow>
+                                  ),
+                                  th: ({ children, ...props }) => (
+                                    <TableHead {...props}>
+                                      {children}
+                                    </TableHead>
+                                  ),
+                                  td: ({ children, ...props }) => (
+                                    <TableCell {...props}>
+                                      {children}
+                                    </TableCell>
+                                  ),
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                            
+                            {/* Show reasoning feedback for professional modes */}
+                            {message.metadata?.reasoningContent && (
+                              <ReasoningFeedback
+                                messageContent={message.metadata.reasoningContent}
+                                messageId={message.id}
+                                onSubmitFeedback={async (feedback) => {
+                                  console.log('Reasoning feedback:', feedback);
+                                  // TODO: Send feedback to backend
+                                }}
+                              />
+                            )}
                           </div>
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -886,8 +967,8 @@ export default function Chat() {
                     </div>
                     ))}
                     
-                    {/* Thinking indicator */}
-                    {sendMessageMutation.isPending && (
+                    {/* Thinking indicator - only show when pending but not yet streaming */}
+                    {sendMessageMutation.isPending && !isStreaming && (
                       <div className="flex gap-3 justify-start">
                         <Avatar className="h-8 w-8 flex-shrink-0">
                           <AvatarImage src={lucaLogoUrl} alt="Luca" />
@@ -1040,27 +1121,40 @@ export default function Chat() {
         </ResizablePanel>
 
         {/* Right Pane: Output */}
-        {!rightPaneCollapsed && (
+        {!rightPaneCollapsed && !isOutputFullscreen && (
           <>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
               <OutputPane
                 content={outputContent}
                 visualization={outputVisualization}
+                contentType={outputContentType as any}
+                title={
+                  chatMode === 'checklist' ? 'Professional Checklist' :
+                  chatMode === 'workflow' ? 'Process Workflow' :
+                  chatMode === 'audit-plan' ? 'Audit Plan' :
+                  chatMode === 'calculation' ? 'Financial Calculations' :
+                  'Output'
+                }
                 onCollapse={() => setRightPaneCollapsed(true)}
                 isCollapsed={false}
+                onFullscreenToggle={() => setIsOutputFullscreen(!isOutputFullscreen)}
+                isFullscreen={false}
+                conversationId={activeConversation}
+                messageId={outputMessageId}
+                hasExcel={hasExcel}
               />
             </ResizablePanel>
           </>
         )}
 
-        {rightPaneCollapsed && (
+        {rightPaneCollapsed && !isOutputFullscreen && (
           <div className="w-12 flex items-center justify-center border-l bg-muted/30">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setRightPaneCollapsed(false)}
-              data-testid="button-expand-right"
+              data-testid="button-expand-output-pane"
             >
               <Maximize2 className="h-4 w-4" />
             </Button>
@@ -1114,6 +1208,53 @@ export default function Chat() {
         open={feedbackDialogOpen}
         onOpenChange={setFeedbackDialogOpen}
       />
+
+      {/* Chat Overlay for Fullscreen Mode */}
+      {isOutputFullscreen && showChatOverlay && (
+        <ChatOverlay
+          isVisible={true}
+          onToggle={() => setShowChatOverlay(false)}
+          onSendMessage={handleSendMessage}
+          messages={messages
+            .filter(m => m.role === 'user' || (m.role === 'assistant' && !m.metadata?.showInOutputPane))
+            .slice(-5) // Show last 5 messages
+            .map(m => ({
+              id: m.id,
+              text: m.content,
+              isUser: m.role === 'user',
+              timestamp: new Date(m.timestamp)
+            }))
+          }
+          isLoading={isStreaming || sendMessageMutation.isPending}
+        />
+      )}
+      
+      {/* Fullscreen Output Pane */}
+      {isOutputFullscreen && (
+        <OutputPane
+          content={outputContent}
+          visualization={outputVisualization}
+          contentType={outputContentType as any}
+          title={
+            chatMode === 'checklist' ? 'Professional Checklist' :
+            chatMode === 'workflow' ? 'Process Workflow' :
+            chatMode === 'audit-plan' ? 'Audit Plan' :
+            chatMode === 'calculation' ? 'Financial Calculations' :
+            'Output'
+          }
+          onCollapse={() => setRightPaneCollapsed(true)}
+          isCollapsed={false}
+          onFullscreenToggle={() => {
+            setIsOutputFullscreen(!isOutputFullscreen);
+            setShowChatOverlay(false);
+          }}
+          isFullscreen={true}
+          onChatToggle={() => setShowChatOverlay(true)}
+          conversationId={activeConversation}
+          messageId={outputMessageId}
+          hasExcel={hasExcel}
+        />
+      )}
     </div>
   );
 }

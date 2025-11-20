@@ -85,7 +85,7 @@ export default function Privacy() {
               <li><strong>AI Providers:</strong> Anthropic Claude, Google Gemini, Perplexity AI, Azure OpenAI</li>
               <li><strong>Payment Processing:</strong> Razorpay (multi-currency, regional pricing)</li>
               <li><strong>Document Analysis:</strong> Azure Document Intelligence</li>
-              <li><strong>Database:</strong> PostgreSQL (Neon-backed)</li>
+              <li><strong>Database:</strong> PostgreSQL (Supabase-backed)</li>
               <li><strong>Accounting Integrations:</strong> QuickBooks, Xero, Zoho Books, ADP</li>
             </ul>
           </section>

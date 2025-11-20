@@ -61,10 +61,24 @@ export default function Auth() {
       
       // For signup, show specific validation errors
       if (mode === 'register') {
+        let errorMessage = message;
+        
+        // Parse Zod validation errors if present
+        try {
+          if (message.includes('validation') || message.includes('error')) {
+            const errorData = JSON.parse(error.message);
+            if (Array.isArray(errorData.error)) {
+              errorMessage = errorData.error.map((e: any) => e.message).join('. ');
+            }
+          }
+        } catch {
+          // Keep original message if parsing fails
+        }
+        
         toast({
           variant: "destructive",
           title: "Signup Failed",
-          description: message
+          description: errorMessage
         });
         return;
       }
@@ -97,11 +111,11 @@ export default function Auth() {
         setLockoutMessage(undefined);
       }
       
-      // Display generic error for login (security best practice)
+      // Display more specific error for login failures
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email or password. Please try again."
+        description: message // Now shows specific error messages from server
       });
     }
   };

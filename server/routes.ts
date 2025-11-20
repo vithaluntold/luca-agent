@@ -133,31 +133,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validationErrors: isDev && error instanceof z.ZodError ? error.errors : undefined
       });
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
+        // Return user-friendly validation errors
+        const validationErrors = error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }));
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationErrors,
+          message: validationErrors.map(e => e.message).join('. ')
+        });
       }
       res.status(500).json({ error: "Registration failed" });
     }
   });
 
-  app.post("/api/auth/login", authRateLimiter, async (req, res) => {
-    const isDev = process.env.NODE_ENV !== 'production';
+app.post("/api/auth/login", authRateLimiter, async (req, res) => {
+  const isDev = process.env.NODE_ENV !== 'production';
+  
+  try {
+    const { email, password } = req.body;
     
-    try {
-      const { email, password } = req.body;
-      
-      if (isDev) {
-        console.log('[Auth] Login attempt:', { 
-          email, 
-          hasPassword: !!password,
-          sessionID: req.sessionID,
-          cookies: req.headers.cookie ? 'present' : 'missing'
-        });
-      }
-      
-      const user = await storage.getUserByEmail(email);
+    // Enhanced logging for debugging session issues
+    console.log('[Auth] Login attempt:', { 
+      email: isDev ? email : email.substring(0, 3) + '***',
+      hasPassword: !!password,
+      sessionID: req.sessionID,
+      cookies: req.headers.cookie ? 'present' : 'missing',
+      userAgent: req.get('user-agent')?.substring(0, 50),
+      environment: process.env.NODE_ENV,
+      sessionSecret: process.env.SESSION_SECRET ? 'present' : 'missing'
+    });      const user = await storage.getUserByEmail(email);
       if (!user) {
-        if (isDev) console.log('[Auth] Login failed: User not found');
-        return res.status(401).json({ error: "Invalid credentials" });
+        if (isDev) console.log('[Auth] Login failed: User not found for email:', email);
+        return res.status(401).json({ error: "No account found with this email address" });
       }
       
       // Check if account is locked
@@ -175,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
-        if (isDev) console.log('[Auth] Login failed: Invalid password');
+        if (isDev) console.log('[Auth] Login failed: Invalid password for user:', user.email);
         // Track failed login attempt
         await storage.incrementFailedLoginAttempts(user.id);
         const updatedUser = await storage.getUser(user.id);
@@ -187,11 +196,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } else if (remainingAttempts <= 2) {
           return res.status(401).json({ 
-            error: `Invalid credentials. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining before account lockout.`
+            error: `Incorrect password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining before account lockout.`
           });
         }
         
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "Incorrect password. Please try again." });
       }
       
       // Check if MFA is enabled for this user
@@ -212,16 +221,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = user.id;
       
       // CRITICAL: Explicitly save session before responding
+      console.log('[Auth] About to save session for user:', user.id);
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            console.error('[Auth] Session save error:', {
+              error: err.message,
+              stack: err.stack,
+              sessionID: req.sessionID,
+              userId: user.id
+            });
+            reject(err);
+          } else {
+            console.log('[Auth] Session saved successfully:', {
+              sessionID: req.sessionID,
+              userId: user.id
+            });
+            resolve();
+          }
         });
       });
       
       const { password: _, mfaSecret, mfaBackupCodes, ...userWithoutSensitive } = user;
       res.json({ user: userWithoutSensitive });
     } catch (error) {
+      console.error('[Auth] Login error:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        sessionID: req.sessionID,
+        environment: process.env.NODE_ENV
+      });
       res.status(500).json({ error: "Login failed" });
     }
   });
@@ -234,6 +263,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     });
   });
+
+  // Debug endpoint to check session status (dev only)
+  if (process.env.NODE_ENV !== 'production') {
+    app.get("/api/debug/session", (req, res) => {
+      res.json({
+        sessionID: req.sessionID,
+        hasSession: !!req.session,
+        userId: req.session?.userId,
+        cookies: req.headers.cookie ? 'present' : 'missing',
+        environment: process.env.NODE_ENV,
+        sessionSecret: process.env.SESSION_SECRET ? 'present' : 'missing'
+      });
+    });
+  }
 
   app.get("/api/auth/me", requireAuth, async (req, res) => {
     try {
@@ -733,6 +776,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download Excel file for a specific message
+  app.get("/api/conversations/:conversationId/messages/:messageId/excel", requireAuth, async (req, res) => {
+    try {
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { conversationId, messageId } = req.params;
+      
+      // Verify conversation ownership
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      if (conversation.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get message with Excel data
+      const message = await storage.getMessage(messageId);
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      
+      if (message.conversationId !== conversationId) {
+        return res.status(403).json({ error: "Message does not belong to this conversation" });
+      }
+      
+      // Check if Excel file exists
+      if (!message.excelBuffer || !message.excelFilename) {
+        return res.status(404).json({ error: "Excel file not found for this message" });
+      }
+      
+      // Convert base64 back to buffer
+      const excelBuffer = Buffer.from(message.excelBuffer, 'base64');
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${message.excelFilename}"`);
+      res.setHeader('Content-Length', excelBuffer.length);
+      
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('[API] Error downloading Excel file:', error);
+      res.status(500).json({ error: "Failed to download Excel file" });
+    }
+  });
+
   // Chat endpoint - the main intelligence interface (auth required)
   app.post("/api/chat", requireAuth, chatRateLimiter, async (req, res) => {
     try {
@@ -899,6 +992,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
       
+      // Prepare Excel data if generated
+      let excelData: { filename: string; buffer: string } | undefined;
+      if (result.excelWorkbook) {
+        excelData = {
+          filename: result.excelWorkbook.filename,
+          buffer: result.excelWorkbook.buffer.toString('base64')
+        };
+        console.log(`[Excel] Generated workbook: ${excelData.filename} (${result.excelWorkbook.buffer.length} bytes)`);
+      }
+      
       // Save assistant message with full metadata
       const assistantMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -908,7 +1011,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         routingDecision: result.routingDecision,
         calculationResults: result.calculationResults,
         tokensUsed: result.tokensUsed,
-        metadata: result.metadata // Store full metadata (showInOutputPane, visualization, etc.)
+        excelFilename: excelData?.filename,
+        excelBuffer: excelData?.buffer,
+        metadata: {
+          ...result.metadata,
+          deliverableContent: result.deliverableContent,
+          reasoningContent: result.reasoningContent,
+          hasExcel: !!excelData
+        }
       });
       
       // Create routing log

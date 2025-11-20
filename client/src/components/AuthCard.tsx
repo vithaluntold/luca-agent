@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import logoImg from "@assets/Luca Transparent symbol (3)_1763135780054.png";
 import { useState } from "react";
-import { CheckCircle2, XCircle, AlertCircle, ShieldCheck } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AuthCardProps {
@@ -22,16 +22,23 @@ export default function AuthCard({ mode, onSubmit, onToggleMode, requireMfa, loc
   const [mfaToken, setMfaToken] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Simple password validation
-  const passwordValid = password.length >= 6;
+  // Password validation matching server requirements
+  const passwordValid = password.length >= 8;
+  const passwordRequirements = [
+    { met: password.length >= 8, text: 'At least 8 characters' },
+    { met: /[A-Z]/.test(password), text: 'One uppercase letter' },
+    { met: /[a-z]/.test(password), text: 'One lowercase letter' },
+    { met: /\d/.test(password), text: 'One number' },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
     
     if (mode === 'register' && !passwordValid) {
-      setValidationError("Password must be at least 6 characters");
+      setValidationError("Password must be at least 8 characters long");
       return;
     }
     
@@ -64,6 +71,25 @@ export default function AuthCard({ mode, onSubmit, onToggleMode, requireMfa, loc
                 ? "Sign in to continue to Luca" 
                 : "Get started with Luca for free"}
             </p>
+            
+            {/* Helpful tips */}
+            {!isLogin && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  💡 <strong>Quick tip:</strong> Use a strong password with at least 8 characters
+                </p>
+              </div>
+            )}
+            
+            {isLogin && (
+              <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md">
+                <div className="text-xs text-green-700 dark:text-green-300 space-y-1">
+                  <p>🧪 <strong>Demo Accounts:</strong></p>
+                  <p><code>demo@luca.com</code> / <code>DemoUser123!</code></p>
+                  <p><code>admin@luca.com</code> / <code>Admin123!</code> (Admin)</p>
+                </div>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,16 +137,41 @@ export default function AuthCard({ mode, onSubmit, onToggleMode, requireMfa, loc
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                data-testid="input-password"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  data-testid="input-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid="button-toggle-password"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              
+              {!isLogin && password && (
+                <div className="mt-2 p-3 bg-muted/50 rounded-md space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium mb-2">Password requirements:</p>
+                  {passwordRequirements.map((req, index) => (
+                    <PasswordRequirement key={index} met={req.met} text={req.text} />
+                  ))}
+                </div>
+              )}
             </div>
 
             {requireMfa && (

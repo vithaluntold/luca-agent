@@ -378,6 +378,15 @@ export class PostgresStorage implements IStorage {
       .orderBy(messages.createdAt);
   }
 
+  async getMessage(messageId: string): Promise<Message | undefined> {
+    const result = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
+    return result[0];
+  }
+
   async createMessage(data: InsertMessage): Promise<Message> {
     const result = await db.insert(messages).values(data).returning();
     return result[0];

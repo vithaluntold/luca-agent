@@ -11,6 +11,8 @@
 
 import { queryTriageService, type QueryClassification, type RoutingDecision } from './queryTriage';
 import { financialSolverService } from './financialSolvers';
+import { calculationFormatter } from './calculationFormatter';
+import { excelOrchestrator } from './excelOrchestrator';
 import { aiProviderRegistry, AIProviderName, ProviderError, providerHealthMonitor } from './aiProviders';
 import { requirementClarificationService, type ClarificationAnalysis } from './requirementClarification';
 import { documentAnalyzerAgent } from './agents/documentAnalyzer';
@@ -57,6 +59,15 @@ export interface OrchestrationResult {
   needsClarification?: boolean;
   tokensUsed: number;
   processingTimeMs: number;
+  // New content separation fields
+  deliverableContent?: string; // Structured content for output pane
+  reasoningContent?: string;   // Thought process for chat interface
+  // Excel workbook for calculation mode
+  excelWorkbook?: {
+    buffer: Buffer;
+    filename: string;
+    summary: string;
+  };
 }
 
 export interface ProcessQueryOptions {
@@ -100,7 +111,7 @@ export class AIOrchestrator {
     const classification = queryTriageService.classifyQuery(query, context);
     
     // Step 2: Route to appropriate model and solvers
-    const routingDecision = queryTriageService.routeQuery(classification, userTier);
+    const routingDecision = queryTriageService.routeQuery(classification, userTier, !!options?.attachment);
     
     // Step 2.5: ADVANCED REASONING - Enhance routing decision with reasoning profile
     // CRITICAL: CoT for Research/Calculate runs independently of full governor
@@ -200,6 +211,58 @@ export class AIOrchestrator {
     // Step 3: Execute any needed calculations/solvers
     const calculationResults = await this.executeCalculations(enrichedQuery, classification, routingDecision);
     
+    // Step 3.5: Generate Excel workbook for calculation mode
+    let excelWorkbook: any = null;
+    if (chatMode === 'calculation' && calculationResults && Object.keys(calculationResults).length > 0) {
+      try {
+        console.log('[Orchestrator] Generating Excel workbook for calculation mode...');
+        const spreadsheetRequest = await excelOrchestrator.parseUserRequest(enrichedQuery, undefined);
+        
+        // Add detected calculations to the request
+        if (calculationResults.taxCalculation) {
+          spreadsheetRequest.calculations?.push({
+            type: 'tax',
+            inputs: calculationResults.taxCalculation,
+            outputLocation: 'B2'
+          });
+        }
+        if (calculationResults.npv !== undefined) {
+          spreadsheetRequest.calculations?.push({
+            type: 'npv',
+            inputs: calculationResults,
+            outputLocation: 'B20'
+          });
+        }
+        if (calculationResults.irr !== undefined) {
+          spreadsheetRequest.calculations?.push({
+            type: 'irr',
+            inputs: calculationResults,
+            outputLocation: 'B35'
+          });
+        }
+        if (calculationResults.depreciation) {
+          spreadsheetRequest.calculations?.push({
+            type: 'depreciation',
+            inputs: calculationResults.depreciation,
+            outputLocation: 'B50'
+          });
+        }
+        if (calculationResults.amortization) {
+          spreadsheetRequest.calculations?.push({
+            type: 'amortization',
+            inputs: calculationResults.amortization,
+            outputLocation: 'B80'
+          });
+        }
+        
+        excelWorkbook = await excelOrchestrator.createCalculationWorkbook(spreadsheetRequest);
+        console.log('[Orchestrator] Excel workbook generated with', excelWorkbook.formulasUsed.length, 'formulas');
+      } catch (error) {
+        console.error('[Orchestrator] Excel generation failed:', error);
+        // Don't fail the request if Excel generation fails
+      }
+    }
+    
     // Step 4: Build enhanced context with calculation results, clarification insights, and chat mode
     const enhancedContext = this.buildEnhancedContext(
       enrichedQuery,
@@ -227,7 +290,40 @@ export class AIOrchestrator {
     
     let finalResponse = aiResponse.content;
     
-    // Step 5.5: ADVANCED REASONING - Cognitive Monitoring & Validation
+    // Step 5.5: Format calculation results professionally if calculations were performed
+    if (calculationResults && Object.keys(calculationResults).length > 0) {
+      try {
+        console.log('[Orchestrator] Formatting calculation results professionally...');
+        
+        // Format each calculation type
+        const formattedOutputs: string[] = [];
+        
+        for (const [calcType, calcData] of Object.entries(calculationResults)) {
+          if (calcData && typeof calcData === 'object') {
+            const formatted = calculationFormatter.formatCalculation(
+              calcType,
+              calcData,
+              enrichedQuery
+            );
+            
+            // Append formatted markdown to response
+            formattedOutputs.push(formatted.markdown);
+          }
+        }
+        
+        // If we have formatted outputs, prepend them to the AI response
+        if (formattedOutputs.length > 0) {
+          const calculationSection = `\n\n---\n\n# 📊 Calculation Results\n\n${formattedOutputs.join('\n\n')}\n\n---\n\n# 💬 Professional Analysis\n\n`;
+          finalResponse = calculationSection + finalResponse;
+          console.log('[Orchestrator] Professional calculation formatting applied');
+        }
+      } catch (error) {
+        console.error('[Orchestrator] Calculation formatting failed:', error);
+        // Don't fail request if formatting fails - AI response still valid
+      }
+    }
+    
+    // Step 5.6: ADVANCED REASONING - Cognitive Monitoring & Validation
     // CRITICAL: Monitoring runs independently of CoT - separate feature flags
     // This ensures quality checks even when advanced reasoning is disabled
     let cognitiveMonitoring: CognitiveMonitorResult | undefined;
@@ -352,9 +448,25 @@ export class AIOrchestrator {
       qualityScore,
       processingTimeMs
     );
-    
+
+    // Parse separated content for professional modes
+    let deliverableContent: string | undefined;
+    let reasoningContent: string | undefined;
+    let mainResponse = finalResponse;
+
+    if (chatMode && ['checklist', 'workflow', 'audit-plan'].includes(chatMode)) {
+      const { deliverable, reasoning, remainingContent } = this.parseSeparatedContent(finalResponse);
+      if (deliverable && reasoning) {
+        deliverableContent = deliverable;
+        reasoningContent = reasoning;
+        mainResponse = remainingContent || reasoning; // Chat shows reasoning
+      }
+    }
+
     return {
-      response: finalResponse,
+      response: mainResponse,
+      deliverableContent,
+      reasoningContent,
       modelUsed: routingDecision.primaryModel,
       routingDecision,
       classification,
@@ -363,7 +475,12 @@ export class AIOrchestrator {
       clarificationAnalysis,
       needsClarification: clarificationAnalysis?.recommendedApproach === 'partial_answer_then_clarify',
       tokensUsed: aiResponse.tokensUsed,
-      processingTimeMs
+      processingTimeMs,
+      excelWorkbook: excelWorkbook ? {
+        buffer: excelWorkbook.buffer,
+        filename: `LucaAgent_Calculations_${Date.now()}.xlsx`,
+        summary: excelWorkbook.summary
+      } : undefined
     };
   }
 
@@ -499,6 +616,25 @@ export class AIOrchestrator {
   ): Promise<any> {
     const results: any = {};
     
+    // Financial Ratio calculations (Current Ratio, Quick Ratio, etc.)
+    if (query.toLowerCase().includes('current ratio') || 
+        query.toLowerCase().includes('quick ratio') ||
+        query.toLowerCase().includes('liquidity ratio')) {
+      const ratioParams = this.extractFinancialRatioParameters(query);
+      if (ratioParams) {
+        results.financialRatios = financialSolverService.calculateFinancialRatios(
+          ratioParams.currentAssets,
+          ratioParams.currentLiabilities,
+          ratioParams.totalAssets || ratioParams.currentAssets,
+          ratioParams.totalLiabilities || ratioParams.currentLiabilities,
+          ratioParams.inventory || 0,
+          ratioParams.netIncome || 0,
+          ratioParams.equity || 0,
+          ratioParams.historicalData
+        );
+      }
+    }
+    
     // Tax calculations
     if (routing.solversNeeded.includes('tax-calculator')) {
       const taxCalc = this.extractTaxParameters(query);
@@ -517,14 +653,25 @@ export class AIOrchestrator {
       const cashFlows = this.extractCashFlows(query);
       const discountRate = this.extractDiscountRate(query);
       if (cashFlows && discountRate) {
-        results.npv = financialSolverService.calculateNPV(cashFlows, discountRate);
+        const npv = financialSolverService.calculateNPV(cashFlows, discountRate);
+        results.npv = {
+          npv,
+          cashFlows,
+          discountRate,
+          initialInvestment: cashFlows[0] || 0
+        };
       }
     }
     
     if (query.includes('irr') || query.includes('internal rate of return')) {
       const cashFlows = this.extractCashFlows(query);
       if (cashFlows) {
-        results.irr = financialSolverService.calculateIRR(cashFlows);
+        const irr = financialSolverService.calculateIRR(cashFlows);
+        results.irr = {
+          irr,
+          cashFlows,
+          requiredReturn: 0.10 // Default required return
+        };
       }
     }
     
@@ -532,13 +679,49 @@ export class AIOrchestrator {
     if (query.includes('depreciation') || query.includes('depreciate')) {
       const depParams = this.extractDepreciationParameters(query);
       if (depParams) {
-        results.depreciation = financialSolverService.calculateDepreciation(
+        const annualDepreciation = financialSolverService.calculateDepreciation(
           depParams.cost,
           depParams.salvage,
           depParams.life,
           depParams.method,
           depParams.period
         );
+        
+        // Build schedule
+        const schedule = [];
+        let balance = depParams.cost;
+        let accumulated = 0;
+        
+        for (let year = 1; year <= depParams.life; year++) {
+          const depreciation = financialSolverService.calculateDepreciation(
+            depParams.cost,
+            depParams.salvage,
+            depParams.life,
+            depParams.method,
+            year
+          );
+          accumulated += depreciation;
+          const endingBalance = balance - depreciation;
+          
+          schedule.push({
+            year,
+            beginningBalance: balance,
+            depreciation,
+            endingBalance,
+            accumulated
+          });
+          
+          balance = endingBalance;
+        }
+        
+        results.depreciation = {
+          cost: depParams.cost,
+          salvageValue: depParams.salvage,
+          usefulLife: depParams.life,
+          method: depParams.method,
+          annualDepreciation,
+          schedule
+        };
       }
     }
     
@@ -546,12 +729,20 @@ export class AIOrchestrator {
     if (query.includes('amortization') || query.includes('loan payment')) {
       const loanParams = this.extractLoanParameters(query);
       if (loanParams) {
-        results.amortization = financialSolverService.calculateAmortization(
+        const amortizationData = financialSolverService.calculateAmortization(
           loanParams.principal,
           loanParams.rate,
           loanParams.years,
           loanParams.paymentsPerYear
         );
+        
+        results.amortization = {
+          principal: loanParams.principal,
+          annualRate: loanParams.rate,
+          years: loanParams.years,
+          payment: amortizationData.payment,
+          schedule: amortizationData.schedule
+        };
       }
     }
     
@@ -635,51 +826,90 @@ export class AIOrchestrator {
           break;
         case 'checklist':
           context += `INSTRUCTIONS FOR CHECKLIST MODE:\n`;
-          context += `- Create a structured, actionable checklist\n`;
-          context += `- Organize tasks in logical order with clear steps\n`;
-          context += `- Include deadlines and dependencies where applicable\n`;
-          context += `- Add brief explanations for each checklist item\n`;
-          context += `- Prioritize critical tasks at the top\n`;
-          context += `- Format as numbered list with sub-items where needed\n\n`;
+          context += `You need to provide TWO separate outputs:\n\n`;
+          context += `1. DELIVERABLE (for output pane download):\n`;
+          context += `Create a professional, structured checklist with:\n`;
+          context += `- Clear task items with checkboxes [ ]\n`;
+          context += `- Priority levels (High/Medium/Low)\n`;
+          context += `- Deadlines and dependencies\n`;
+          context += `- Brief descriptions for each item\n`;
+          context += `- Organized in logical sections\n\n`;
+          context += `2. REASONING (for chat interface):\n`;
+          context += `Explain your thought process:\n`;
+          context += `- Why you included specific items\n`;
+          context += `- How you determined priorities\n`;
+          context += `- Sources or standards you considered\n`;
+          context += `- Ask for user feedback on your reasoning\n\n`;
+          context += `Format your response as:\n`;
+          context += `<DELIVERABLE>\n[checklist content here]\n</DELIVERABLE>\n\n`;
+          context += `<REASONING>\n[your thought process here]\n</REASONING>\n\n`;
           break;
         case 'workflow':
           context += `INSTRUCTIONS FOR WORKFLOW VISUALIZATION MODE:\n`;
-          context += `- Describe the process as clear, sequential steps\n`;
-          context += `- Use consistent formatting: "Step 1: [Title]" or "Phase 1: [Title]"\n`;
-          context += `- Under each step, list key substeps with bullet points (-)\n`;
-          context += `- Identify decision points and branching paths\n`;
-          context += `- Note dependencies between steps\n`;
-          context += `- Include roles/responsibilities where relevant\n`;
-          context += `- Highlight critical milestones and approval gates\n`;
-          context += `- Keep step titles concise (max 60 characters)\n`;
-          context += `- Limit substeps to 5 per step for clarity\n\n`;
-          context += `EXAMPLE FORMAT:\n`;
-          context += `Step 1: Initial Planning\n`;
-          context += `- Define objectives and scope\n`;
-          context += `- Identify key stakeholders\n`;
-          context += `- Assess preliminary risks\n\n`;
-          context += `Step 2: Execution Phase\n`;
-          context += `- Deploy resources\n`;
-          context += `- Monitor progress\n`;
-          context += `- Document findings\n\n`;
+          context += `You need to provide TWO separate outputs:\n\n`;
+          context += `1. DELIVERABLE (for output pane visualization):\n`;
+          context += `Create a clear, structured workflow using this format:\n`;
+          context += `Step 1: [Title]\n- [Substep description]\n- [Another substep]\n\n`;
+          context += `Step 2: [Next Title]\n- [Substep description]\n\n`;
+          context += `This will generate an interactive flowchart diagram.\n\n`;
+          context += `FORMAT OPTIONS you can mention:\n`;
+          context += `- "Linear Process" - Sequential steps (default)\n`;
+          context += `- "Decision Tree" - Include decision points with Yes/No branches\n`;
+          context += `- "Parallel Workflow" - Multiple simultaneous paths\n`;
+          context += `- "Approval Workflow" - Include approval gates and review steps\n\n`;
+          context += `2. REASONING (for chat interface):\n`;
+          context += `Explain your thought process:\n`;
+          context += `- Why you structured the workflow this way\n`;
+          context += `- Key considerations for each step\n`;
+          context += `- Industry best practices applied\n`;
+          context += `- Ask user: "Would you prefer a different format (decision tree, parallel workflow, etc.)?"\n\n`;
+          context += `Format your response as:\n`;
+          context += `<DELIVERABLE>\n[workflow content here]\n</DELIVERABLE>\n\n`;
+          context += `<REASONING>\n[your thought process here]\n</REASONING>\n\n`;
           break;
         case 'audit-plan':
           context += `INSTRUCTIONS FOR AUDIT PLAN MODE:\n`;
-          context += `- Develop a comprehensive audit approach\n`;
-          context += `- Identify key risk areas and materiality thresholds\n`;
-          context += `- Outline specific audit procedures and tests\n`;
-          context += `- Specify required documentation and evidence\n`;
-          context += `- Include timing considerations and resource requirements\n`;
-          context += `- Address relevant auditing standards (GAAS, ISA, etc.)\n\n`;
+          context += `You need to provide TWO separate outputs:\n\n`;
+          context += `1. DELIVERABLE (for output pane download):\n`;
+          context += `Create a comprehensive audit plan with:\n`;
+          context += `- Risk assessment and materiality thresholds\n`;
+          context += `- Specific audit procedures and tests\n`;
+          context += `- Required documentation and evidence\n`;
+          context += `- Timing considerations and resource requirements\n`;
+          context += `- Relevant auditing standards (GAAS, ISA, etc.)\n\n`;
+          context += `2. REASONING (for chat interface):\n`;
+          context += `Explain your thought process:\n`;
+          context += `- How you assessed the risk areas\n`;
+          context += `- Why you selected specific procedures\n`;
+          context += `- Standards and regulations considered\n`;
+          context += `- Ask for user feedback on the audit approach\n\n`;
+          context += `Format your response as:\n`;
+          context += `<DELIVERABLE>\n[audit plan content here]\n</DELIVERABLE>\n\n`;
+          context += `<REASONING>\n[your thought process here]\n</REASONING>\n\n`;
           break;
         case 'calculation':
           context += `INSTRUCTIONS FOR FINANCIAL CALCULATION MODE:\n`;
-          context += `- Perform detailed calculations step-by-step\n`;
-          context += `- Show all formulas and methodology clearly\n`;
-          context += `- Explain assumptions and variables used\n`;
-          context += `- Present results in formatted tables when appropriate\n`;
-          context += `- Include relevant tax brackets, rates, and thresholds\n`;
-          context += `- Verify calculations and note any limitations\n\n`;
+          context += `You are integrated with a full Excel orchestration engine. You can:\n`;
+          context += `1. Create Excel workbooks with live formulas (not just static values)\n`;
+          context += `2. Build calculation tables with preserved formulas\n`;
+          context += `3. Generate depreciation/amortization schedules\n`;
+          context += `4. Create tax calculations with breakdown formulas\n`;
+          context += `5. Calculate NPV, IRR, and other financial metrics with formulas\n`;
+          context += `6. Parse and modify uploaded Excel files\n\n`;
+          context += `When responding:\n`;
+          context += `- Identify what calculations the user needs\n`;
+          context += `- Specify the Excel structure (tables, formulas, charts)\n`;
+          context += `- Show formulas that will be created (e.g., "=B2*B3")\n`;
+          context += `- Explain your methodology clearly\n`;
+          context += `- Note: The system will generate a downloadable Excel file with working formulas\n\n`;
+          context += `Available calculation types:\n`;
+          context += `- tax: Corporate/personal tax calculations\n`;
+          context += `- npv: Net present value with discount rate\n`;
+          context += `- irr: Internal rate of return\n`;
+          context += `- depreciation: Asset depreciation schedules\n`;
+          context += `- amortization: Loan payment schedules\n`;
+          context += `- loan: Loan calculations with amortization\n`;
+          context += `- custom: Any financial calculation with formulas\n\n`;
           break;
       }
     }
@@ -705,6 +935,31 @@ export class AIOrchestrator {
       if (ctx.filingStatus) context += `- Filing Status: ${ctx.filingStatus}\n`;
       if (ctx.accountingMethod) context += `- Accounting Method: ${ctx.accountingMethod}\n`;
       context += `\n`;
+    }
+    
+    // Add calculation formatting instructions if calculations were performed
+    if (calculations) {
+      context += `\n**CALCULATION OUTPUT FORMATTING INSTRUCTIONS:**\n`;
+      context += `When presenting financial calculations, use this professional structure:\n\n`;
+      context += `1. **Quick Summary Section**\n`;
+      context += `   - Lead with key results in plain language\n`;
+      context += `   - Use emojis for visual clarity (📊 📈 💰 🎯)\n`;
+      context += `   - Include benchmark comparisons where relevant\n\n`;
+      context += `2. **Detailed Calculation Breakdown**\n`;
+      context += `   - Present data in markdown tables\n`;
+      context += `   - Show step-by-step formulas\n`;
+      context += `   - Include component descriptions\n\n`;
+      context += `3. **Related Metrics** (if applicable)\n`;
+      context += `   - Show complementary calculations\n`;
+      context += `   - Compare with industry standards\n\n`;
+      context += `4. **Trend Analysis** (when historical data exists)\n`;
+      context += `   - Show period-over-period changes\n`;
+      context += `   - Use trend indicators: 📈 Improving | 📊 Stable | 📉 Declining\n\n`;
+      context += `5. **Professional Interpretation**\n`;
+      context += `   - Explain what the numbers mean\n`;
+      context += `   - Highlight key considerations\n`;
+      context += `   - Provide actionable recommendations\n\n`;
+      context += `Use clear section headings, bullet points, and tables to organize information professionally.\n\n`;
     }
     
     // CRITICAL: Add missing context information to instruct model to ask questions
@@ -942,6 +1197,28 @@ export class AIOrchestrator {
   }
 
   // Helper methods to extract parameters from queries
+  private extractFinancialRatioParameters(query: string): any | null {
+    // Extract financial data from query
+    const currentAssetsMatch = query.match(/(?:current assets?|CA)\s*(?:of|is|=|:)?\s*\$?([0-9,]+)(?:k|m)?/i);
+    const currentLiabilitiesMatch = query.match(/(?:current liabilities?|CL)\s*(?:of|is|=|:)?\s*\$?([0-9,]+)(?:k|m)?/i);
+    const inventoryMatch = query.match(/(?:inventory)\s*(?:of|is|=|:)?\s*\$?([0-9,]+)(?:k|m)?/i);
+    
+    if (currentAssetsMatch && currentLiabilitiesMatch) {
+      return {
+        currentAssets: this.parseNumber(currentAssetsMatch[1]),
+        currentLiabilities: this.parseNumber(currentLiabilitiesMatch[1]),
+        totalAssets: this.parseNumber(currentAssetsMatch[1]),
+        totalLiabilities: this.parseNumber(currentLiabilitiesMatch[1]),
+        inventory: inventoryMatch ? this.parseNumber(inventoryMatch[1]) : 0,
+        netIncome: 0,
+        equity: 0,
+        historicalData: undefined
+      };
+    }
+    
+    return null;
+  }
+  
   private extractTaxParameters(query: string): { revenue: number; expenses: number; jurisdiction: string; entityType: string } | null {
     // Simple extraction - in production this would be more sophisticated
     const revenueMatch = query.match(/(?:revenue|income|earnings)\s*(?:of|is)?\s*\$?([0-9,]+)(?:k|,000)?/i);
@@ -1022,6 +1299,34 @@ export class AIOrchestrator {
       return num * 1000000;
     }
     return num;
+  }
+
+  /**
+   * Parse separated content from professional modes
+   * Extracts deliverable content and reasoning content
+   */
+  private parseSeparatedContent(response: string): {
+    deliverable: string | null;
+    reasoning: string | null;
+    remainingContent: string | null;
+  } {
+    const deliverableMatch = response.match(/<DELIVERABLE>([\s\S]*?)<\/DELIVERABLE>/i);
+    const reasoningMatch = response.match(/<REASONING>([\s\S]*?)<\/REASONING>/i);
+
+    if (deliverableMatch && reasoningMatch) {
+      return {
+        deliverable: deliverableMatch[1].trim(),
+        reasoning: reasoningMatch[1].trim(),
+        remainingContent: null
+      };
+    }
+
+    // Fallback: if no tags found, return original content
+    return {
+      deliverable: null,
+      reasoning: null,
+      remainingContent: response
+    };
   }
 }
 

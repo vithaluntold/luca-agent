@@ -507,3 +507,46 @@
     inset: -1px;
   }
 }
+
+/* Prose table formatting for markdown content */
+.prose table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: 100%;
+  margin: 1rem 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.prose tbody tr:nth-child(even) {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+.prose tbody tr:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+.prose td {
+  background-color: hsl(var(--background));
+}
+
+/* Ensure tables are responsive in chat */
+.prose .table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}

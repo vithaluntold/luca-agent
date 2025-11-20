@@ -72,7 +72,7 @@ export class QueryTriageService {
   /**
    * Routes query to optimal model and provider based on classification
    */
-  routeQuery(classification: QueryClassification, userTier: string): RoutingDecision {
+  routeQuery(classification: QueryClassification, userTier: string, hasAttachment: boolean = false): RoutingDecision {
     let primaryModel = 'gpt-4o';
     let preferredProvider: AIProviderName = AIProviderName.OPENAI;
     const fallbackProviders: AIProviderName[] = [];
@@ -80,10 +80,8 @@ export class QueryTriageService {
     const solversNeeded: string[] = [];
     
     // Provider selection based on query characteristics
-    if (classification.requiresDocumentAnalysis) {
-      // Azure Document Intelligence for document parsing
-      // Note: Azure requires actual document attachment (URL or file data)
-      // If no document is attached, it will throw retryable error and fall back
+    if (classification.requiresDocumentAnalysis && hasAttachment) {
+      // Azure Document Intelligence for document parsing (only when attachment exists)
       preferredProvider = AIProviderName.AZURE_DOCUMENT_INTELLIGENCE;
       fallbackProviders.push(AIProviderName.OPENAI);
       fallbackProviders.push(AIProviderName.CLAUDE);

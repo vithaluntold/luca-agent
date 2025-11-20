@@ -196,7 +196,7 @@ export class FinancialSolverService {
   }
 
   /**
-   * Calculate financial ratios
+   * Calculate financial ratios with full context for formatting
    */
   calculateFinancialRatios(
     currentAssets: number,
@@ -205,8 +205,18 @@ export class FinancialSolverService {
     totalLiabilities: number,
     inventory: number,
     netIncome: number,
-    equity: number
-  ): FinancialMetrics {
+    equity: number,
+    historicalData?: Array<{ period: string; currentRatio: number }>
+  ): FinancialMetrics & {
+    currentAssets?: number;
+    currentLiabilities?: number;
+    totalAssets?: number;
+    totalLiabilities?: number;
+    inventory?: number;
+    netIncome?: number;
+    equity?: number;
+    historicalData?: Array<{ period: string; currentRatio: number }>;
+  } {
     return {
       currentRatio: currentLiabilities > 0 ? currentAssets / currentLiabilities : 0,
       quickRatio: currentLiabilities > 0 
@@ -214,7 +224,16 @@ export class FinancialSolverService {
         : 0,
       debtToEquity: equity > 0 ? totalLiabilities / equity : 0,
       roe: equity > 0 ? netIncome / equity : 0,
-      roa: totalAssets > 0 ? netIncome / totalAssets : 0
+      roa: totalAssets > 0 ? netIncome / totalAssets : 0,
+      // Include raw data for formatter
+      currentAssets,
+      currentLiabilities,
+      totalAssets,
+      totalLiabilities,
+      inventory,
+      netIncome,
+      equity,
+      historicalData
     };
   }
 

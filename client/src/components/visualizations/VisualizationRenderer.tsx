@@ -105,6 +105,7 @@ export default function VisualizationRenderer({ chartData }: VisualizationRender
             nodes={config.nodes}
             edges={config.edges}
             title={title}
+            layout={config.layout}
           />
         );
     }
